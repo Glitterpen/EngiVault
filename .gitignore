@@ -1,0 +1,26 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+.turbo/
+*.log
+
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+*.py[cod]
+*.egg-info/
+
+# IDE and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
