@@ -2,7 +2,7 @@
 
 ## 1. Product summary
 
-EngiVault AI is a secure, multi-tenant SaaS application that lets oil-and-gas engineering teams register, control, find, compare, and question project documents. It combines a master document register (MDR), revision control, full-text and semantic retrieval, and citation-grounded AI answers.
+EngiCite is a secure, multi-tenant SaaS application that lets oil-and-gas engineering teams register, control, find, compare, and question project documents. It combines a master document register (MDR), revision control, full-text and semantic retrieval, and citation-grounded AI answers.
 
 The MVP is a responsive web application backed by Supabase/PostgreSQL, object storage, a Next.js TypeScript application, and a private Python FastAPI processing service.
 
@@ -62,7 +62,7 @@ One user may have different roles in different projects. An organisation adminis
 
 ### Documents and MDR
 
-- Upload PDF, DOCX, and XLSX files using a short-lived signed upload flow.
+- Upload PDF, DOCX, XLSX, and DWG files using a short-lived signed upload flow. DWG files are stored and revision-controlled in the MVP; CAD preview and semantic extraction are deferred to a specialised processing milestone.
 - Validate extension, declared MIME type, detected file signature, configured size limit, and storage key ownership before processing.
 - Capture required metadata: document number, title, revision, document type, discipline, status, project, issue date, originator, and optional tags.
 - Maintain one logical document record and immutable revision records/files beneath it.

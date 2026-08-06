@@ -112,6 +112,7 @@ The BFF verifies both revisions belong to the same logical document and tenant. 
 - PDF: extract per page; OCR only when needed and enabled; store page number and bounding boxes when available.
 - DOCX: render to PDF in a sandboxed worker, extract from the rendered pages, and retain logical headings as secondary locators.
 - XLSX: render defined print areas/sheets to paginated PDF where practical; retain sheet and cell range alongside page provenance.
+- DWG: retain the quarantined original for controlled download and revision history. A later sandboxed CAD adapter will verify the binary signature, generate a viewable artifact, and extract drawing text; DWG content is not indexed until that validation succeeds.
 - Each chunk stores character/token counts, content hash, extraction version, ordinal, page range, optional bounding boxes, and source artifact ID.
 - A revision is searchable only after all required chunks and indexes are committed.
 - Reprocessing creates a new processing run and replaces the active derived set atomically; the original revision file remains immutable.

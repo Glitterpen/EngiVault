@@ -1,3 +1,13 @@
-import Link from "next/link"; import { Building2, FileStack, FolderKanban, LogOut, ShieldCheck } from "lucide-react"; import { requireUser } from "@/lib/auth"; import { signOut } from "../(auth)/actions";
-export default async function AppLayout({children}:{children:React.ReactNode}){const {user}=await requireUser();return <div className="min-h-screen bg-[#f5f7f5]"><header className="sticky top-0 z-20 border-b border-[#dfe7e3] bg-white/90 backdrop-blur"><div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-5"><Link href="/app" className="flex items-center gap-2 font-semibold"><span className="grid size-9 place-items-center rounded-lg bg-[#0c5b45] text-[#c9f36b]"><ShieldCheck size={18}/></span>EngiVault AI</Link><div className="flex items-center gap-4"><span className="hidden text-sm text-[#65736f] sm:inline">{user.email}</span><form action={signOut}><button className="grid size-9 place-items-center rounded-lg border border-[#dfe7e3]" title="Sign out"><LogOut size={16}/></button></form></div></div></header><div className="mx-auto grid max-w-[1500px] md:grid-cols-[230px_1fr]"><aside className="hidden min-h-[calc(100vh-4rem)] border-r border-[#dfe7e3] bg-white p-4 md:block"><p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#89948f]">Workspace</p><Nav href="/app" icon={<Building2 size={17}/>} label="Organisations"/><Nav href="/app" icon={<FolderKanban size={17}/>} label="Projects"/><Nav href="/app" icon={<FileStack size={17}/>} label="Documents"/></aside><main className="min-w-0 p-5 lg:p-8">{children}</main></div></div>}
-function Nav({href,icon,label}:{href:string;icon:React.ReactNode;label:string}){return <Link className="mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-[#eef4f1]" href={href}>{icon}{label}</Link>}
+import { LogOut } from "lucide-react";
+import { Brand } from "@/components/brand";
+import { requireUser } from "@/lib/auth";
+import { signOut } from "../(auth)/actions";
+import { WorkspaceNavigation } from "@/components/workspace-navigation";
+
+export default async function AppLayout({children}:{children:React.ReactNode}){
+  const {user}=await requireUser();
+  return <div className="min-h-screen bg-[#f4f6f8]">
+    <header className="sticky top-0 z-20 border-b border-[#dce2e9] bg-white/95 backdrop-blur"><div className="mx-auto flex h-[68px] max-w-[1500px] items-center justify-between px-5"><Brand href="/app" compact/><div className="flex items-center gap-4"><span className="hidden text-sm text-[#617083] sm:inline">{user.email}</span><form action={signOut}><button className="grid size-9 place-items-center rounded-lg border border-[#dce2e9] text-[#617083] transition hover:border-[#e8733f] hover:text-[#e8733f]" title="Sign out"><LogOut size={16}/></button></form></div></div></header>
+    <div className="relative mx-auto max-w-[1500px]"><WorkspaceNavigation/><div className="md:ml-[240px]"><main className="min-h-[calc(100vh-68px)] min-w-0 p-5 lg:p-8">{children}</main></div></div>
+  </div>
+}

@@ -1,6 +1,6 @@
-create extension if not exists pgcrypto;
-create extension if not exists citext;
-create extension if not exists vector;
+create extension if not exists pgcrypto with schema extensions;
+create extension if not exists citext with schema extensions;
+create extension if not exists vector with schema extensions;
 
 create type public.organisation_role as enum ('organisation_admin','member');
 create type public.project_role as enum ('project_admin','document_controller','engineer','viewer');
@@ -10,11 +10,11 @@ create type public.revision_state as enum ('pending_upload','quarantined','proce
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null check (char_length(display_name) between 2 and 80),
-  email_snapshot citext not null,
+  email_snapshot extensions.citext not null,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create table public.organisations (
-  id uuid primary key default gen_random_uuid(), slug citext not null unique check (slug::text ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+  id uuid primary key default gen_random_uuid(), slug extensions.citext not null unique check (slug::text ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   name text not null check (char_length(name) between 2 and 100), status text not null default 'active' check(status in ('active','suspended','deleted')),
   settings jsonb not null default '{}'::jsonb, created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
@@ -26,7 +26,7 @@ create table public.organisation_memberships (
 );
 create index organisation_memberships_user_status_idx on public.organisation_memberships(user_id,status);
 create table public.projects (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id), code citext not null,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id), code extensions.citext not null,
   name text not null, description text, status text not null default 'active' check(status in ('active','archived')),
   created_by uuid not null default auth.uid() references auth.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   unique(organisation_id,code), unique(organisation_id,id)
@@ -40,14 +40,14 @@ create table public.project_memberships (
 create index project_memberships_user_status_idx on public.project_memberships(user_id,status);
 create table public.invitations (
   id uuid primary key default gen_random_uuid(), organisation_id uuid not null references public.organisations(id), project_id uuid,
-  email citext not null, project_role public.project_role, token_hash text not null unique, status text not null default 'pending' check(status in ('pending','accepted','revoked','expired')),
+  email extensions.citext not null, project_role public.project_role, token_hash text not null unique, status text not null default 'pending' check(status in ('pending','accepted','revoked','expired')),
   expires_at timestamptz not null, invited_by uuid not null references auth.users(id), accepted_by uuid references auth.users(id), created_at timestamptz not null default now(), accepted_at timestamptz,
   foreign key(organisation_id,project_id) references public.projects(organisation_id,id)
 );
 create unique index invitations_one_pending_idx on public.invitations(organisation_id,coalesce(project_id,'00000000-0000-0000-0000-000000000000'::uuid),email) where status='pending';
 
 create table public.documents (
-  id uuid primary key default gen_random_uuid(), organisation_id uuid not null, project_id uuid not null, document_number citext not null,
+  id uuid primary key default gen_random_uuid(), organisation_id uuid not null, project_id uuid not null, document_number extensions.citext not null,
   title text not null, document_type text not null, discipline text not null, originator text, status text not null default 'draft', tags text[] not null default '{}',
   created_by uuid not null default auth.uid() references auth.users(id), updated_by uuid default auth.uid() references auth.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   foreign key(organisation_id,project_id) references public.projects(organisation_id,id), unique(project_id,document_number), unique(organisation_id,project_id,id)
@@ -55,7 +55,7 @@ create table public.documents (
 create index documents_project_updated_idx on public.documents(project_id,updated_at desc);
 create table public.document_revisions (
   id uuid primary key default gen_random_uuid(), organisation_id uuid not null, project_id uuid not null, document_id uuid not null,
-  revision_code citext not null, issue_status text not null, issue_date date, state public.revision_state not null default 'pending_upload', original_filename text not null,
+  revision_code extensions.citext not null, issue_status text not null, issue_date date, state public.revision_state not null default 'pending_upload', original_filename text not null,
   declared_mime text not null, detected_mime text, byte_size bigint not null check(byte_size between 1 and 262144000), sha256 text not null check(sha256 ~ '^[a-f0-9]{64}$'),
   storage_key text not null unique, uploaded_by uuid not null default auth.uid() references auth.users(id), created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   foreign key(organisation_id,project_id,document_id) references public.documents(organisation_id,project_id,id), unique(document_id,revision_code), unique(organisation_id,project_id,id)
@@ -100,10 +100,10 @@ begin if auth.uid() is null then raise exception 'authentication required'; end 
 revoke all on function public.create_organisation(text,text) from public; grant execute on function public.create_organisation(text,text) to authenticated;
 
 create or replace function public.accept_project_invitation(raw_token text) returns uuid language plpgsql security definer set search_path='' as $$
-declare invitation public.invitations; user_email citext;
+declare invitation public.invitations; user_email extensions.citext;
 begin
  if auth.uid() is null then raise exception 'authentication required'; end if;
- select email::citext into user_email from auth.users where id=auth.uid();
+ select email::extensions.citext into user_email from auth.users where id=auth.uid();
  select * into invitation from public.invitations where token_hash=encode(extensions.digest(raw_token,'sha256'),'hex') and status='pending' and expires_at>now() for update;
  if invitation.id is null or invitation.email<>user_email then raise exception 'invitation unavailable'; end if;
  insert into public.organisation_memberships(organisation_id,user_id,role) values(invitation.organisation_id,auth.uid(),'member') on conflict(organisation_id,user_id) do update set status='active';

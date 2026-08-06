@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(21);
 
 insert into auth.users(id,email,encrypted_password,email_confirmed_at,raw_user_meta_data) values
  ('10000000-0000-0000-0000-000000000001','admin-a@example.test','x',now(),'{"display_name":"Admin A"}'),
@@ -37,5 +37,14 @@ select ok(not public.has_project_access('b0000000-0000-0000-0000-000000000001','
 select ok((select relrowsecurity from pg_class where oid='public.document_revisions'::regclass),'revision RLS enabled');
 select ok((select not public from storage.buckets where id='documents'),'document bucket is private');
 select is((select file_size_limit from storage.buckets where id='documents'),262144000::bigint,'bucket enforces 250 MB');
+select ok(has_function_privilege('authenticated','public.complete_revision_upload(uuid)','execute'),'authenticated users can request guarded upload completion');
+select ok(not has_function_privilege('anon','public.complete_revision_upload(uuid)','execute'),'anonymous users cannot complete uploads');
+select ok(has_function_privilege('authenticated','public.authorize_revision_download(uuid)','execute'),'authenticated users can request guarded downloads');
+select ok(not has_function_privilege('anon','public.authorize_revision_download(uuid)','execute'),'anonymous users cannot authorise downloads');
+select ok('image/vnd.dwg'=any((select allowed_mime_types from storage.buckets where id='documents')),'private bucket allows canonical DWG MIME');
+select ok((select relrowsecurity from pg_class where oid='public.processing_runs'::regclass),'processing run RLS enabled');
+select ok(not has_table_privilege('authenticated','public.processing_runs','insert'),'browser users cannot insert processing runs');
+select ok(not has_table_privilege('authenticated','public.outbox_events','select'),'browser users cannot read internal outbox payloads');
+select ok(not has_table_privilege('anon','public.processing_runs','select'),'anonymous users cannot read processing state');
 select * from finish();
 rollback;

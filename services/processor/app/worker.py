@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import tempfile
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Protocol
+
+from .extraction import ExtractionResult, extract_document
+from .validation import FileValidationError, validate_file
+
+
+@dataclass(frozen=True)
+class ProcessingJob:
+    run_id: str
+    organisation_id: str
+    project_id: str
+    revision_id: str
+    document_id: str
+    storage_key: str
+    declared_mime: str
+    byte_size: int
+    sha256: str
+    pipeline_version: str
+    attempt: int
+
+
+class ProcessingGateway(Protocol):
+    def claim(self) -> ProcessingJob | None: ...
+    def download(self, job: ProcessingJob, target: Path) -> None: ...
+    def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None: ...
+    def replace_search_chunks(self, job: ProcessingJob, result: ExtractionResult,
+                              embeddings: list[list[float]], embedding_model: str | None) -> None: ...
+    def finish(self, job: ProcessingJob, *, succeeded: bool, retryable: bool,
+               detected_mime: str | None, failure_code: str | None,
+               failure_detail: str | None, metrics: dict[str, object]) -> None: ...
+
+
+def process_next(gateway: ProcessingGateway, *, max_file_bytes: int = 262_144_000, embedder: object | None = None) -> str:
+    job = gateway.claim()
+    if job is None:
+        return "idle"
+    started = time.monotonic()
+    try:
+        with tempfile.TemporaryDirectory(prefix="engicite-processing-") as directory:
+            source = Path(directory) / "source.bin"
+            gateway.download(job, source)
+            validated = validate_file(source, declared_mime=job.declared_mime,
+                                      expected_size=job.byte_size, expected_sha256=job.sha256,
+                                      max_file_bytes=max_file_bytes)
+            result = extract_document(source, validated.detected_mime)
+            gateway.replace_units(job, result)
+            embeddings: list[list[float]] = []
+            embedding_model: str | None = None
+            if embedder and result.units:
+                try:
+                    embeddings = embedder.embed([unit.content for unit in result.units])  # type: ignore[attr-defined]
+                    embedding_model = getattr(embedder, "model", None)
+                except Exception:  # noqa: BLE001
+                    # Extraction and full-text indexing remain available during provider outages/quota exhaustion.
+                    embeddings = []
+            gateway.replace_search_chunks(job,result,embeddings,embedding_model)
+            metrics = {**result.metrics, "preview_strategy": result.preview_strategy,
+                       "semantic_indexed": bool(embeddings),
+                       "duration_ms": round((time.monotonic() - started) * 1000)}
+            gateway.finish(job, succeeded=True, retryable=False, detected_mime=validated.detected_mime,
+                           failure_code=None, failure_detail=None, metrics=metrics)
+        return "processed"
+    except FileValidationError as error:
+        gateway.finish(job, succeeded=False, retryable=False, detected_mime=None,
+                       failure_code=error.code, failure_detail=error.detail,
+                       metrics={"duration_ms": round((time.monotonic() - started) * 1000)})
+        return "failed"
+    # A worker boundary must contain unexpected third-party parser/storage failures so the
+    # dispatcher survives; only a fixed safe error is persisted, never the exception text.
+    except Exception:  # noqa: BLE001
+        gateway.finish(job, succeeded=False, retryable=True, detected_mime=None,
+                       failure_code="PROCESSOR_ERROR", failure_detail="A transient processing error occurred.",
+                       metrics={"duration_ms": round((time.monotonic() - started) * 1000)})
+        return "retrying"
