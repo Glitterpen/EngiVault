@@ -4,6 +4,7 @@ import { safeAuthDestination } from "./auth-destination";
 describe("safeAuthDestination", () => {
   it("preserves workspace destinations", () => {
     expect(safeAuthDestination("/app/example/projects/123")).toBe("/app/example/projects/123");
+    expect(safeAuthDestination("/organisation/setup")).toBe("/organisation/setup");
   });
 
   it("preserves a valid one-time invitation path", () => {

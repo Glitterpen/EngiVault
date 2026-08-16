@@ -8,14 +8,14 @@ type Base={organisationId:string;projectId:string};
 type Discipline={code:string;name:string};
 type ProjectBriefProps=Base&{introduction:string;objectives:string[];startDate:string;endDate:string};
 
-export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,dccCount}:ProjectBriefProps&{dccCount:number}){
+export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,dccCount,editable=true}:ProjectBriefProps&{dccCount:number;editable?:boolean}){
   const [editing,setEditing]=useState(false);
   return <article className="ev-card p-5 sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><p className="ev-label">Project brief</p><h2 className="mt-1 text-lg font-semibold">Introduction and key objectives</h2></div>
-      <button className="ev-button-secondary" type="button" onClick={()=>setEditing(value=>!value)} aria-expanded={editing}>
+      {editable&&<button className="ev-button-secondary" type="button" onClick={()=>setEditing(value=>!value)} aria-expanded={editing}>
         {editing?<><X size={16}/> Close editor</>:<><Pencil size={16}/> Edit project brief</>}
-      </button>
+      </button>}
     </div>
     {editing?<ProjectBriefForm organisationId={organisationId} projectId={projectId} introduction={introduction} objectives={objectives} startDate={startDate} endDate={endDate} embedded/>:<>
       <div className="mt-5 flex items-start justify-between gap-4">

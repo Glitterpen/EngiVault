@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Bell, CheckCheck, ExternalLink, Info } from "lucide-react";
 import { z } from "zod";
 import { clearNotification } from "@/app/app/workflow-actions";
+import { NotificationReadReceipt } from "@/components/notification-read-receipt";
 import { requireUser } from "@/lib/auth";
 import { notificationDestination } from "@/lib/notification-links";
 
@@ -56,6 +57,7 @@ export default async function NotificationPreviewPage({
 
   return (
     <div className="mx-auto max-w-3xl">
+      <NotificationReadReceipt notificationId={notification.id} unread={!notification.read_at} />
       <Link href="/app/notifications" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]">
         <ArrowLeft size={16} /> Return to notifications
       </Link>
@@ -91,16 +93,18 @@ export default async function NotificationPreviewPage({
           <div className="mt-8 border-t border-[#e4e9ee] pt-6">
             <p className="text-xs font-extrabold uppercase tracking-[.12em] text-[#617083]">Choose what happens next</p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <form action={clearNotification}>
-                <input type="hidden" name="notificationId" value={notification.id} />
-                <button className="ev-button"><CheckCheck size={16} /> Clear notification</button>
-              </form>
-              <Link href="/app/notifications" className="ev-button-secondary"><ArrowLeft size={16} /> Return without clearing</Link>
+              {!notification.read_at && (
+                <form action={clearNotification}>
+                  <input type="hidden" name="notificationId" value={notification.id} />
+                  <button className="ev-button"><CheckCheck size={16} /> Mark as read now</button>
+                </form>
+              )}
+              <Link href="/app/notifications" className="ev-button-secondary"><ArrowLeft size={16} /> Return to notifications</Link>
               {destination && (
                 <Link href={destination} className="ev-button-secondary">Open related project page <ExternalLink size={15} /></Link>
               )}
             </div>
-            <p className="mt-3 text-xs leading-5 text-[#617083]">Clearing marks this message as read and removes it from the unread notification count. It remains in your message history.</p>
+            <p className="mt-3 text-xs leading-5 text-[#617083]">Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain.</p>
           </div>
         </div>
       </article>

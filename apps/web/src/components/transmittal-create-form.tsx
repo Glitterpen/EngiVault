@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCheck, Clock3, FileCheck2, RefreshCw, Send } from "lucide-react";
+import { AlertTriangle, Building2, CheckCheck, Clock3, FileCheck2, RefreshCw, Send } from "lucide-react";
 import { createDocumentTransmittal, type MutationState } from "@/app/app/actions";
 import type {
   PreparingTransmittalRevision,
@@ -14,6 +14,7 @@ export function TransmittalCreateForm({
   organisationId,
   projectId,
   defaultNumber,
+  clientName,
   revisions,
   preparing,
   issuedRevisionNumbers,
@@ -21,6 +22,7 @@ export function TransmittalCreateForm({
   organisationId: string;
   projectId: string;
   defaultNumber: string;
+  clientName: string | null;
   revisions: TransmittalRevision[];
   preparing: PreparingTransmittalRevision[];
   issuedRevisionNumbers: Record<string, string[]>;
@@ -34,6 +36,7 @@ export function TransmittalCreateForm({
   const [preparingMessage, setPreparingMessage] = useState("");
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const allSelected = revisions.length > 0 && selected.length === revisions.length;
+  const clientConfigured = Boolean(clientName?.trim());
   const activePreparing = preparing.some((revision) =>
     ["quarantined", "processing"].includes(revision.state),
   );
@@ -87,26 +90,24 @@ export function TransmittalCreateForm({
           <div>
             <h2 className="font-semibold">Transmission details</h2>
             <p className="mt-1 text-xs leading-5 text-[#617083]">
-              These details are frozen into the EngiCite transmittal cover and audit record.
+              The recipient company is inherited from the controlled project information and frozen into the audit record.
             </p>
           </div>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field name="transmittalNumber" label="Transmittal number" defaultValue={defaultNumber} />
-          <Field name="recipientCompany" label="Client / recipient company" placeholder="Client organisation" />
+          <div>
+            <span className="ev-label">Client / recipient company</span>
+            <div className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${clientConfigured ? "border-[#dce5e1] bg-[#f5f8f6] text-[#24384f]" : "border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]"}`}>
+              <Building2 size={16} className="shrink-0" />
+              <span>{clientName || "Client name is missing from project information"}</span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-4 text-[#617083]">
+              Controlled by the Project Manager; the DCC cannot change it here.
+            </p>
+          </div>
           <Field name="recipientContact" label="Attention" placeholder="Client representative" optional />
           <Field name="recipientEmail" label="Recipient email" type="email" placeholder="representative@client.com" optional />
-          <label className="sm:col-span-2">
-            <span className="ev-label">Transmission purpose</span>
-            <select className="ev-input" name="purpose" required defaultValue="Issued for Review">
-              <option>Issued for Review</option>
-              <option>Issued for Approval</option>
-              <option>Issued for Information</option>
-              <option>Issued for Construction</option>
-              <option>Issued for Handover</option>
-              <option>Final documentation</option>
-            </select>
-          </label>
           <label className="sm:col-span-2">
             <span className="ev-label">Cover message (optional)</span>
             <textarea
@@ -218,13 +219,18 @@ export function TransmittalCreateForm({
             <p className="text-sm font-semibold text-[#0c5b45]">
               {selected.length} document{selected.length === 1 ? "" : "s"} selected
             </p>
-            <button className="ev-button" disabled={pending || !selected.length || !revisions.length}>
+            <button className="ev-button" disabled={pending || !selected.length || !revisions.length || !clientConfigured}>
               <Send size={16} /> {pending ? "Freezing transmittal..." : "Create transmittal"}
             </button>
           </div>
           {state?.message && (
             <p className="mt-3 rounded-lg border border-[#f0c8b7] bg-[#fff6f2] p-3 text-xs leading-5 text-[#8b3d1f]" role="alert">
               {state.message}
+            </p>
+          )}
+          {!clientConfigured && (
+            <p className="mt-3 rounded-lg border border-[#f0c8b7] bg-[#fff6f2] p-3 text-xs leading-5 text-[#8b3d1f]" role="alert">
+              Creation is paused until the Project Manager adds the client name in Project information.
             </p>
           )}
           <p className="mt-3 text-xs leading-5 text-[#617083]">

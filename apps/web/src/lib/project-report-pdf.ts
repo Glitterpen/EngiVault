@@ -1,6 +1,6 @@
 import {PDFDocument,StandardFonts,degrees,rgb,type PDFFont,type PDFImage,type PDFPage} from "pdf-lib";
 import {assessProjectHealth} from "@/lib/project-health";
-import {isProjectSCurveWeeklyDate,progressMovement,projectReportNumber,projectSCurveCurrentWeekDate,projectSCurveProgress,type ProjectReportSnapshot} from "@/lib/project-report";
+import {disciplineReportColumnLabel,disciplineReportValue,isProjectSCurveWeeklyDate,progressMovement,projectReportNumber,projectSCurveCurrentWeekDate,projectSCurveProgress,type ProjectReportSnapshot} from "@/lib/project-report";
 
 type ReportMetadata={reportNumber:number;periodStart:string;periodEnd:string;generationSource:string;generatedAt:string};
 type LogoAsset={bytes:Uint8Array;mimeType:string};
@@ -54,6 +54,7 @@ export async function buildProjectReportPdf({snapshot,report,organisationLogo,cl
   drawProjectBrief(context);
   drawDisciplineProgress(context);
   drawWeeklyActivity(context);
+  drawWeeklyIssuedDeliverables(context);
   drawLookAhead(context);
   drawChallenges(context);
   drawSCurve(context);
@@ -157,15 +158,20 @@ function drawProjectBrief(context:Context){
 function drawDisciplineProgress(context:Context){
   section(context,"Discipline performance","Lifetime scope, weekly delivery and cumulative position");
   if(!context.snapshot.disciplines.length){emptyState(context,"No active MDR deliverables were available for this report.");return}
-  const columns=[{label:"Discipline",width:75},{label:"Total MDR",width:48},{label:"Submitted to date",width:62},{label:"Planned this week",width:54},{label:"Issued this week",width:54},{label:"Weekly variance",width:55},{label:"Project variance",width:62},{label:"Plan completion",width:56},{label:"Actual completion",width:57}];
-  drawPerformanceTableHeader(context,columns);
-  for(const row of context.snapshot.disciplines){
-    const pageBefore=context.pageNumber;ensure(context,34);if(context.pageNumber!==pageBefore)drawPerformanceTableHeader(context,columns);
-    const values=[row.discipline,String(row.planned),String(row.submitted_to_date),String(row.planned_this_week),String(row.issued_this_week),signedVariance(row.weekly_variance),signedVariance(row.project_variance),`${row.planned_completion}%`,`${row.actual_completion}%`];
-    drawTableRow(context,columns,values,34,-1);
+  const columnGroups:(typeof context.snapshot.discipline_columns)[]=[];for(let index=0;index<context.snapshot.discipline_columns.length;index+=8)columnGroups.push(context.snapshot.discipline_columns.slice(index,index+8));
+  for(const [groupIndex,group] of columnGroups.entries()){
+    if(groupIndex>0){ensure(context,30);context.page!.drawText("DISCIPLINE PERFORMANCE - CONTINUED",{x:MARGIN,y:context.y,size:7,font:context.bold,color:ORANGE});context.y-=15}
+    const disciplineWidth=76;const metricWidth=(CONTENT_WIDTH-disciplineWidth)/group.length;
+    const columns=[{label:"Discipline",width:disciplineWidth},...group.map(column=>({label:disciplineReportColumnLabel(column),width:metricWidth}))];
+    drawPerformanceTableHeader(context,columns);
+    for(const row of context.snapshot.disciplines){
+      const pageBefore=context.pageNumber;ensure(context,34);if(context.pageNumber!==pageBefore)drawPerformanceTableHeader(context,columns);
+      const values=[row.discipline,...group.map(column=>disciplineReportValue(row,column))];
+      drawTableRow(context,columns,values,34,-1);
+    }
+    context.y-=groupIndex<columnGroups.length-1?16:8;
   }
-  context.y-=8;
-  const note="Weekly variance = issued this week minus planned this week. Project variance = submitted to date minus the cumulative MDR plan due by the report cut-off.";
+  const note="Weekly variance = issued minus planned this week. Cumulative variance = submitted to date minus the cumulative plan due at the cut-off. Percentage variances use the corresponding plan; N/A means no plan exists.";
   const noteLines=wrapText(note,context.regular,6.8,CONTENT_WIDTH);ensure(context,noteLines.length*9+10);drawLines(context.page!,noteLines,MARGIN,context.y-7,9,6.8,context.regular,MUTED);context.y-=noteLines.length*9+20;
 }
 
@@ -181,6 +187,25 @@ function drawWeeklyActivity(context:Context){
   const lines=wrapText(`Completion movement is ${progressMovement(movement)}. ${narrative}`,context.regular,9,CONTENT_WIDTH-22);
   const height=lines.length*12+18;ensure(context,height);context.page!.drawRectangle({x:MARGIN,y:context.y-height,width:CONTENT_WIDTH,height,color:PAPER});
   drawLines(context.page!,lines,MARGIN+11,context.y-15,12,9,context.regular,MUTED);context.y-=height+20;
+}
+
+function drawWeeklyIssuedDeliverables(context:Context){
+  section(context,"Reporting week submissions","Issued deliverables");
+  if(!context.snapshot.weekly_issued_deliverables.length){emptyState(context,"No deliverable was issued during this reporting week.");return}
+  const grouped=new Map<string,typeof context.snapshot.weekly_issued_deliverables>();
+  for(const item of context.snapshot.weekly_issued_deliverables){const items=grouped.get(item.discipline)??[];items.push(item);grouped.set(item.discipline,items)}
+  const groups=[...grouped.entries()].sort(([left],[right])=>left.localeCompare(right));
+  const columns=[{label:"Issued date",width:80},{label:"Document",width:258},{label:"Revision",width:62},{label:"Issue status",width:123}];
+  for(const [discipline,items] of groups){
+    ensure(context,79);drawLookAheadDisciplineHeader(context,discipline,items.length);drawTableHeader(context,columns);
+    for(const item of items){
+      const title=`${item.document_number} - ${item.title}`;const titleLines=wrapText(title,context.regular,7.5,columns[1].width-12);const height=Math.max(32,titleLines.length*10+12);const pageBefore=context.pageNumber;ensure(context,height);
+      if(context.pageNumber!==pageBefore){drawLookAheadDisciplineHeader(context,discipline,items.length);drawTableHeader(context,columns)}
+      drawTableRow(context,columns,[formatTimestampDate(item.issued_at),title,item.revision_code,item.issue_status],height,-1);
+    }
+    context.y-=12;
+  }
+  context.y-=18;
 }
 
 function drawLookAhead(context:Context){
@@ -320,5 +345,5 @@ function wrapText(value:string,font:PDFFont,size:number,maxWidth:number){
   for(const paragraph of paragraphs){const words=paragraph.trim().split(/\s+/).filter(Boolean);if(!words.length){lines.push("");continue}let line="";for(const word of words){const candidate=line?`${line} ${word}`:word;if(font.widthOfTextAtSize(candidate,size)<=maxWidth){line=candidate;continue}if(line)lines.push(line);if(font.widthOfTextAtSize(word,size)<=maxWidth){line=word;continue}let chunk="";for(const character of word){const next=chunk+character;if(font.widthOfTextAtSize(next,size)>maxWidth){if(chunk)lines.push(chunk);chunk=character}else chunk=next}line=chunk}if(line)lines.push(line)}return lines;
 }
 function formatDate(value:string|null){if(!value)return "Not planned";const date=new Date(`${value}T00:00:00Z`);return date.toLocaleDateString("en-GB",{timeZone:"UTC",day:"2-digit",month:"short",year:"numeric"})}
-function signedVariance(value:number){return value>0?`+${value}`:String(value)}
+function formatTimestampDate(value:string){return new Date(value).toLocaleDateString("en-GB",{timeZone:"UTC",day:"2-digit",month:"short",year:"numeric"})}
 function formatProgressPercentage(value:number){return `${Number.isInteger(value)?value:value.toFixed(1)}%`}

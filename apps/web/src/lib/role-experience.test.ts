@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {canCreateOrganisationWorkspace,canOpenOperationalMdr,projectHomePath,roleLabel,workspacePersona} from "./role-experience";
+import {canCreateOrganisationWorkspace,canOpenOperationalMdr,projectHomePath,roleLabel,scopedRoleLabel,workspacePersona} from "./role-experience";
 
 describe("role-specific workspaces",()=>{
   it("routes management roles to oversight",()=>{
@@ -23,10 +23,20 @@ describe("role-specific workspaces",()=>{
     expect(roleLabel("document_controller")).toBe("Document Controller");
   });
 
+  it("names an engineer from the discipline assigned in the active project",()=>{
+    expect(scopedRoleLabel("engineer",["Process"])).toBe("Process Engineer");
+    expect(scopedRoleLabel("engineer",["Piping"])).toBe("Piping Engineer");
+    expect(scopedRoleLabel("engineer",["Mechanical"])).toBe("Mechanical Engineer");
+    expect(scopedRoleLabel("engineer",["Process","Piping"])).toBe("Process / Piping Engineer");
+    expect(scopedRoleLabel("engineer",[])).toBe("Discipline Engineer");
+    expect(scopedRoleLabel("document_controller",["Process"])).toBe("Document Controller");
+  });
+
   it("does not give organisation creation rights to a DCC",()=>{
     expect(canCreateOrganisationWorkspace(["member"],["document_controller"])).toBe(false);
     expect(canCreateOrganisationWorkspace([],["document_controller"])).toBe(false);
-    expect(canCreateOrganisationWorkspace([],[])).toBe(true);
+    expect(canCreateOrganisationWorkspace([],[])).toBe(false);
+    expect(canCreateOrganisationWorkspace([],[],true)).toBe(true);
     expect(canCreateOrganisationWorkspace(["organisation_admin"],["document_controller"])).toBe(true);
   });
 });

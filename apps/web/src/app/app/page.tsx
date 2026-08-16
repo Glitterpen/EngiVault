@@ -6,7 +6,7 @@ import {OrganisationLogo} from "@/components/organisation-logo";
 import {canCreateOrganisationWorkspace} from "@/lib/role-experience";
 
 export default async function AppHome(){
- const {supabase}=await requireUser();
+ const {supabase,user}=await requireUser();
  const {data,error}=await supabase.rpc("get_my_organisations");
  if(error)throw new Error(`Organisation access failed: ${error.code} ${error.message}`);
  const orgs=(data??[]) as Array<{organisation_id:string;name:string;slug:string;role:string}>;
@@ -15,7 +15,8 @@ export default async function AppHome(){
   const {data:projectAccess}=await supabase.from("project_access").select("role").limit(1);
   projectRoles.push(...(projectAccess??[]).map(item=>String(item.role)));
  }
- const canCreateOrganisation=canCreateOrganisationWorkspace(orgs.map(org=>org.role),projectRoles);
+ const organisationOnboarding=user.user_metadata?.onboarding_mode==="organisation";
+ const canCreateOrganisation=canCreateOrganisationWorkspace(orgs.map(org=>org.role),projectRoles,organisationOnboarding);
  return <div className="mx-auto max-w-6xl">
   <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Secure workspace</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Your organisations</h1><p className="mt-2 text-[#617083]">Choose an organisation to open the projects and responsibilities assigned to you.</p></div></div>
   <div className={`mt-8 grid gap-5 ${canCreateOrganisation?"lg:grid-cols-[1fr_360px]":""}`}>

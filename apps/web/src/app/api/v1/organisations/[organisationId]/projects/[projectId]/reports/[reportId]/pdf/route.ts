@@ -1,6 +1,6 @@
 import {requireProject} from "@/lib/auth";
 import {buildProjectReportPdf,projectReportPdfFilename} from "@/lib/project-report-pdf";
-import {projectReportSnapshotSchema} from "@/lib/project-report";
+import {projectReportSnapshotSchema,resolveDisciplineReportColumns} from "@/lib/project-report";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -9,7 +9,7 @@ export const maxDuration=60;
 type ReportRow={id:string;report_number:number;period_start:string;period_end:string;generation_source:string;generated_at:string;snapshot:unknown};
 type LogoAsset={bytes:Uint8Array;mimeType:string};
 
-export async function GET(_:Request,{params}:{params:Promise<{organisationId:string;projectId:string;reportId:string}>}){
+export async function GET(request:Request,{params}:{params:Promise<{organisationId:string;projectId:string;reportId:string}>}){
   const {organisationId,projectId,reportId}=await params;
   const {supabase}=await requireProject(organisationId,projectId);
   const [{data:report},{data:project}]=await Promise.all([
@@ -20,12 +20,14 @@ export async function GET(_:Request,{params}:{params:Promise<{organisationId:str
   const controlled=report as ReportRow;
   const parsed=projectReportSnapshotSchema.safeParse(controlled.snapshot);
   if(!parsed.success)return Response.json({error:{code:"REPORT_INVALID",message:"The saved project report is incomplete."}},{status:422,headers:{"cache-control":"private, no-store"}});
+  const requestedColumns=new URL(request.url).searchParams.getAll("columns");
+  const selectedColumns=resolveDisciplineReportColumns(requestedColumns,parsed.data.discipline_columns);
 
   const organisationLogo=await downloadAsset(supabase,"organisation-assets",`${organisationId}/branding/company-logo`);
   const paths=Array.isArray(project?.client_logo_paths)?project.client_logo_paths.filter((value):value is string=>typeof value==="string").slice(0,3):[];
   const clientLogos=(await Promise.all(paths.map(path=>downloadAsset(supabase,"project-assets",path)))).filter((value):value is LogoAsset=>Boolean(value));
   const bytes=await buildProjectReportPdf({
-    snapshot:parsed.data,
+    snapshot:{...parsed.data,discipline_columns:selectedColumns},
     report:{reportNumber:controlled.report_number,periodStart:controlled.period_start,periodEnd:controlled.period_end,generationSource:controlled.generation_source,generatedAt:controlled.generated_at},
     organisationLogo,
     clientLogos,

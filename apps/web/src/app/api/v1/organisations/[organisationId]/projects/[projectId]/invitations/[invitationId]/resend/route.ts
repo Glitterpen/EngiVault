@@ -1,6 +1,6 @@
 import {z} from "zod";
 import {requireProject} from "@/lib/auth";
-import {can} from "@/lib/permissions";
+import {canInviteProjectRole} from "@/lib/permissions";
 import {sendInvitationEmail} from "@/lib/invitation-email";
 import {createInvitationToken} from "@/lib/invitation-token";
 
@@ -21,7 +21,9 @@ export async function POST(request:Request,ctx:{params:Promise<{organisationId:s
 
   const {supabase,access}=await requireProject(organisationId,projectId);
   const role=String(access.role);
-  if(!can(role,"members:manage")&&!can(role,"engineers:manage")){
+  const {data:pendingInvitations}=await supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId});
+  const existingInvitation=(pendingInvitations??[]).find((item:{invitation_id:string})=>item.invitation_id===invitationId) as {project_role:string}|undefined;
+  if(!existingInvitation||!canInviteProjectRole(role,String(existingInvitation.project_role))){
     return Response.json({error:{code:"FORBIDDEN",message:"You do not have permission to resend project invitations."}},{status:403});
   }
 

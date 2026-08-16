@@ -115,6 +115,39 @@ class SupabaseGateway:
         if not signed:raise GatewayError("Signed package URL unavailable.")
         return str(signed) if str(signed).startswith("http") else f"{self.base_url}/storage/v1{signed}"
 
+    def project_backup_data(self, backup_id: str) -> tuple[dict[str, object], dict[str, object], dict[str, list[dict[str, object]]]]:
+        backup=self.client.get("/rest/v1/project_backups",params={"id":f"eq.{backup_id}","select":"*"});self._raise(backup,"Backup job unavailable.")
+        if not backup.json():raise GatewayError("Backup job unavailable.")
+        job=backup.json()[0];project_id=str(job["project_id"])
+        project=self.client.get("/rest/v1/projects",params={"id":f"eq.{project_id}","select":"*"});self._raise(project,"Backup project unavailable.")
+        if not project.json():raise GatewayError("Backup project unavailable.")
+        sources={
+            "documents":("documents","*","document_number.asc"),
+            "revisions":("document_revisions","*","created_at.asc"),
+            "memberships":("project_memberships","id,user_id,role,status,created_at,updated_at","created_at.asc"),
+            "disciplines":("project_member_disciplines","*","discipline.asc"),
+            "resource_plans":("project_resource_plans","*","discipline.asc"),
+            "issues":("project_issues","*","created_at.asc"),
+            "invitations":("invitations","id,email,project_role,discipline,status,expires_at,created_at,accepted_at","created_at.asc"),
+            "audit_events":("audit_events","id,actor_user_id,action,target_type,target_id,outcome,changes,created_at","created_at.asc"),
+            "weekly_reports":("project_weekly_reports","*","period_end.asc"),
+        }
+        datasets:dict[str,list[dict[str,object]]]={}
+        for name,(table,selection,order) in sources.items():
+            response=self.client.get(f"/rest/v1/{table}",params={"project_id":f"eq.{project_id}","select":selection,"order":order});self._raise(response,f"Backup {name} unavailable.");datasets[name]=response.json()
+        return job,project.json()[0],datasets
+
+    def mark_backup_building(self, backup_id: str) -> None:
+        response=self.client.post("/rest/v1/rpc/mark_project_backup_building",json={"target_backup":backup_id});self._raise(response,"Backup job could not be started.")
+
+    def upload_backup(self, storage_key: str, archive: Path) -> None:
+        with archive.open("rb") as stream:
+            response=self.client.post(f"/storage/v1/object/project-backups/{quote(storage_key,safe='/')}",content=stream,headers={"content-type":"application/zip","x-upsert":"false"})
+        self._raise(response,"Project backup upload failed.")
+
+    def finish_backup(self, backup_id: str, storage_key: str | None, sha256: str | None, byte_size: int | None, manifest: dict[str, object], external_location: str | None = None, failure_code: str | None = None) -> None:
+        response=self.client.post("/rest/v1/rpc/finish_project_backup",json={"target_backup":backup_id,"result_storage_key":storage_key,"result_sha256":sha256,"result_bytes":byte_size,"result_manifest":manifest,"result_external_location":external_location,"failure_code":failure_code});self._raise(response,"Backup result could not be saved.")
+
     def finish(self, job: ProcessingJob, *, succeeded: bool, retryable: bool, detected_mime: str | None,
                failure_code: str | None, failure_detail: str | None, metrics: dict[str, object]) -> None:
         response = self.client.post("/rest/v1/rpc/finish_processing_run", json={

@@ -14,6 +14,7 @@ export function safeAuthDestination(value: string | null | undefined) {
 
   if (
     candidate === "/app" ||
+    candidate === "/organisation/setup" ||
     candidate.startsWith("/app/") ||
     candidate.startsWith("/app?") ||
     invitationPath.test(candidate)

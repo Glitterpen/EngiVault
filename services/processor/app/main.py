@@ -14,6 +14,7 @@ from .embeddings import OpenAIEmbedder
 from .gateway import GatewayError, SupabaseGateway
 from .mdr_import import MdrImportError, parse_mdr_workbook
 from .packages import build_package
+from .project_backups import build_project_backup
 from .worker import process_next
 
 app = FastAPI(title="EngiCite document processor", version="0.2.0", docs_url=None, redoc_url=None)
@@ -66,6 +67,8 @@ class PackageQuery(BaseModel):
     package_id: UUID4
 class PackageDownloadQuery(BaseModel):
     package_id: UUID4
+class ProjectBackupQuery(BaseModel):
+    backup_id: UUID4
 
 def require_service(x_processor_secret: str = Header(default="")) -> None:
     if not hmac.compare_digest(x_processor_secret, settings().processor_shared_secret):
@@ -168,4 +171,11 @@ def package_download_url(query: PackageDownloadQuery) -> dict[str, str]:
     config=settings();gateway=SupabaseGateway(config.supabase_url,config.supabase_service_role_key,config.storage_bucket,config.worker_name)
     try:return {"url":gateway.package_download_url(str(query.package_id))}
     except GatewayError as error:raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Ready package download is unavailable") from error
+    finally:gateway.close()
+
+@app.post("/internal/v1/build-project-backup", dependencies=[Depends(require_service)])
+def build_backup(query: ProjectBackupQuery) -> dict[str, object]:
+    config=settings();gateway=SupabaseGateway(config.supabase_url,config.supabase_service_role_key,config.storage_bucket,config.worker_name)
+    try:return {"state":"ready","manifest":build_project_backup(gateway,str(query.backup_id))}
+    except Exception as error:raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,detail="Project backup generation failed") from error
     finally:gateway.close()

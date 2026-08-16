@@ -1,6 +1,6 @@
 import {z} from "zod";
 import {requireProject} from "@/lib/auth";
-import {can} from "@/lib/permissions";
+import {canInviteProjectRole} from "@/lib/permissions";
 
 export async function DELETE(_request:Request,ctx:{params:Promise<{organisationId:string;projectId:string;invitationId:string}>}){
   const {organisationId,projectId,invitationId}=await ctx.params;
@@ -9,7 +9,9 @@ export async function DELETE(_request:Request,ctx:{params:Promise<{organisationI
 
   const {supabase,access}=await requireProject(organisationId,projectId);
   const role=String(access.role);
-  if(!can(role,"members:manage")&&!can(role,"engineers:manage")){
+  const {data:pendingInvitations}=await supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId});
+  const invitation=(pendingInvitations??[]).find((item:{invitation_id:string})=>item.invitation_id===invitationId) as {project_role:string}|undefined;
+  if(!invitation||!canInviteProjectRole(role,String(invitation.project_role))){
     return Response.json({error:{code:"FORBIDDEN",message:"You do not have permission to delete project invitations."}},{status:403});
   }
 

@@ -58,7 +58,7 @@ export default async function NewTransmittalPage({
   const loadPageData = () => Promise.all([
       supabase
         .from("projects")
-        .select("code,name")
+        .select("code,name,client_name")
         .eq("organisation_id", organisationId)
         .eq("id", projectId)
         .single(),
@@ -166,6 +166,7 @@ export default async function NewTransmittalPage({
           organisationId={organisationId}
           projectId={projectId}
           defaultNumber={defaultNumber}
+          clientName={project?.client_name?.trim() || null}
           revisions={revisions}
           preparing={preparing}
           issuedRevisionNumbers={issuedRevisionNumbers}

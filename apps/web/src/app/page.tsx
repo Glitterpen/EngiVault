@@ -42,7 +42,7 @@ export default function Home() {
         <div className="hidden items-center gap-8 text-sm font-semibold text-[#617083] md:flex">
           <a href="#platform" className="transition hover:text-[#10243e]">Platform</a>
           <a href="#security" className="transition hover:text-[#10243e]">Security</a>
-          <a href="#early-access" className="transition hover:text-[#10243e]">Early access</a>
+          <Link href="/register" className="transition hover:text-[#10243e]">Organisation signup</Link>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/login" className="ev-button-secondary">Sign in</Link>
@@ -70,7 +70,7 @@ export default function Home() {
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Link href="/login" className="ev-button">Enter workspace <ArrowRight size={16} /></Link>
-            <Link href="/register" className="ev-button-secondary">Create account</Link>
+            <Link href="/register" className="ev-button-secondary">Register organisation</Link>
             <a href="#platform" className="ev-button-secondary">See how it works</a>
           </div>
           <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-xs font-bold uppercase tracking-[.08em] text-[#617083]">
@@ -194,13 +194,13 @@ export default function Home() {
       <section id="early-access" className="relative overflow-hidden bg-[#f4f6f8] py-24">
         <div className="absolute left-1/2 top-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e8733f]/[.07] blur-3xl" />
         <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Early access</p>
+          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Organisation enquiries</p>
           <h2 className="mt-4 text-4xl font-semibold tracking-[-.05em] sm:text-5xl">
             Bring us your document challenge.
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#617083]">
-            Tell us how your team manages the MDR, discipline submissions, document reviews
-            and final handover. We&apos;ll contact you about early access to EngiCite.
+            Tell us how your organisation manages the MDR, discipline submissions, document reviews
+            and final handover. Individual project accounts are issued only through organisation-controlled invitations.
           </p>
           <form
             action={earlyAccessFormAction}
@@ -216,7 +216,7 @@ export default function Home() {
               <ContactField label="Work email" name="email" type="email" autoComplete="email" required />
             </div>
             <div className="mt-5">
-              <ContactField label="Company" name="company" autoComplete="organization" />
+              <ContactField label="Company" name="company" autoComplete="organization" required />
             </div>
             <label htmlFor="early-access-message" className="mt-5 block text-[11px] font-extrabold uppercase tracking-[.08em] text-[#617083]">
               How can EngiCite help your team?

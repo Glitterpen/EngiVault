@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Check, Copy, UserPlus } from "lucide-react";
 
 type Discipline={code:string;name:string};
-export type InvitableRole="project_admin"|"document_controller"|"engineer"|"viewer";
-const roleLabels:Record<InvitableRole,string>={project_admin:"Project Manager",document_controller:"Document Controller",engineer:"Discipline Engineer",viewer:"Viewer"};
+export type InvitableRole="project_admin"|"document_controller"|"engineer";
+const roleLabels:Record<InvitableRole,string>={project_admin:"Project Manager",document_controller:"Document Controller",engineer:"Discipline Engineer"};
 
 type ProjectInviteProps={
   organisationId:string;
@@ -16,7 +16,7 @@ type ProjectInviteProps={
   lockedDiscipline?:string;
 };
 
-export function ProjectInvite({organisationId,projectId,disciplines,bare=false,allowedRoles=["project_admin","document_controller","engineer","viewer"],lockedDiscipline}:ProjectInviteProps){
+export function ProjectInvite({organisationId,projectId,disciplines,bare=false,allowedRoles=["project_admin","document_controller","engineer"],lockedDiscipline}:ProjectInviteProps){
   const [message,setMessage]=useState("");
   const [url,setUrl]=useState("");
   const [busy,setBusy]=useState(false);

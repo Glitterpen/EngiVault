@@ -20,6 +20,15 @@ export function roleLabel(role:string):string{
   return labels[role as EffectiveRole]??"Project member";
 }
 
+export function scopedRoleLabel(role:string,disciplines:string[]=[]):string{
+  if(role!=="engineer")return roleLabel(role);
+  const assigned=[...new Set(disciplines.map(value=>value.trim()).filter(Boolean))];
+  if(assigned.length===1)return `${assigned[0]} Engineer`;
+  if(assigned.length===2)return `${assigned[0]} / ${assigned[1]} Engineer`;
+  if(assigned.length>2)return "Multi-Discipline Engineer";
+  return roleLabel(role);
+}
+
 export function projectHomePath(organisationId:string,projectId:string,role:string):string{
   const base=`/app/${organisationId}/projects/${projectId}`;
   switch(workspacePersona(role)){
@@ -34,6 +43,6 @@ export function canOpenOperationalMdr(role:string):boolean{
   return role==="document_controller"||role==="viewer";
 }
 
-export function canCreateOrganisationWorkspace(organisationRoles:string[],projectRoles:string[]):boolean{
-  return organisationRoles.includes("organisation_admin")||(organisationRoles.length===0&&projectRoles.length===0);
+export function canCreateOrganisationWorkspace(organisationRoles:string[],projectRoles:string[],organisationOnboarding=false):boolean{
+  return organisationRoles.includes("organisation_admin")||(organisationOnboarding&&organisationRoles.length===0&&projectRoles.length===0);
 }

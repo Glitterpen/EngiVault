@@ -5,7 +5,7 @@ import { Building2, ImagePlus, Plus } from "lucide-react";
 import Image from "next/image";
 import { createOrganisation, type MutationState } from "@/app/app/actions";
 
-export function OrganisationCreateForm(){
+export function OrganisationCreateForm({initialName="",initialSlug=""}:{initialName?:string;initialSlug?:string}={}){
   const [state,action,pending]=useActionState<MutationState,FormData>(createOrganisation,undefined);
   const [preview,setPreview]=useState("");
   const [fileName,setFileName]=useState("");
@@ -20,8 +20,8 @@ export function OrganisationCreateForm(){
 
   return <form action={action} className="ev-card h-fit p-6">
     <div className="flex items-center gap-2"><Plus size={18} className="text-[#e8733f]"/><h2 className="font-semibold">Create organisation</h2></div>
-    <label className="mt-6 block"><span className="ev-label">Organisation name</span><input className="ev-input" name="name" required/></label>
-    <label className="mt-4 block"><span className="ev-label">URL slug</span><input className="ev-input" name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="north-field-engineering" required/></label>
+    <label className="mt-6 block"><span className="ev-label">Organisation name</span><input className="ev-input" name="name" defaultValue={initialName} required/></label>
+    <label className="mt-4 block"><span className="ev-label">URL slug</span><input className="ev-input" name="slug" defaultValue={initialSlug} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="north-field-engineering" required/></label>
     <label className="mt-4 block">
       <span className="ev-label">Company logo</span>
       <span className="mt-1 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#b9c8c1] bg-[#f8faf9] p-3 transition hover:border-[#0c5b45]">

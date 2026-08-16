@@ -8,6 +8,10 @@
     {
       "path": "/api/internal/cron/weekly-project-reports",
       "schedule": "5 6 * * *"
+    },
+    {
+      "path": "/api/internal/cron/project-backups",
+      "schedule": "15 * * * *"
     }
   ]
 }

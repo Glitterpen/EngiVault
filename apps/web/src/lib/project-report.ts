@@ -10,6 +10,35 @@ export const REPORT_WEEKDAYS=[
   {value:6,label:"Saturday"},
 ] as const;
 
+export const DISCIPLINE_REPORT_COLUMN_OPTIONS=[
+  {value:"planned",label:"Total MDR deliverables"},
+  {value:"submitted_to_date",label:"Submitted to date"},
+  {value:"planned_this_week",label:"Planned this week"},
+  {value:"issued_this_week",label:"Issued this week"},
+  {value:"weekly_variance",label:"Weekly variance"},
+  {value:"project_variance",label:"Cumulative variance"},
+  {value:"planned_completion",label:"Planned completion"},
+  {value:"actual_completion",label:"Actual completion"},
+  {value:"issued_this_week_percent",label:"% issued this week"},
+  {value:"weekly_variance_percent",label:"% weekly variance"},
+  {value:"cumulative_variance_percent",label:"% cumulative variance"},
+] as const;
+
+export type DisciplineReportColumn=(typeof DISCIPLINE_REPORT_COLUMN_OPTIONS)[number]["value"];
+
+export const DEFAULT_DISCIPLINE_REPORT_COLUMNS:DisciplineReportColumn[]=[
+  "planned",
+  "submitted_to_date",
+  "planned_this_week",
+  "issued_this_week",
+  "weekly_variance",
+  "project_variance",
+  "planned_completion",
+  "actual_completion",
+];
+
+const disciplineReportColumnSchema=z.enum(DISCIPLINE_REPORT_COLUMN_OPTIONS.map(option=>option.value) as [DisciplineReportColumn,...DisciplineReportColumn[]]);
+
 const nullableText=z.string().nullable();
 const nullableDate=z.iso.date().nullable();
 
@@ -93,6 +122,7 @@ export const projectReportSnapshotSchema=z.object({
   }),
   summary:reportSummarySchema,
   disciplines:z.array(reportDisciplineSchema),
+  discipline_columns:z.array(disciplineReportColumnSchema).min(1).max(11).optional().default([...DEFAULT_DISCIPLINE_REPORT_COLUMNS]),
   lookahead:z.array(z.object({
     document_number:z.string(),
     title:z.string(),
@@ -101,6 +131,14 @@ export const projectReportSnapshotSchema=z.object({
     planned_submission_date:z.iso.date(),
     required_issue_status:nullableText,
   })),
+  weekly_issued_deliverables:z.array(z.object({
+    document_number:z.string(),
+    title:z.string(),
+    discipline:z.string(),
+    revision_code:z.string(),
+    issue_status:z.string(),
+    issued_at:z.iso.datetime({offset:true}),
+  })).optional().default([]),
   challenges:z.array(z.object({
     title:z.string(),
     description:nullableText,
@@ -113,6 +151,36 @@ export const projectReportSnapshotSchema=z.object({
 });
 
 export type ProjectReportSnapshot=z.infer<typeof projectReportSnapshotSchema>;
+
+export function disciplineReportColumnLabel(column:DisciplineReportColumn){
+  return DISCIPLINE_REPORT_COLUMN_OPTIONS.find(option=>option.value===column)?.label??column;
+}
+
+export function resolveDisciplineReportColumns(requested:string|string[]|undefined,fallback:DisciplineReportColumn[]){
+  const values=Array.isArray(requested)?requested:requested?[requested]:[];
+  const allowed=new Set<DisciplineReportColumn>(DISCIPLINE_REPORT_COLUMN_OPTIONS.map(option=>option.value));
+  const selected=[...new Set(values.filter((value):value is DisciplineReportColumn=>allowed.has(value as DisciplineReportColumn)))].slice(0,DISCIPLINE_REPORT_COLUMN_OPTIONS.length);
+  return selected.length?selected:fallback;
+}
+
+export function disciplineReportColumnsQuery(columns:DisciplineReportColumn[]){
+  const query=new URLSearchParams();for(const column of columns)query.append("columns",column);return query.toString();
+}
+
+export function disciplineReportValue(row:ProjectReportSnapshot["disciplines"][number],column:DisciplineReportColumn){
+  if(column==="issued_this_week_percent")return percentageRatio(row.issued_this_week,row.planned_this_week);
+  if(column==="weekly_variance_percent")return percentageRatio(row.weekly_variance,row.planned_this_week,true);
+  if(column==="cumulative_variance_percent")return percentageRatio(row.project_variance,row.submitted_to_date-row.project_variance,true);
+  if(column==="planned_completion")return `${row.planned_completion}%`;
+  if(column==="actual_completion")return `${row.actual_completion}%`;
+  return String(row[column]);
+}
+
+function percentageRatio(numerator:number,denominator:number,signed=false){
+  if(denominator<=0)return "N/A";
+  const value=Math.round(numerator/denominator*1000)/10;
+  return `${signed&&value>0?"+":""}${Number.isInteger(value)?value:value.toFixed(1)}%`;
+}
 
 export function projectSCurveProgress(curve:ProjectReportSnapshot["s_curve"],totalDeliverables:number){
   const total=Math.max(1,totalDeliverables,...curve.overall.map(point=>point.planned));
