@@ -77,7 +77,7 @@ $$;
 
 drop function if exists public.update_project_brief(uuid,uuid,text,text[],date,date);
 
-create function public.update_project_brief(
+create or replace function public.update_project_brief(
   target_organisation uuid,
   target_project uuid,
   new_introduction text,
