@@ -19,7 +19,7 @@ describe("project report helpers",()=>{
       disciplines:[{discipline:"Process",total:5,uploaded:2,approved:1,overdue:0,progress:20,weekly_submissions:0,weekly_acceptances:0}],lookahead:[],challenges:[],
     });
     expect(result.success).toBe(true);
-    if(result.success){expect(result.data.summary.planned_deliverables).toBe(5);expect(result.data.summary.completed_deliverables).toBe(1);expect(result.data.disciplines[0].completed).toBe(1);expect(result.data.disciplines[0].submitted_to_date).toBe(1);expect(result.data.disciplines[0].issued_this_week).toBe(0);expect(result.data.disciplines[0].weekly_variance).toBe(0);expect(result.data.disciplines[0].actual_completion).toBe(20);expect(result.data.discipline_columns).toHaveLength(8);expect(result.data.weekly_issued_deliverables).toEqual([]);expect(result.data.s_curve.overall).toEqual([])}
+    if(result.success){expect(result.data.identity.delivery_stage).toBe("feed");expect(result.data.identity.terminal_issue_status).toBe("Issued for Design (IFD)");expect(result.data.summary.planned_deliverables).toBe(5);expect(result.data.summary.completed_deliverables).toBe(1);expect(result.data.disciplines[0].completed).toBe(1);expect(result.data.disciplines[0].submitted_to_date).toBe(1);expect(result.data.disciplines[0].issued_this_week).toBe(0);expect(result.data.disciplines[0].weekly_variance).toBe(0);expect(result.data.disciplines[0].actual_completion).toBe(20);expect(result.data.discipline_columns).toHaveLength(8);expect(result.data.weekly_issued_deliverables).toEqual([]);expect(result.data.s_curve.overall).toEqual([])}
   });
   it("calculates the optional discipline percentages from the controlled plan",()=>{
     const parsed=projectReportSnapshotSchema.safeParse({

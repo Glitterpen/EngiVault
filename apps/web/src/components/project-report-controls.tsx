@@ -1,16 +1,15 @@
 "use client";
 
-import {useActionState,useEffect,useState} from "react";
+import {useActionState,useEffect} from "react";
 import {useRouter} from "next/navigation";
 import {CalendarClock,FileChartColumnIncreasing,RefreshCw} from "lucide-react";
 import {generateProjectReport,saveProjectReportSchedule,type ProjectReportActionState} from "@/app/app/project-report-actions";
-import {DISCIPLINE_REPORT_COLUMN_OPTIONS,REPORT_WEEKDAYS,type DisciplineReportColumn} from "@/lib/project-report";
+import {REPORT_WEEKDAYS} from "@/lib/project-report";
 
-type Props={organisationId:string;projectId:string;weekday:number;enabled:boolean;lastGeneratedAt:string|null;disciplineColumns:DisciplineReportColumn[]};
+type Props={organisationId:string;projectId:string;weekday:number;enabled:boolean;lastGeneratedAt:string|null};
 
-export function ProjectReportControls({organisationId,projectId,weekday,enabled,lastGeneratedAt,disciplineColumns}:Props){
+export function ProjectReportControls({organisationId,projectId,weekday,enabled,lastGeneratedAt}:Props){
   const router=useRouter();
-  const [selectedColumns,setSelectedColumns]=useState<DisciplineReportColumn[]>(disciplineColumns);
   const [scheduleState,scheduleAction,schedulePending]=useActionState<ProjectReportActionState,FormData>(saveProjectReportSchedule,undefined);
   const [generationState,generationAction,generationPending]=useActionState<ProjectReportActionState,FormData>(generateProjectReport,undefined);
   useEffect(()=>{if(generationState?.reportId)router.push(`/app/${organisationId}/projects/${projectId}/reports/${generationState.reportId}`)},[generationState?.reportId,organisationId,projectId,router]);
@@ -20,14 +19,6 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
       <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#e8733f]"><CalendarClock size={19}/></span><div><h2 className="font-semibold">Weekly report schedule</h2><p className="mt-1 text-xs leading-5 text-[#617083]">Choose the day EngiCite should preserve the weekly project position.</p></div></div>
       <label className="mt-5 block"><span className="ev-label">Generate every</span><select className="ev-input" name="weekday" defaultValue={String(weekday)}>{REPORT_WEEKDAYS.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
       <label className="mt-4 flex items-start gap-3 rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-4 text-sm"><input className="mt-1" type="checkbox" name="enabled" defaultChecked={enabled}/><span><strong className="block text-[#24384f]">Automatic weekly generation</strong><span className="mt-1 block text-xs leading-5 text-[#617083]">Runs after 06:00 UTC on the selected day and notifies project management.</span></span></label>
-      <fieldset className="mt-5 border-t border-[#e4e9ee] pt-5">
-        <legend className="ev-label">Discipline performance columns</legend>
-        <p className="mt-1 text-xs leading-5 text-[#617083]">Tick the columns you want to publish. Your selection is frozen into each new web report and PDF.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {DISCIPLINE_REPORT_COLUMN_OPTIONS.map(option=>{const checked=selectedColumns.includes(option.value);return <label className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold ${checked?"border-[#b9d0c6] bg-[#f2f8f5] text-[#0c5b45]":"border-[#e1e8e4] bg-[#fbfcfb] text-[#35485d]"}`} key={option.value}><input type="checkbox" name="disciplineColumns" value={option.value} checked={checked} disabled={checked&&selectedColumns.length===1} onChange={()=>setSelectedColumns(current=>checked?current.filter(column=>column!==option.value):[...current,option.value])} className="accent-[#0c5b45]"/><span>{option.label}</span></label>})}
-        </div>
-        <p className="mt-2 text-[11px] font-semibold text-[#617083]">{selectedColumns.length} of {DISCIPLINE_REPORT_COLUMN_OPTIONS.length} columns selected</p>
-      </fieldset>
       <p className="mt-3 text-xs text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?formatDateTime(lastGeneratedAt):"No report generated yet"}</p>
       <Status state={scheduleState}/><button className="ev-button mt-5" disabled={schedulePending}>{schedulePending?"Saving report settings…":"Save report settings"}</button>
     </form>

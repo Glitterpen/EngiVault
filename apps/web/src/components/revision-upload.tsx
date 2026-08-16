@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UploadCloud } from "lucide-react";
 import { IssueStatusSelect } from "@/components/issue-status-select";
+import {projectDeliveryStage,projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
 import {
   canonicalUploadMime,
   hasExpectedMime,
@@ -16,10 +17,12 @@ export function RevisionUpload({
   organisationId,
   projectId,
   documentId,
+  deliveryStage,
 }: {
   organisationId: string;
   projectId: string;
   documentId: string;
+  deliveryStage: ProjectDeliveryStage;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState("");
@@ -135,6 +138,7 @@ export function RevisionUpload({
         <UploadCloud size={18} className="text-[#e8733f]" />
         <h2 className="font-semibold">Upload revision</h2>
       </div>
+      <div className="mt-4 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-xs leading-5 text-[#617083]"><strong className="text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow:</strong> {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.</div>
       <Field name="revisionCode" label="Revision" placeholder="C02" disabled={busy} />
       <IssueStatusSelect name="issueStatus" disabled={busy} />
       <label className="mt-4 block">

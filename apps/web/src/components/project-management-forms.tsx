@@ -3,12 +3,13 @@
 import {useActionState,useState} from "react";
 import {AlertTriangle,CalendarRange,Pencil,ShieldCheck,UsersRound,X} from "lucide-react";
 import {createProjectIssue,updateProjectBrief,upsertResourcePlan,type WorkflowState} from "@/app/app/workflow-actions";
+import {PROJECT_DELIVERY_STAGES,projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
 
 type Base={organisationId:string;projectId:string};
 type Discipline={code:string;name:string};
-type ProjectBriefProps=Base&{introduction:string;objectives:string[];startDate:string;endDate:string};
+type ProjectBriefProps=Base&{introduction:string;objectives:string[];startDate:string;endDate:string;deliveryStage:ProjectDeliveryStage|null};
 
-export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,dccCount,editable=true}:ProjectBriefProps&{dccCount:number;editable?:boolean}){
+export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,dccCount,editable=true}:ProjectBriefProps&{dccCount:number;editable?:boolean}){
   const [editing,setEditing]=useState(false);
   return <article className="ev-card p-5 sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -17,7 +18,7 @@ export function EditableProjectBrief({organisationId,projectId,introduction,obje
         {editing?<><X size={16}/> Close editor</>:<><Pencil size={16}/> Edit project brief</>}
       </button>}
     </div>
-    {editing?<ProjectBriefForm organisationId={organisationId} projectId={projectId} introduction={introduction} objectives={objectives} startDate={startDate} endDate={endDate} embedded/>:<>
+    {editing?<ProjectBriefForm organisationId={organisationId} projectId={projectId} introduction={introduction} objectives={objectives} startDate={startDate} endDate={endDate} deliveryStage={deliveryStage} embedded/>:<>
       <div className="mt-5 flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="ev-label">Project introduction</p>
@@ -26,17 +27,18 @@ export function EditableProjectBrief({organisationId,projectId,introduction,obje
         </div>
         <ShieldCheck className="shrink-0 text-[#0c5b45]" aria-hidden="true"/>
       </div>
-      <div className="mt-5 grid gap-3 border-t border-[#edf1ef] pt-5 sm:grid-cols-3"><BriefDatum label="Planned start" value={formatDisplayDate(startDate)}/><BriefDatum label="Planned completion" value={formatDisplayDate(endDate)}/><BriefDatum label="DCC appointed" value={dccCount?`${dccCount} active`:"Not appointed"} warn={!dccCount}/></div>
+      <div className="mt-5 grid gap-3 border-t border-[#edf1ef] pt-5 sm:grid-cols-2 xl:grid-cols-4"><BriefDatum label="Delivery stage" value={projectDeliveryStageLabel(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="100% issue milestone" value={projectTerminalIssueStatus(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="Planned start" value={formatDisplayDate(startDate)}/><BriefDatum label="Planned completion" value={formatDisplayDate(endDate)}/><BriefDatum label="DCC appointed" value={dccCount?`${dccCount} active`:"Not appointed"} warn={!dccCount}/></div>
     </>}
   </article>;
 }
 
-export function ProjectBriefForm({organisationId,projectId,introduction,objectives,startDate,endDate,embedded=false}:ProjectBriefProps&{embedded?:boolean}){
+export function ProjectBriefForm({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,embedded=false}:ProjectBriefProps&{embedded?:boolean}){
   const [state,action,pending]=useActionState<WorkflowState,FormData>(updateProjectBrief,undefined);
   return <form action={action} className={embedded?"mt-5 border-t border-[#edf1ef] pt-5":"ev-card p-5 sm:p-6"}>
     <Hidden organisationId={organisationId} projectId={projectId}/>
     {!embedded&&<div className="flex items-center gap-2"><CalendarRange size={18} className="text-[#e8733f]"/><h2 className="font-semibold">Project brief and timeline</h2></div>}
-    <label className={embedded?"block":"mt-4 block"}><span className="ev-label">Project introduction</span><textarea className="ev-input min-h-28 resize-y" name="introduction" defaultValue={introduction} placeholder="Briefly explain the project background, scope and intended outcome." minLength={20} maxLength={4000} required/><span className="mt-1 block text-xs leading-5 text-[#617083]">This is the first project context shown to the Document Controller and invited engineers.</span></label>
+    <label className={embedded?"block":"mt-4 block"}><span className="ev-label">Engineering delivery stage</span><select className="ev-input" name="deliveryStage" defaultValue={deliveryStage??""} required><option value="" disabled>Select Concept, FEED or DED</option>{PROJECT_DELIVERY_STAGES.map(stage=><option value={stage.value} key={stage.value}>{stage.label} — 100% at {stage.terminalIssueStatus}</option>)}</select><span className="mt-1 block text-xs leading-5 text-[#617083]">This controls revision credit throughout project dashboards and reports. Review and Approval remain partial progress unless they are the project&apos;s terminal milestone.</span></label>
+    <label className="mt-4 block"><span className="ev-label">Project introduction</span><textarea className="ev-input min-h-28 resize-y" name="introduction" defaultValue={introduction} placeholder="Briefly explain the project background, scope and intended outcome." minLength={20} maxLength={4000} required/><span className="mt-1 block text-xs leading-5 text-[#617083]">This is the first project context shown to the Document Controller and invited engineers.</span></label>
     <label className="mt-4 block"><span className="ev-label">Key objectives</span><textarea className="ev-input min-h-36 resize-y" name="keyObjectives" defaultValue={objectives.join("\n")} placeholder={"Complete the conductor engineering assessment\nIssue approved discipline deliverables\nClose all identified design risks"} maxLength={6500} required/><span className="mt-1 block text-xs leading-5 text-[#617083]">Enter one clear objective per line, up to 12 objectives.</span></label>
     <div className="mt-4 grid gap-3 sm:grid-cols-2"><Date name="startDate" label="Planned start" value={startDate}/><Date name="endDate" label="Planned completion" value={endDate}/></div>
     <Status state={state}/><button className="ev-button mt-5" disabled={pending}>{pending?"Saving…":"Save project brief"}</button>

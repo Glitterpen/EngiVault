@@ -1,6 +1,7 @@
 import {PDFDocument,StandardFonts,degrees,rgb,type PDFFont,type PDFImage,type PDFPage} from "pdf-lib";
 import {assessProjectHealth} from "@/lib/project-health";
 import {disciplineReportColumnLabel,disciplineReportValue,isProjectSCurveWeeklyDate,progressMovement,projectReportNumber,projectSCurveCurrentWeekDate,projectSCurveProgress,type ProjectReportSnapshot} from "@/lib/project-report";
+import {projectDeliveryStageLabel} from "@/lib/project-delivery-stage";
 
 type ReportMetadata={reportNumber:number;periodStart:string;periodEnd:string;generationSource:string;generatedAt:string};
 type LogoAsset={bytes:Uint8Array;mimeType:string};
@@ -79,7 +80,7 @@ function addCoverPage(context:Context,organisationLogo:PDFImage|null,clientLogos
   const titleLeft=MARGIN+clientGroupWidth+14,titleRight=contractorX-14,titleWidth=Math.max(140,titleRight-titleLeft),titleCenter=titleLeft+titleWidth/2;
   drawCenteredWrapped(page,context.snapshot.identity.project_code,titleCenter,PAGE_HEIGHT-35,titleWidth,8,10,context.bold,NAVY,1);
   drawCenteredWrapped(page,context.snapshot.identity.project_name,titleCenter,PAGE_HEIGHT-58,titleWidth,17,19,context.bold,NAVY,2);
-  const identity=`${context.snapshot.identity.organisation_name} | Client: ${context.snapshot.identity.client_name??"Not specified"}${context.snapshot.identity.facility_location?` | ${context.snapshot.identity.facility_location}`:""}`;
+  const identity=`${context.snapshot.identity.organisation_name} | Client: ${context.snapshot.identity.client_name??"Not specified"}${context.snapshot.identity.facility_location?` | ${context.snapshot.identity.facility_location}`:""} | ${projectDeliveryStageLabel(context.snapshot.identity.delivery_stage)} | 100% at ${context.snapshot.identity.terminal_issue_status}`;
   drawCenteredWrapped(page,identity,PAGE_WIDTH/2,PAGE_HEIGHT-103,CONTENT_WIDTH,8.5,11,context.regular,NAVY,2);
   page.drawLine({start:{x:MARGIN,y:PAGE_HEIGHT-125},end:{x:PAGE_WIDTH-MARGIN,y:PAGE_HEIGHT-125},thickness:.8,color:LINE});
   page.drawText("WEEKLY PROJECT PROGRESS REPORT",{x:MARGIN,y:PAGE_HEIGHT-148,size:7.5,font:context.bold,color:NAVY});
@@ -116,8 +117,8 @@ function drawExecutiveSummary(context:Context){
   const high=context.snapshot.challenges.filter(issue=>issue.severity==="high").length;
   const health=assessProjectHealth({deliverables:summary.total_deliverables,completion:summary.overall_progress,overdue:summary.overdue_deliverables,highIssues:high,criticalIssues:critical});
   const metrics=[
-    ["Project health",health,"normal"],["Delivery completion",`${summary.overall_progress}%`,"accent"],["Movement this week",progressMovement(summary.progress_gain),"normal"],
-    ["Planned deliverables",String(summary.planned_deliverables),"normal"],["Issued",String(summary.completed_deliverables),"normal"],["Overdue",String(summary.overdue_deliverables),summary.overdue_deliverables?"warn":"normal"],
+    ["Project health",health,"normal"],["Stage-weighted completion",`${summary.overall_progress}%`,"accent"],["Movement this week",progressMovement(summary.progress_gain),"normal"],
+    ["Planned deliverables",String(summary.planned_deliverables),"normal"],["Terminal-stage issued",String(summary.completed_deliverables),"normal"],["Overdue",String(summary.overdue_deliverables),summary.overdue_deliverables?"warn":"normal"],
   ] as const;
   const gap=8;const width=(CONTENT_WIDTH-gap*2)/3;const height=49;
   metrics.forEach(([label,value,tone],index)=>{
@@ -171,20 +172,20 @@ function drawDisciplineProgress(context:Context){
     }
     context.y-=groupIndex<columnGroups.length-1?16:8;
   }
-  const note="Weekly variance = issued minus planned this week. Cumulative variance = submitted to date minus the cumulative plan due at the cut-off. Percentage variances use the corresponding plan; N/A means no plan exists.";
+  const note=`Actual completion is stage-weighted from the latest DCC-accepted issue. Terminal variance compares deliverables at ${context.snapshot.identity.terminal_issue_status} with final milestones due at the cut-off.`;
   const noteLines=wrapText(note,context.regular,6.8,CONTENT_WIDTH);ensure(context,noteLines.length*9+10);drawLines(context.page!,noteLines,MARGIN,context.y-7,9,6.8,context.regular,MUTED);context.y-=noteLines.length*9+20;
 }
 
 function drawWeeklyActivity(context:Context){
   section(context,"Past week","Delivery activity");
   ensure(context,93);const summary=context.snapshot.summary;const cards=[
-    ["ISSUED THIS WEEK",summary.weekly_acceptances],["TOTAL ISSUED",summary.completed_deliverables],["DELIVERABLES DUE",summary.weekly_due],
+    ["STAGE ISSUES THIS WEEK",summary.weekly_acceptances],["TERMINAL-STAGE ISSUED",summary.completed_deliverables],["FINAL MILESTONES DUE",summary.weekly_due],
   ] as const;const gap=9,width=(CONTENT_WIDTH-gap*2)/3;
   cards.forEach(([label,value],index)=>{const x=MARGIN+index*(width+gap);context.page!.drawRectangle({x,y:context.y-48,width,height:48,color:PAPER,borderColor:LINE,borderWidth:1});context.page!.drawText(String(value),{x:x+12,y:context.y-23,size:16,font:context.bold,color:ORANGE});context.page!.drawText(label,{x:x+12,y:context.y-38,size:6.5,font:context.bold,color:MUTED})});
   context.y-=61;
   const movement=context.snapshot.summary.progress_gain;
-  const narrative=movement===null?"This report establishes the first controlled baseline.":movement>=0?"The project maintained or improved its issued-deliverable position.":"The completion percentage reduced because the MDR scope or issued-deliverable position changed.";
-  const lines=wrapText(`Completion movement is ${progressMovement(movement)}. ${narrative}`,context.regular,9,CONTENT_WIDTH-22);
+  const narrative=movement===null?"This report establishes the first controlled baseline.":movement>=0?"The project maintained or improved its controlled delivery position.":"The percentage reduced because MDR scope, accepted revision stages or the delivery plan changed.";
+  const lines=wrapText(`Stage-weighted completion movement is ${progressMovement(movement)}. ${narrative}`,context.regular,9,CONTENT_WIDTH-22);
   const height=lines.length*12+18;ensure(context,height);context.page!.drawRectangle({x:MARGIN,y:context.y-height,width:CONTENT_WIDTH,height,color:PAPER});
   drawLines(context.page!,lines,MARGIN+11,context.y-15,12,9,context.regular,MUTED);context.y-=height+20;
 }
@@ -252,7 +253,7 @@ function drawSCurve(context:Context){
   addStandardPage(context);
   section(context,"Schedule performance","Project delivery S-curve");
   const curve=context.snapshot.s_curve;
-  const description="Cumulative planned and actual progress as percentages of total MDR deliverables against project dates. The faint vertical guide identifies the current reporting week.";
+  const description=`The planned curve uses final-issue dates. Actual progress is stage-weighted from DCC-accepted revisions and reaches 100% only at ${context.snapshot.identity.terminal_issue_status}.`;
   const descriptionLines=wrapText(description,context.regular,8.5,CONTENT_WIDTH);
   drawLines(context.page!,descriptionLines,MARGIN,context.y,11,8.5,context.regular,MUTED);context.y-=descriptionLines.length*11+18;
   if(curve.overall.length<2){emptyState(context,"The S-curve will appear after MDR submission dates and issued deliverables are available.");return}
@@ -273,7 +274,7 @@ function drawSCurve(context:Context){
     context.page!.drawLine({start:{x:pointX(previous.date),y:pointY(previous.planned)},end:{x:pointX(current.date),y:pointY(current.planned)},thickness:2.2,color:ORANGE});
     if(previous.actual!==null&&current.actual!==null)context.page!.drawLine({start:{x:pointX(previous.date),y:pointY(previous.actual)},end:{x:pointX(current.date),y:pointY(current.actual)},thickness:2.2,color:GREEN});
   }
-  progress.forEach((point,index)=>{
+  progress.forEach(point=>{
     const plannedLabel=formatProgressPercentage(point.planned),plannedX=pointX(point.date)-context.bold.widthOfTextAtSize(plannedLabel,5.5)/2;
     context.page!.drawCircle({x:pointX(point.date),y:pointY(point.planned),size:2,color:ORANGE});
     context.page!.drawText(plannedLabel,{x:plannedX,y:pointY(point.planned)+5,size:5.5,font:context.bold,color:ORANGE});
@@ -281,18 +282,18 @@ function drawSCurve(context:Context){
   });
   const currentWeekDate=projectSCurveCurrentWeekDate(progress.map(point=>point.date),context.report.periodEnd),currentWeekX=pointX(currentWeekDate);
   context.page!.drawLine({start:{x:currentWeekX,y:chartBottom},end:{x:currentWeekX,y:chartTop},thickness:.55,color:MUTED,dashArray:[2,3],opacity:.3});
-  progress.forEach((point,index)=>{if(!isProjectSCurveWeeklyDate(point.date,progress[0].date))return;
+  progress.forEach(point=>{if(!isProjectSCurveWeeklyDate(point.date,progress[0].date))return;
     const text=formatDate(point.date);context.page!.drawText(text,{x:pointX(point.date)+2,y:chartBottom-52,size:5.8,font:context.regular,color:MUTED,rotate:degrees(90)});
   });
   const legendY=chartBottom-72;
   context.page!.drawLine({start:{x:chartX,y:legendY},end:{x:chartX+24,y:legendY},thickness:2.4,color:ORANGE});
   context.page!.drawText("Planned progress",{x:chartX+30,y:legendY-3,size:7,font:context.bold,color:MUTED});
   context.page!.drawLine({start:{x:chartX+160,y:legendY},end:{x:chartX+184,y:legendY},thickness:2.4,color:GREEN});
-  context.page!.drawText("Actual progress",{x:chartX+190,y:legendY-3,size:7,font:context.bold,color:MUTED});
+  context.page!.drawText("Stage-weighted actual",{x:chartX+190,y:legendY-3,size:7,font:context.bold,color:MUTED});
   context.y=legendY-25;
 
   if(curve.disciplines.length){
-    const columns=[{label:"Discipline",width:153},{label:"Planned",width:70},{label:"Issued",width:120},{label:"Variance",width:70},{label:"Completion",width:110}];
+    const columns=[{label:"Discipline",width:153},{label:"Planned scope",width:90},{label:"Terminal issued",width:110},{label:"Variance",width:70},{label:"Actual %",width:100}];
     drawTableHeader(context,columns);
     for(const row of curve.disciplines)drawTableRow(context,columns,[row.discipline,String(row.planned),String(row.completed),row.variance>0?`+${row.variance}`:String(row.variance),`${row.completion_percent}%`],28,row.variance<0?3:-1);
   }
@@ -337,7 +338,6 @@ async function embedLogo(pdf:PDFDocument,asset:LogoAsset){
 }
 
 function drawRight(page:PDFPage,text:string,right:number,y:number,size:number,font:PDFFont,color:ReturnType<typeof rgb>){const value=cleanPdfText(text);page.drawText(value,{x:right-font.widthOfTextAtSize(value,size),y,size,font,color})}
-function drawWrapped(page:PDFPage,text:string,x:number,y:number,width:number,size:number,lineHeight:number,font:PDFFont,color:ReturnType<typeof rgb>,maxLines=99){const lines=wrapText(text,font,size,width).slice(0,maxLines);drawLines(page,lines,x,y,lineHeight,size,font,color);return lines.length}
 function drawCenteredWrapped(page:PDFPage,text:string,centerX:number,y:number,width:number,size:number,lineHeight:number,font:PDFFont,color:ReturnType<typeof rgb>,maxLines=99){const lines=wrapText(text,font,size,width).slice(0,maxLines);lines.forEach((line,index)=>page.drawText(cleanPdfText(line),{x:centerX-font.widthOfTextAtSize(line,size)/2,y:y-index*lineHeight,size,font,color}));return lines.length}
 function drawLines(page:PDFPage,lines:string[],x:number,y:number,lineHeight:number,size:number,font:PDFFont,color:ReturnType<typeof rgb>){lines.forEach((line,index)=>page.drawText(cleanPdfText(line),{x,y:y-index*lineHeight,size,font,color}))}
 function wrapText(value:string,font:PDFFont,size:number,maxWidth:number){

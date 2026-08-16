@@ -12,13 +12,13 @@ export const REPORT_WEEKDAYS=[
 
 export const DISCIPLINE_REPORT_COLUMN_OPTIONS=[
   {value:"planned",label:"Total MDR deliverables"},
-  {value:"submitted_to_date",label:"Submitted to date"},
+  {value:"submitted_to_date",label:"Stage-issued to date"},
   {value:"planned_this_week",label:"Planned this week"},
-  {value:"issued_this_week",label:"Issued this week"},
+  {value:"issued_this_week",label:"Stage issues this week"},
   {value:"weekly_variance",label:"Weekly variance"},
-  {value:"project_variance",label:"Cumulative variance"},
+  {value:"project_variance",label:"Terminal milestone variance"},
   {value:"planned_completion",label:"Planned completion"},
-  {value:"actual_completion",label:"Actual completion"},
+  {value:"actual_completion",label:"Stage-weighted actual"},
   {value:"issued_this_week_percent",label:"% issued this week"},
   {value:"weekly_variance_percent",label:"% weekly variance"},
   {value:"cumulative_variance_percent",label:"% cumulative variance"},
@@ -70,6 +70,7 @@ const reportDisciplineSchema=z.object({
   issued_this_week:z.number().int().nonnegative().optional(),
   weekly_variance:z.number().int().optional(),
   project_variance:z.number().int().optional(),
+  cumulative_planned:z.number().int().nonnegative().optional(),
   planned_completion:z.number().int().min(0).max(100).optional(),
   actual_completion:z.number().int().min(0).max(100).optional(),
   total:z.number().int().nonnegative(),
@@ -88,6 +89,7 @@ const reportDisciplineSchema=z.object({
   issued_this_week:discipline.issued_this_week??discipline.weekly_acceptances,
   weekly_variance:discipline.weekly_variance??0,
   project_variance:discipline.project_variance??0,
+  cumulative_planned:discipline.cumulative_planned??Math.max(0,(discipline.submitted_to_date??discipline.completed??discipline.approved)-(discipline.project_variance??0)),
   planned_completion:discipline.planned_completion??discipline.actual_completion??discipline.progress,
   actual_completion:discipline.actual_completion??discipline.progress,
 }));
@@ -95,8 +97,8 @@ const reportDisciplineSchema=z.object({
 const sCurveSchema=z.object({
   overall:z.array(z.object({
     date:z.iso.date(),
-    planned:z.number().int().nonnegative(),
-    completed:z.number().int().nonnegative().nullable(),
+    planned:z.number().nonnegative(),
+    completed:z.number().nonnegative().nullable(),
   })),
   disciplines:z.array(z.object({
     discipline:z.string(),
@@ -119,6 +121,8 @@ export const projectReportSnapshotSchema=z.object({
     planned_start_date:nullableDate,
     planned_end_date:nullableDate,
     client_logo_count:z.number().int().min(0).max(3),
+    delivery_stage:z.enum(["concept","feed","ded"]).optional().default("feed"),
+    terminal_issue_status:z.string().optional().default("Issued for Design (IFD)"),
   }),
   summary:reportSummarySchema,
   disciplines:z.array(reportDisciplineSchema),
@@ -170,7 +174,7 @@ export function disciplineReportColumnsQuery(columns:DisciplineReportColumn[]){
 export function disciplineReportValue(row:ProjectReportSnapshot["disciplines"][number],column:DisciplineReportColumn){
   if(column==="issued_this_week_percent")return percentageRatio(row.issued_this_week,row.planned_this_week);
   if(column==="weekly_variance_percent")return percentageRatio(row.weekly_variance,row.planned_this_week,true);
-  if(column==="cumulative_variance_percent")return percentageRatio(row.project_variance,row.submitted_to_date-row.project_variance,true);
+  if(column==="cumulative_variance_percent")return percentageRatio(row.project_variance,row.cumulative_planned,true);
   if(column==="planned_completion")return `${row.planned_completion}%`;
   if(column==="actual_completion")return `${row.actual_completion}%`;
   return String(row[column]);
