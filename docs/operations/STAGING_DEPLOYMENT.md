@@ -12,6 +12,8 @@
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` for server-only scheduled jobs
+- `CRON_SECRET` for the daily submission-reminder and weekly project-report jobs
 - `PROCESSOR_URL`
 - `PROCESSOR_SHARED_SECRET`
 - `OPENAI_API_KEY` only after billing and approved data controls are active

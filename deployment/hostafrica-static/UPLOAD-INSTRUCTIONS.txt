@@ -1,0 +1,18 @@
+ENGICITE WEBSITE UPLOAD PACKAGE
+================================
+
+For standard cPanel or shared hosting:
+1. Open the public_html folder for engicite.com.
+2. Back up the existing website files.
+3. Upload index.html and engicite-logo.png from this package.
+4. Replace the existing files when prompted.
+5. Clear the hosting cache, then open https://engicite.com in a private browser window.
+
+Early-access form:
+The contact form sends early-user enquiries using the previously configured FormSubmit inbox.
+Login and account-creation links are intentionally excluded until the application is deployed.
+
+For HostAfrica Node.js hosting:
+Upload all five files, set the startup file to app.js, and run the start command.
+
+Never place Supabase service-role keys, OpenAI keys or .env files in public_html.

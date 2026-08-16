@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "EngiCite | Engineering intelligence, evidenced", template: "%s · EngiCite" },
-  description: "EngiCite is building secure, evidence-grounded document intelligence for engineering teams. Request early access.",
+  title: { default: "EngiCite | Engineering document control and intelligence", template: "%s · EngiCite" },
+  description: "EngiCite gives oil-and-gas project teams secure MDR control, discipline-based submissions, revision governance and evidence-backed document intelligence.",
+  icons: { icon: "/engicite-logo-transparent.png" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

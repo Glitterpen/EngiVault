@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { safeAuthDestination } from "@/lib/auth-destination";
 
 export type AuthState = { message?: string; errors?: Record<string,string[]> } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -27,8 +28,7 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
             : "Sign-in could not be completed. Try again shortly.";
     return {message:`${guidance} Reference: ${code}.`};
   }
-  const requestedNext=String(formData.get("next")??"");
-  const destination=requestedNext.startsWith("/app")&&!requestedNext.startsWith("//")?requestedNext:"/app";
+  const destination=safeAuthDestination(String(formData.get("next")??""));
   redirect(destination);
 }
 export async function register(_:AuthState, formData:FormData):Promise<AuthState> {
@@ -36,12 +36,16 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   if(!parsed.success) return {errors:parsed.error.flatten().fieldErrors};
   const supabase=await createClient();
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
-  const {error}=await supabase.auth.signUp({email:parsed.data.email,password:parsed.data.password,options:{data:{display_name:parsed.data.name},emailRedirectTo:`${appUrl}/auth/callback`}});
+  const destination=safeAuthDestination(String(formData.get("next")??""));
+  const callbackUrl=new URL("/auth/callback",appUrl);
+  if(destination!=="/app")callbackUrl.searchParams.set("next",destination);
+  const {data,error}=await supabase.auth.signUp({email:parsed.data.email,password:parsed.data.password,options:{data:{display_name:parsed.data.name},emailRedirectTo:callbackUrl.toString()}});
   if(error){
     const code=error.code??`http_${error.status}`;
     const guidance=code==="user_already_exists"?"An account already exists for this email. Use Sign in instead.":code==="email_address_invalid"?"Enter a valid deliverable email address.":code==="over_email_send_rate_limit"?"Email delivery is temporarily rate-limited. Wait a minute and try again.":"Registration could not be completed.";
     return {message:`${guidance} Reference: ${code}.`};
   }
-  return {message:"Check your email to verify your account, then sign in."};
+  if(data.session)redirect(destination);
+  return {message:destination.startsWith("/invite/")?"Check your email to verify your account. The project invitation will continue automatically after verification.":"Check your email to verify your account, then sign in."};
 }
 export async function signOut(){ const supabase=await createClient(); await supabase.auth.signOut(); redirect("/login"); }

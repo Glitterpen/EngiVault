@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10243e">
+  <title>EngiCite | Engineering document control and intelligence</title>
+  <meta name="description" content="EngiCite gives oil-and-gas project teams one secure workspace to plan the MDR, coordinate discipline submissions, control revisions and retrieve project knowledge with verifiable proof.">
+  <style>
+    :root{--ink:#10243e;--ink2:#0b1b2f;--orange:#e8733f;--muted:#617083;--line:#dce2e9;--paper:#f4f6f8;--white:#fff}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:Arial,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(1440px,100%);margin:auto;padding-inline:48px}
+    .nav{min-height:96px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+    .brand{position:relative;display:block;width:208px;height:56px;overflow:hidden;flex:0 0 auto}
+    .brand img{position:absolute;width:248px;max-width:none;left:-25px;top:-30px;display:block}
+    .links{display:flex;gap:32px;font-size:14px;color:var(--muted);font-weight:700}
+    .links a:hover{color:var(--ink)}
+    .nav-actions,.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 21px;border-radius:9px;background:var(--orange);color:#fff;font-size:14px;font-weight:800;box-shadow:0 8px 22px #e8733f38;transition:transform .2s,background .2s}
+    .button:hover{transform:translateY(-2px);background:#d96230}
+    .button.alt{background:#fff;color:var(--ink);border:1px solid #ced6df;box-shadow:none}
+    .hero{display:grid;grid-template-columns:.92fr 1.08fr;gap:52px;padding-top:64px;padding-bottom:108px}
+    .copy{display:flex;flex-direction:column;justify-content:center}
+    .status{width:max-content;max-width:100%;padding:9px 14px;border:1px solid var(--line);border-radius:999px;background:white;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.17em;text-transform:uppercase}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--orange);margin-right:9px}
+    .hero h1{font-size:clamp(52px,6vw,98px);letter-spacing:-.067em;line-height:.91;margin:27px 0 0}
+    .orange{color:var(--orange)}
+    .lead{max-width:620px;margin:30px 0 0;color:var(--muted);font-size:18px;line-height:1.75}
+    .actions{margin-top:34px}
+    .proofs{display:flex;gap:25px;flex-wrap:wrap;margin-top:36px;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .proofs span:before{content:"\2713";color:var(--orange);margin-right:8px}
+    .demo{position:relative;min-height:590px;border-radius:30px;padding:38px;background-color:var(--ink);background-image:linear-gradient(#ffffff0b 1px,transparent 1px),linear-gradient(90deg,#ffffff0b 1px,transparent 1px);background-size:40px 40px;box-shadow:0 32px 80px #10243e38;color:white;overflow:hidden}
+    .demo:after{content:"";position:absolute;width:210px;height:210px;border:38px solid #e8733f26;border-radius:50%;right:-82px;top:-82px}
+    .demo>*{position:relative;z-index:1}
+    .demo-head{display:flex;justify-content:space-between;align-items:center;gap:18px}
+    .eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#ffffff70;font-weight:800}
+    .project{font-size:18px;font-weight:800;margin-top:8px}
+    .pill{padding:8px 11px;border:1px solid #ffffff1a;border-radius:999px;background:#ffffff0d;font-size:11px}
+    .ask{margin-top:25px;padding:19px;border:1px solid #ffffff1a;border-radius:17px;background:#ffffff10}
+    .ask-title{font-size:14px;font-weight:800}
+    .question{margin-top:18px;padding:14px;border-radius:11px;background:white;color:var(--ink);font-size:14px;font-weight:800}
+    .answer{margin-top:12px;padding:16px;border-radius:11px;background:#172f4c;color:#ffffffb8;font-size:14px;line-height:1.7}
+    .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+    .tag{padding:5px 9px;border-radius:5px;background:#ffffff18;color:white;font-size:10px;font-weight:900}
+    .tag:first-child{background:var(--orange)}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:15px}
+    .metric{padding:14px;border:1px solid #ffffff18;border-radius:12px;background:#ffffff0d}
+    .metric b{display:block;font-size:19px}.metric small{display:block;margin-top:5px;color:#ffffff60;text-transform:uppercase;font-size:9px;letter-spacing:.08em}
+    .document{display:flex;align-items:center;gap:12px;margin-top:9px;padding:12px;border:1px solid #ffffff18;border-radius:12px;background:#0d2037b3}
+    .doc-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#ffffff12;font-size:17px}
+    .doc-copy{min-width:0;flex:1}.doc-no{color:#ff9a6d;font-size:10px;font-weight:900;letter-spacing:.08em}.doc-title{margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#ffffffbd;font-size:12px;font-weight:700}.doc-rev{color:#ffffff70;font-size:10px;font-weight:800}
+    .caption{text-align:center;margin-top:17px;color:#ffffff45;font-size:9px;text-transform:uppercase;letter-spacing:.14em}
+    .section{padding-top:92px;padding-bottom:92px;background:white}
+    .intro{display:grid;grid-template-columns:.72fr 1.28fr;gap:48px}
+    .kicker{color:var(--orange);font-size:11px;font-weight:900;letter-spacing:.17em;text-transform:uppercase}
+    .intro h2,.cta h2{font-size:clamp(38px,4vw,58px);line-height:1.03;letter-spacing:-.05em;margin:15px 0 0}
+    .intro>p{max-width:650px;align-self:end;color:var(--muted);font-size:18px;line-height:1.7}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);margin-top:56px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .card{padding:38px 32px}.card+.card{border-left:1px solid var(--line)}.no{color:var(--orange);font-size:11px;font-weight:900}.card h3{font-size:20px;margin:46px 0 12px}.card p{margin:0;color:var(--muted);line-height:1.7}
+    .security{background:var(--ink);color:white;padding-top:76px;padding-bottom:76px}
+    .security-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:64px;align-items:center}
+    .security h2{font-size:42px;letter-spacing:-.04em;margin:16px 0}.security p{color:#ffffff9a;line-height:1.7}
+    .security-box{border:1px solid #ffffff18;background:#ffffff0d;border-radius:16px;padding:20px;margin:10px 0}.security-box b{display:block}.security-box small{display:block;color:#ffffff80;margin-top:7px;line-height:1.5}
+    .cta{text-align:center;padding-top:92px;padding-bottom:92px;position:relative;overflow:hidden}
+    .cta:before{content:"";position:absolute;width:540px;height:540px;border-radius:50%;background:#e8733f12;filter:blur(45px);left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
+    .cta>*{position:relative}.cta>p{max-width:730px;margin:20px auto;color:var(--muted);font-size:18px;line-height:1.7}
+    .contact-form{max-width:760px;margin:34px auto 0;padding:30px;background:#fff;border:1px solid var(--line);border-radius:18px;text-align:left;box-shadow:0 18px 50px #10243e12}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.field{display:block}.field.full{margin-top:20px}.field span{display:block;margin-bottom:7px;color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.field input,.field textarea{width:100%;padding:13px 14px;border:1px solid #ced6df;border-radius:10px;background:#fff;color:var(--ink);font:inherit;outline:none;transition:.2s}.field input:focus,.field textarea:focus{border-color:var(--orange);box-shadow:0 0 0 4px #e8733f18}.field textarea{min-height:120px;resize:vertical}.form-foot{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:22px}.form-foot button{border:0;cursor:pointer}.form-foot small{color:var(--muted);line-height:1.5}.form-status{max-width:760px;margin:34px auto 0;padding:28px;background:#edf9f2;border:1px solid #8fd4ab;border-radius:18px;color:#174f32;text-align:center;box-shadow:0 18px 50px #10243e12}
+    .footer{background:var(--ink2);color:#ffffff73;padding:28px 0;font-size:12px}.footer .wrap{display:flex;justify-content:space-between}
+    @media(max-width:980px){.wrap{padding-inline:24px}.links{display:none}.hero,.intro,.security-grid{grid-template-columns:1fr}.hero{padding-top:35px}.demo{min-height:auto}.cards{grid-template-columns:1fr}.card+.card{border-left:0;border-top:1px solid var(--line)}.intro>p{align-self:auto}.hero h1{font-size:58px}}
+    @media(max-width:620px){.nav{min-height:82px}.brand{width:150px;height:48px}.brand img{width:190px;left:-20px;top:-24px}.nav-actions .button{min-height:42px;padding:0 13px;font-size:12px}.hero h1{font-size:46px}.hero{gap:38px;padding-bottom:76px}.demo{padding:22px}.pill{display:none}.metrics,.form-grid{grid-template-columns:1fr}.form-foot{align-items:flex-start;flex-direction:column}.contact-form{padding:22px}.section,.cta{padding-top:70px;padding-bottom:70px}.footer .wrap{gap:10px;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <nav class="nav wrap">
+    <a class="brand" href="/" aria-label="EngiCite home"><img src="engicite-logo.png" alt="EngiCite"></a>
+    <div class="links"><a href="#platform">Platform</a><a href="#security">Security</a><a href="#early-access">Early access</a></div>
+    <div class="nav-actions"><a class="button" href="#early-access">Contact us&nbsp; &rarr;</a></div>
+  </nav>
+
+  <main>
+    <section class="hero wrap">
+      <div class="copy">
+        <div class="status"><span class="dot"></span>Engineering document control and intelligence</div>
+        <h1>Control every deliverable.<br><span class="orange">Cite every decision.</span></h1>
+        <p class="lead">EngiCite gives oil-and-gas project teams one secure workspace to plan the MDR, coordinate discipline submissions, control revisions and retrieve project knowledge with verifiable proof.</p>
+        <div class="actions"><a class="button" href="#early-access">Request early access&nbsp; &rarr;</a><a class="button alt" href="#platform">See how it works</a></div>
+        <div class="proofs"><span>MDR controlled</span><span>Discipline governed</span><span>Evidence cited</span></div>
+      </div>
+
+      <div class="demo" aria-label="Illustrative EngiCite workspace">
+        <div class="demo-head"><div><div class="eyebrow">Workspace overview</div><div class="project">Orion LNG Expansion</div></div><div class="pill">Private workspace</div></div>
+        <div class="ask"><div class="ask-title">Ask EngiCite</div><div class="question">What is the export line design pressure?</div><div class="answer">The export line design pressure is <b>95 barg</b>, based on the approved pipeline design basis.<div class="tags"><span class="tag">OL-PIP-001</span><span class="tag">REV C02</span><span class="tag">PAGE 18</span></div></div></div>
+        <div class="metrics"><div class="metric"><b>1,248</b><small>MDR deliverables</small></div><div class="metric"><b>98.4%</b><small>Register health</small></div><div class="metric"><b>100%</b><small>Answers cited</small></div></div>
+        <div class="document"><span class="doc-icon">&#9633;</span><span class="doc-copy"><span class="doc-no">OL-PFD-014</span><span class="doc-title">Gas compression process flow</span></span><span class="doc-rev">REV B04</span></div>
+        <div class="document"><span class="doc-icon">&#9633;</span><span class="doc-copy"><span class="doc-no">OL-INS-207</span><span class="doc-title">Cause &amp; effect matrix</span></span><span class="doc-rev">REV A07</span></div>
+        <div class="caption">Illustrative project data &middot; EngiCite workflow</div>
+      </div>
+    </section>
+
+    <section id="platform" class="section">
+      <div class="wrap">
+        <div class="intro"><div><div class="kicker">One controlled workflow</div><h2>From MDR planning to final handover.</h2></div><p>Purpose-built for organisation leaders, project teams, document controllers and discipline engineers working across complex oil-and-gas deliverables.</p></div>
+        <div class="cards">
+          <article class="card"><span class="no">01</span><h3>Plan and control the MDR</h3><p>Structure every deliverable by project and discipline, with clear ownership, submission dates and required issue status.</p></article>
+          <article class="card"><span class="no">02</span><h3>Govern every submission</h3><p>Receive secure discipline-scoped revisions, preserve their history and route each file through DCC conformance review.</p></article>
+          <article class="card"><span class="no">03</span><h3>Retrieve answers with proof</h3><p>Find authorised project information and trace every result to its document number, revision and source location.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="security">
+      <div class="wrap security-grid"><div><div class="kicker">Security by architecture</div><h2>Project access follows project responsibility.</h2><p>EngiCite separates every organisation, project and role, protects files with time-limited access and records critical document activity for accountability.</p></div><div><div class="security-box"><b>Documents remain private</b><small>Customer documents are not used to train models.</small></div><div class="security-box"><b>Roles define access</b><small>Administrators, DCCs, engineers and viewers see only their authorised responsibilities.</small></div></div></div>
+    </section>
+
+    <section id="early-access" class="cta wrap">
+      <div class="kicker">Early access</div>
+      <h2>Bring us your document challenge.</h2>
+      <p>Tell us how your team manages the MDR, discipline submissions, document reviews and final handover. We will contact you about early access to EngiCite.</p>
+      <form class="contact-form" action="https://formsubmit.co/df53e103555f05354c758393cdc06861" method="POST">
+        <input type="hidden" name="_subject" value="New EngiCite early-access enquiry">
+        <input type="hidden" name="_template" value="table">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="hidden" name="_next" value="https://engicite.com/?sent=1#early-access">
+        <div class="form-grid">
+          <label class="field"><span>Name</span><input name="name" autocomplete="name" required></label>
+          <label class="field"><span>Work email</span><input name="email" type="email" autocomplete="email" required></label>
+        </div>
+        <label class="field full"><span>Company</span><input name="company" autocomplete="organization"></label>
+        <label class="field full"><span>How can EngiCite help your team?</span><textarea name="message" required></textarea></label>
+        <div class="form-foot"><button class="button" type="submit">Send enquiry&nbsp; &rarr;</button><small>Your details will only be used to respond to this enquiry.</small></div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="footer"><div class="wrap"><span>&copy; 2026 EngiCite. All rights reserved.</span><span>Know the answer. Cite the proof.</span></div></footer>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("sent") !== "1") return;
+      var form = document.querySelector("#early-access form");
+      if (!form) return;
+      var notice = document.createElement("div");
+      notice.className = "form-status";
+      notice.setAttribute("role", "status");
+      notice.innerHTML = "<strong style='display:block;font-size:22px;margin-bottom:8px'>Enquiry sent successfully</strong><span>Thank you for contacting EngiCite. We have received your message and will respond by email.</span>";
+      form.replaceWith(notice);
+      history.replaceState({}, document.title, "/#early-access");
+    })();
+  </script>
+</body>
+</html>

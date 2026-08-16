@@ -3,14 +3,16 @@ import time
 from collections import defaultdict, deque
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from pydantic import UUID4, BaseModel, Field
 
 from .answers import OpenAIAnswerer
 from .comparison import compare_units
 from .config import settings
+from .electronic_seal import AdobeIntesiElectronicSealer, AdobeIntesiSealConfig
 from .embeddings import OpenAIEmbedder
 from .gateway import GatewayError, SupabaseGateway
+from .mdr_import import MdrImportError, parse_mdr_workbook
 from .packages import build_package
 from .worker import process_next
 
@@ -21,7 +23,8 @@ _requests: dict[str, deque[float]] = defaultdict(deque)
 async def harden_requests(request, call_next):
     if request.method not in {"GET", "HEAD"}:
         length = request.headers.get("content-length")
-        if length and int(length) > 1_048_576:
+        maximum = 5_242_880 if request.url.path == "/internal/v1/parse-mdr-import" else 1_048_576
+        if length and int(length) > maximum:
             return Response(status_code=413, content="Request body is too large")
     if request.url.path != "/internal/v1/health/live":
         key = request.headers.get("x-processor-secret", "anonymous")[:16]
@@ -67,6 +70,17 @@ class PackageDownloadQuery(BaseModel):
 def require_service(x_processor_secret: str = Header(default="")) -> None:
     if not hmac.compare_digest(x_processor_secret, settings().processor_shared_secret):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service credential")
+
+
+@app.post("/internal/v1/parse-mdr-import", dependencies=[Depends(require_service)])
+async def parse_mdr_import(request: Request, x_filename: str = Header(default="MDR-Import.xlsx")) -> dict[str, object]:
+    content = await request.body()
+    if not content or len(content) > 5_242_880:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Excel file must be no larger than 5 MB")
+    try:
+        return parse_mdr_workbook(content, x_filename)
+    except MdrImportError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
 
 @app.get("/internal/v1/health/live")
 def live() -> dict[str, str]:
@@ -141,13 +155,13 @@ def compare_revisions(query: ComparisonQuery) -> dict[str, object]:
 
 @app.post("/internal/v1/build-package", dependencies=[Depends(require_service)])
 def build_work_package(query: PackageQuery) -> dict[str, object]:
-    config=settings();gateway=SupabaseGateway(config.supabase_url,config.supabase_service_role_key,config.storage_bucket,config.worker_name)
-    try:return {"state":"ready","manifest":build_package(gateway,str(query.package_id))}
+    config=settings();gateway=SupabaseGateway(config.supabase_url,config.supabase_service_role_key,config.storage_bucket,config.worker_name);sealer=AdobeIntesiElectronicSealer(AdobeIntesiSealConfig.from_settings(config))
+    try:return {"state":"ready","manifest":build_package(gateway,str(query.package_id),sealer)}
     except Exception as error:
         try:gateway.finish_package(str(query.package_id),None,{},"PACKAGE_BUILD_ERROR")
         except GatewayError:pass
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,detail="Work package generation failed") from error
-    finally:gateway.close()
+    finally:sealer.close();gateway.close()
 
 @app.post("/internal/v1/package-download-url", dependencies=[Depends(require_service)])
 def package_download_url(query: PackageDownloadQuery) -> dict[str, str]:

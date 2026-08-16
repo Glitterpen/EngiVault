@@ -1,3 +1,76 @@
-"use client";import {useActionState} from "react";import {createWorkPackage,type MutationState} from "@/app/app/actions";
-export function WorkPackageCreateForm({organisationId,projectId,disciplines}:{organisationId:string;projectId:string;disciplines:string[]}){const [state,action,pending]=useActionState<MutationState,FormData>(createWorkPackage,undefined);return <form action={action} className="ev-card p-6"><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/><h2 className="font-semibold">Create frozen package</h2><Field name="packageNumber" label="Package number" placeholder="FWP-001"/><Field name="name" label="Package name" placeholder="Final engineering work package"/><Field name="purpose" label="Purpose" optional/><label className="mt-4 block"><span className="ev-label">Discipline scope</span><select className="ev-input" name="discipline"><option value="">All disciplines</option>{disciplines.map(value=><option key={value}>{value}</option>)}</select></label><Field name="requiredStatus" label="Required review status" placeholder="Issued for Construction" optional/><label className="mt-4 block"><span className="ev-label">Delivery destination</span><select className="ev-input" name="destination"><option value="local">Secure local download</option><option value="sharepoint">Microsoft SharePoint</option><option value="google_drive">Google Drive</option></select></label>{state?.message&&<p className="mt-4 text-sm text-[#9b4326]">{state.message}</p>}<button className="ev-button mt-5 w-full" disabled={pending}>{pending?"Freezing revisions…":"Create and freeze package"}</button></form>}
-function Field({name,label,placeholder,optional=false}:{name:string;label:string;placeholder?:string;optional?:boolean}){return <label className="mt-4 block"><span className="ev-label">{label}</span><input className="ev-input" name={name} placeholder={placeholder} required={!optional}/></label>}
+"use client";
+
+import { useActionState } from "react";
+import { createWorkPackage, type MutationState } from "@/app/app/actions";
+import { IssueStatusSelect } from "@/components/issue-status-select";
+
+export function WorkPackageCreateForm({
+  organisationId,
+  projectId,
+  disciplines,
+}: {
+  organisationId: string;
+  projectId: string;
+  disciplines: string[];
+}) {
+  const [state, action, pending] = useActionState<MutationState, FormData>(
+    createWorkPackage,
+    undefined,
+  );
+  return (
+    <form action={action} className="ev-card p-6">
+      <input type="hidden" name="organisationId" value={organisationId} />
+      <input type="hidden" name="projectId" value={projectId} />
+      <h2 className="font-semibold">Create frozen package</h2>
+      <Field name="packageNumber" label="Package number" placeholder="FWP-001" />
+      <Field name="name" label="Package name" placeholder="Final engineering work package" />
+      <Field name="purpose" label="Purpose" optional />
+      <label className="mt-4 block">
+        <span className="ev-label">Discipline scope</span>
+        <select className="ev-input" name="discipline">
+          <option value="">All disciplines</option>
+          {disciplines.map((value) => (
+            <option key={value}>{value}</option>
+          ))}
+        </select>
+      </label>
+      <IssueStatusSelect
+        name="requiredStatus"
+        label="Required issue status"
+        allowEmpty
+        emptyLabel="Any accepted issue status"
+      />
+      <label className="mt-4 block">
+        <span className="ev-label">Delivery destination</span>
+        <select className="ev-input" name="destination">
+          <option value="local">Secure local download</option>
+          <option value="sharepoint">Microsoft SharePoint</option>
+          <option value="google_drive">Google Drive</option>
+        </select>
+      </label>
+      {state?.message && <p className="mt-4 text-sm text-[#9b4326]">{state.message}</p>}
+      <button className="ev-button mt-5 w-full" disabled={pending}>
+        {pending ? "Freezing revisions…" : "Create and freeze package"}
+      </button>
+    </form>
+  );
+}
+
+function Field({
+  name,
+  label,
+  placeholder,
+  optional = false,
+}: {
+  name: string;
+  label: string;
+  placeholder?: string;
+  optional?: boolean;
+}) {
+  return (
+    <label className="mt-4 block">
+      <span className="ev-label">{label}</span>
+      <input className="ev-input" name={name} placeholder={placeholder} required={!optional} />
+    </label>
+  );
+}

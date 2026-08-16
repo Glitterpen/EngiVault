@@ -1,4 +1,101 @@
-"use client";import {useActionState} from "react";import {updateDocumentPlan,type MutationState} from "@/app/app/actions";
-export function DocumentPlanForm({record}:{record:{id:string;organisation_id:string;project_id:string;responsible_party?:string|null;planned_submission_date?:string|null;planned_final_date?:string|null;required_issue_status?:string|null;progress_weight?:number|null}}){const [state,action,pending]=useActionState<MutationState,FormData>(updateDocumentPlan,undefined);return <form action={action} className="ev-card p-6"><input type="hidden" name="organisationId" value={record.organisation_id}/><input type="hidden" name="projectId" value={record.project_id}/><input type="hidden" name="documentId" value={record.id}/><h2 className="font-semibold">Deliverable plan</h2><Field name="responsibleParty" label="Responsible engineer / originator" value={record.responsible_party??""}/><DateField name="plannedSubmissionDate" label="Planned first submission" value={record.planned_submission_date??""}/><DateField name="plannedFinalDate" label="Planned final approval" value={record.planned_final_date??""}/><Field name="requiredIssueStatus" label="Required final status" value={record.required_issue_status??""}/><label className="mt-4 block"><span className="ev-label">Progress weight</span><input type="number" min="0.01" max="1000" step="0.01" className="ev-input" name="progressWeight" defaultValue={record.progress_weight??1} required/></label>{state?.message&&<p className="mt-3 text-sm">{state.message}</p>}<button className="ev-button mt-5" disabled={pending}>{pending?"Saving…":"Save deliverable plan"}</button></form>}
-function Field({name,label,value}:{name:string;label:string;value:string}){return <label className="mt-4 block"><span className="ev-label">{label}</span><input className="ev-input" name={name} defaultValue={value}/></label>}
-function DateField({name,label,value}:{name:string;label:string;value:string}){return <label className="mt-4 block"><span className="ev-label">{label}</span><input type="date" className="ev-input" name={name} defaultValue={value}/></label>}
+"use client";
+
+import { useActionState } from "react";
+import { updateDocumentPlan, type MutationState } from "@/app/app/actions";
+import { IssueStatusSelect } from "@/components/issue-status-select";
+
+export function DocumentPlanForm({
+  record,
+}: {
+  record: {
+    id: string;
+    organisation_id: string;
+    project_id: string;
+    responsible_party?: string | null;
+    planned_submission_date?: string | null;
+    planned_final_date?: string | null;
+    required_issue_status?: string | null;
+    progress_weight?: number | null;
+  };
+}) {
+  const [state, action, pending] = useActionState<MutationState, FormData>(
+    updateDocumentPlan,
+    undefined,
+  );
+  return (
+    <form action={action} className="ev-card p-6">
+      <input type="hidden" name="organisationId" value={record.organisation_id} />
+      <input type="hidden" name="projectId" value={record.project_id} />
+      <input type="hidden" name="documentId" value={record.id} />
+      <h2 className="font-semibold">Deliverable plan</h2>
+      <Field
+        name="responsibleParty"
+        label="Responsible engineer / originator"
+        value={record.responsible_party ?? ""}
+      />
+      <DateField
+        name="plannedSubmissionDate"
+        label="Engineer-agreed first submission"
+        value={record.planned_submission_date ?? ""}
+        required
+      />
+      <DateField
+        name="plannedFinalDate"
+        label="Planned final approval"
+        value={record.planned_final_date ?? ""}
+      />
+      <IssueStatusSelect
+        name="requiredIssueStatus"
+        label="Required final issue status"
+        defaultValue={record.required_issue_status ?? ""}
+        allowEmpty
+        emptyLabel="To be confirmed"
+      />
+      <label className="mt-4 block">
+        <span className="ev-label">Progress weight</span>
+        <input
+          type="number"
+          min="0.01"
+          max="1000"
+          step="0.01"
+          className="ev-input"
+          name="progressWeight"
+          defaultValue={record.progress_weight ?? 1}
+          required
+        />
+      </label>
+      {state?.message && <p className="mt-3 text-sm">{state.message}</p>}
+      <button className="ev-button mt-5" disabled={pending}>
+        {pending ? "Saving…" : "Save deliverable plan"}
+      </button>
+    </form>
+  );
+}
+
+function Field({ name, label, value }: { name: string; label: string; value: string }) {
+  return (
+    <label className="mt-4 block">
+      <span className="ev-label">{label}</span>
+      <input className="ev-input" name={name} defaultValue={value} />
+    </label>
+  );
+}
+
+function DateField({
+  name,
+  label,
+  value,
+  required = false,
+}: {
+  name: string;
+  label: string;
+  value: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="mt-4 block">
+      <span className="ev-label">{label}</span>
+      <input type="date" className="ev-input" name={name} defaultValue={value} required={required} />
+    </label>
+  );
+}
