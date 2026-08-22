@@ -3,8 +3,9 @@ import Link from "next/link";
 import {useActionState} from "react";
 import type {AuthState} from "@/app/(auth)/actions";
 
-export function AuthForm({mode,action,next,accessDenied=false}:{mode:"login"|"register";action:(s:AuthState,d:FormData)=>Promise<AuthState>;next?:string;accessDenied?:boolean}){
+export function AuthForm({mode,action,resendAction,next,accessDenied=false}:{mode:"login"|"register";action:(s:AuthState,d:FormData)=>Promise<AuthState>;resendAction:(s:AuthState,d:FormData)=>Promise<AuthState>;next?:string;accessDenied?:boolean}){
   const [state,formAction,pending]=useActionState(action,undefined);
+  const [resendState,resendFormAction,resendPending]=useActionState(resendAction,undefined);
   const registering=mode==="register";
   const invitation=next?.startsWith("/invite/")??false;
   const organisationRegistration=registering&&!invitation;
@@ -22,7 +23,9 @@ export function AuthForm({mode,action,next,accessDenied=false}:{mode:"login"|"re
       <Field label="Work email" name="email" type="email" autoComplete="email" error={state?.errors?.email?.[0]}/>
       <Field label="Password" name="password" type="password" autoComplete={registering?"new-password":"current-password"} hint={registering?"Minimum 12 characters":undefined} error={state?.errors?.password?.[0]}/>
       {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{state.message}</div>}
+      {resendState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resendState.message}</div>}
       <button className="ev-button w-full" disabled={pending}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
+      {(state?.showResend||resendState?.showResend)&&<button className="ev-button-secondary w-full justify-center" type="submit" formAction={resendFormAction} disabled={pending||resendPending}>{resendPending?"Requesting verification...":"Resend verification email"}</button>}
     </form>
     <p className="mt-6 text-center text-sm text-[#617083]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="font-bold text-[#e8733f] hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>
   </div>;

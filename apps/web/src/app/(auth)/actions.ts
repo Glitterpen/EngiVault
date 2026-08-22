@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { safeAuthDestination } from "@/lib/auth-destination";
 import { sanitiseEmailHeaderText } from "@/lib/email-sender";
 
-export type AuthState = { message?: string; errors?: Record<string,string[]> } | undefined;
+export type AuthState = { message?: string; errors?: Record<string,string[]>; showResend?: boolean } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
 const password = z.string().min(12,"Use at least 12 characters.").max(128);
 const loginSchema = z.object({ email, password: z.string().min(1,"Enter your password.") });
@@ -32,7 +32,7 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
           : code==="over_request_rate_limit"
             ? "Too many sign-in attempts. Wait a few minutes and try again."
             : "Sign-in could not be completed. Try again shortly.";
-    return {message:`${guidance} Reference: ${code}.`};
+    return {message:`${guidance} Reference: ${code}.`,showResend:code==="email_not_confirmed"};
   }
   const destination=safeAuthDestination(String(formData.get("next")??""));
   const invitation=destination.match(invitationDestination);
@@ -102,6 +102,34 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   if(data.session)redirect(destination);
   return {message:destination.startsWith("/invite/")
     ? `Check your email for a secure ${invitationContext?.organisation_name??"organisation"} account-verification message. Confirm it to join ${invitationContext?.project_name??"the invited project"}.`
-    : "Check your work email to verify the organisation owner account, then complete the organisation profile and company logo."};
+    : "Check your work email to verify the organisation owner account, then complete the organisation profile and company logo.",showResend:true};
+}
+export async function resendVerification(_:AuthState,formData:FormData):Promise<AuthState>{
+  const parsed=email.safeParse(formData.get("email"));
+  if(!parsed.success)return {errors:{email:[parsed.error.issues[0]?.message??"Enter a valid email address."]},showResend:true};
+  const requestedDestination=safeAuthDestination(String(formData.get("next")??""));
+  const invitation=requestedDestination.match(invitationDestination);
+  const supabase=await createClient();
+  if(invitation){
+    const {data,error:invitationError}=await supabase
+      .rpc("get_project_invitation_registration_context",{raw_token:invitation[1],candidate_email:parsed.data})
+      .maybeSingle();
+    if(invitationError||!data)return {message:"A verification email can only be resent to the exact work email on an active project invitation.",showResend:true};
+  }
+  const destination=invitation?requestedDestination:"/organisation/setup";
+  const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
+  const callbackUrl=new URL("/auth/callback",appUrl);
+  callbackUrl.searchParams.set("next",destination);
+  const {error}=await supabase.auth.resend({type:"signup",email:parsed.data,options:{emailRedirectTo:callbackUrl.toString()}});
+  if(error){
+    const code=error.code??`http_${error.status}`;
+    const guidance=code==="over_email_send_rate_limit"
+      ? "A verification email was requested recently. Wait at least 60 seconds before trying again."
+      : code==="email_address_invalid"
+        ? "Enter the exact work email used to create the account."
+        : "A fresh verification email could not be requested. Try again shortly.";
+    return {message:`${guidance} Reference: ${code}.`,showResend:true};
+  }
+  return {message:"A fresh account-verification email has been requested. Check your inbox and spam folder; the secure link may take a minute to arrive.",showResend:true};
 }
 export async function signOut(){ const supabase=await createClient(); await supabase.auth.signOut(); redirect("/login"); }
