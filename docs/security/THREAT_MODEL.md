@@ -15,6 +15,7 @@ EngiCite protects customer engineering files, extracted content, document metada
 | Credential exposure | Publishable key only in browser; service/OpenAI keys only in server processes | environment validation and deployment checklist |
 | CSRF/cross-origin mutation | Same-origin API enforcement, SameSite auth cookies, Next server-action origin checks | proxy and header check |
 | Brute force/resource exhaustion | Supabase auth limits; per-user tenant rate limits; processor request limits | migration 021 and hardening tests |
+| Malicious uploaded document | Private quarantine, signature/type/size/archive checks, ClamAV streaming scan before parsing, fail-closed user-access and DCC-review gates | migration 068 and processor malware tests |
 | Prompt injection/data exfiltration | Retrieval restricted to selected authorised revisions; citations checked against retrieved evidence | grounded chat route and citation tests |
 | Audit tampering | Append-only audit table; update/delete trigger rejects changes | migration 019 and SQL tests |
 | Supply-chain compromise | Locked dependencies, weekly audits, CodeQL and dependency review | security workflow |

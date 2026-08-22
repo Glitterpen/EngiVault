@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Protocol
 
 from .extraction import ExtractionResult, extract_document
+from .malware import (
+    DisabledMalwareScanner,
+    MalwareDetected,
+    MalwareScanner,
+    MalwareScannerUnavailable,
+)
 from .validation import FileValidationError, validate_file
 
 
@@ -36,11 +42,19 @@ class ProcessingGateway(Protocol):
                failure_detail: str | None, metrics: dict[str, object]) -> None: ...
 
 
-def process_next(gateway: ProcessingGateway, *, max_file_bytes: int = 262_144_000, embedder: object | None = None) -> str:
+def process_next(
+    gateway: ProcessingGateway,
+    *,
+    max_file_bytes: int = 262_144_000,
+    embedder: object | None = None,
+    malware_scanner: MalwareScanner | None = None,
+) -> str:
     job = gateway.claim()
     if job is None:
         return "idle"
     started = time.monotonic()
+    detected_mime: str | None = None
+    scanner = malware_scanner or DisabledMalwareScanner()
     try:
         with tempfile.TemporaryDirectory(prefix="engicite-processing-") as directory:
             source = Path(directory) / "source.bin"
@@ -48,6 +62,8 @@ def process_next(gateway: ProcessingGateway, *, max_file_bytes: int = 262_144_00
             validated = validate_file(source, declared_mime=job.declared_mime,
                                       expected_size=job.byte_size, expected_sha256=job.sha256,
                                       max_file_bytes=max_file_bytes)
+            detected_mime = validated.detected_mime
+            scan = scanner.scan(source)
             result = extract_document(source, validated.detected_mime)
             gateway.replace_units(job, result)
             embeddings: list[list[float]] = []
@@ -62,10 +78,25 @@ def process_next(gateway: ProcessingGateway, *, max_file_bytes: int = 262_144_00
             gateway.replace_search_chunks(job,result,embeddings,embedding_model)
             metrics = {**result.metrics, "preview_strategy": result.preview_strategy,
                        "semantic_indexed": bool(embeddings),
+                       "malware_scan": scan.status, "malware_engine": scan.engine,
                        "duration_ms": round((time.monotonic() - started) * 1000)}
             gateway.finish(job, succeeded=True, retryable=False, detected_mime=validated.detected_mime,
                            failure_code=None, failure_detail=None, metrics=metrics)
         return "processed"
+    except MalwareDetected:
+        gateway.finish(job, succeeded=False, retryable=False, detected_mime=detected_mime,
+                       failure_code="MALWARE_DETECTED",
+                       failure_detail="The uploaded file failed the malware scan.",
+                       metrics={"malware_scan": "infected",
+                                "duration_ms": round((time.monotonic() - started) * 1000)})
+        return "failed"
+    except MalwareScannerUnavailable:
+        gateway.finish(job, succeeded=False, retryable=True, detected_mime=detected_mime,
+                       failure_code="MALWARE_SCANNER_UNAVAILABLE",
+                       failure_detail="The security scan could not be completed.",
+                       metrics={"malware_scan": "unavailable",
+                                "duration_ms": round((time.monotonic() - started) * 1000)})
+        return "retrying"
     except FileValidationError as error:
         gateway.finish(job, succeeded=False, retryable=False, detected_mime=None,
                        failure_code=error.code, failure_detail=error.detail,

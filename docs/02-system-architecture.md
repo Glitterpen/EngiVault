@@ -32,6 +32,7 @@ The Next.js application is the browser-facing backend-for-frontend (BFF). Supaba
 | Private object storage | Original, quarantine, rendered, preview, and comparison artifacts | Private; signed access only |
 | Queue | Durable, retryable, scoped processing messages | Internal |
 | FastAPI service/workers | Validation, malware scan integration, extraction, rendering, chunking, embeddings, comparison, retrieval | Private trusted service |
+| ClamAV daemon | Signature-based streaming scan of quarantined uploads before any document parser runs | Private security service; unauthenticated port never exposed publicly |
 | OpenAI API | Embeddings and answer generation from minimum authorised context | External processor |
 | Email provider | Invitation and transactional email | External processor |
 | Observability | Redacted logs, metrics, traces, alerts | Restricted operations access |

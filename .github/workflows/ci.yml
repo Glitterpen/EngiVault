@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROCESSOR_SHARED_SECRET: ci-only-processor-secret-32-characters
+      MALWARE_SCAN_MODE: disabled
     defaults:
       run:
         working-directory: services/processor

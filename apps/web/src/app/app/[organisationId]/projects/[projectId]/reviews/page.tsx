@@ -76,7 +76,7 @@ export default async function ReviewsPage({
         {rows.length ? (
           rows.map((row) => {
             const enhancedPreviewAvailable = row.state === "ready";
-            const canReview = row.state !== "pending_upload";
+            const canReview = row.state === "ready";
             const previewHref = `/app/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/preview`;
             const downloadHref = `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/download`;
 
@@ -108,18 +108,9 @@ export default async function ReviewsPage({
                       >
                         <Eye size={16} /> Open secure preview
                       </Link>
-                    ) : canReview ? (
-                      <a
-                        href={downloadHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ev-button"
-                      >
-                        <Eye size={16} /> Open original for review
-                      </a>
                     ) : (
                       <span className="inline-flex items-center gap-2 rounded-xl bg-[#fff7dd] px-3 py-2 text-xs font-semibold text-[#7a5a00]">
-                        <Clock3 size={15} /> Waiting for upload completion
+                        <Clock3 size={15} /> Security processing: {row.state.replaceAll("_", " ")}
                       </span>
                     )}
                     {enhancedPreviewAvailable && (
@@ -131,11 +122,6 @@ export default async function ReviewsPage({
                       >
                         <Download size={16} /> Original file
                       </a>
-                    )}
-                    {!enhancedPreviewAvailable && canReview && (
-                      <span className="inline-flex items-center gap-2 rounded-xl bg-[#eef4f1] px-3 py-2 text-xs font-semibold capitalize text-[#0c5b45]">
-                        <Clock3 size={15} /> Processing: {row.state.replaceAll("_", " ")}
-                      </span>
                     )}
                   </div>
                 </div>
@@ -172,15 +158,10 @@ export default async function ReviewsPage({
                         document number, revision and issue status conform to the MDR.
                       </span>
                     </label>
-                    {!enhancedPreviewAvailable && canReview && (
-                      <p className="mt-2 text-xs font-medium text-[#0c5b45]">
-                        Content extraction is still processing, but it does not block the DCC
-                        conformance review of the secured original file.
-                      </p>
-                    )}
                     {!canReview && (
                       <p className="mt-2 text-xs font-medium text-[#7a5a00]">
-                        Approval remains unavailable until the secure upload finishes.
+                        Preview, download and approval remain unavailable until antivirus scanning,
+                        file validation and secure processing finish successfully.
                       </p>
                     )}
                   </div>
@@ -195,7 +176,8 @@ export default async function ReviewsPage({
                       name="decision"
                       value="returned"
                       formNoValidate
-                      className="ev-button-secondary text-[#a5452f]"
+                      disabled={!canReview}
+                      className="ev-button-secondary text-[#a5452f] disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <RotateCcw size={16} /> Return
                     </button>

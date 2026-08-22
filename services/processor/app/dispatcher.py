@@ -5,6 +5,7 @@ import time
 from .config import settings
 from .embeddings import OpenAIEmbedder
 from .gateway import SupabaseGateway
+from .malware import build_malware_scanner
 from .worker import process_next
 
 
@@ -15,9 +16,13 @@ def run_forever() -> None:
     gateway = SupabaseGateway(config.supabase_url, config.supabase_service_role_key,
                               config.storage_bucket, config.worker_name)
     embedder=OpenAIEmbedder(config.openai_api_key,config.embedding_model,config.embedding_dimensions) if config.openai_api_key else None
+    malware_scanner=build_malware_scanner(config.malware_scan_mode,host=config.clamav_host,
+                                          port=config.clamav_port,
+                                          timeout_seconds=config.clamav_timeout_seconds)
     try:
         while True:
-            outcome = process_next(gateway, max_file_bytes=config.max_file_bytes,embedder=embedder)
+            outcome = process_next(gateway, max_file_bytes=config.max_file_bytes,
+                                   embedder=embedder,malware_scanner=malware_scanner)
             if outcome == "idle":
                 time.sleep(max(0.25, config.worker_poll_seconds))
     finally:

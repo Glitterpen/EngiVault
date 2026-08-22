@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,10 @@ class Settings(BaseSettings):
     worker_name: str = "engicite-processor-local"
     worker_poll_seconds: float = 2.0
     max_file_bytes: int = 262_144_000
+    malware_scan_mode: Literal["disabled", "clamav"]
+    clamav_host: str = "127.0.0.1"
+    clamav_port: int = Field(default=3310, ge=1, le=65535)
+    clamav_timeout_seconds: float = Field(default=120.0, ge=1.0, le=300.0)
     openai_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
@@ -32,6 +37,14 @@ class Settings(BaseSettings):
     qualified_tsa_username: str = ""
     qualified_tsa_password: str = ""
     model_config = SettingsConfigDict(env_file=(".env", "../../.env.local"), extra="ignore")
+
+    @model_validator(mode="after")
+    def require_production_malware_scanning(self) -> "Settings":
+        if self.environment.lower() in {"staging", "production"} and self.malware_scan_mode != "clamav":
+            raise ValueError("MALWARE_SCAN_MODE=clamav is required outside development")
+        if self.malware_scan_mode == "clamav" and not self.clamav_host.strip():
+            raise ValueError("CLAMAV_HOST is required when malware scanning is enabled")
+        return self
 
 @lru_cache
 def settings() -> Settings:

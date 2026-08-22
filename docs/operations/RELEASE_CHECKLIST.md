@@ -14,6 +14,8 @@
 - [ ] Export and two-person tenant deletion exercises pass.
 - [ ] Domain, TLS, HSTS, CSP, DNS and email redirect URLs are verified.
 - [ ] Hosting/processor secrets are stored server-side and rotated from development values.
+- [ ] ClamAV is privately reachable from the processor, signatures are current, and production has `MALWARE_SCAN_MODE=clamav`.
+- [ ] A safe antivirus test upload is quarantined and cannot be previewed, downloaded, approved or transmitted.
 - [ ] Dashboards, paging contacts, budget alerts and incident channel are active.
 - [ ] Migration marker and rollback owner are recorded.
 - [ ] Privacy terms confirm customer documents are not used for model training.

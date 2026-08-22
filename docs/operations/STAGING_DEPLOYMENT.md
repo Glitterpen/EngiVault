@@ -4,6 +4,7 @@
 
 - Deploy the Next.js application as the public web service.
 - Deploy `services/processor/Dockerfile` as a private Python service with outbound HTTPS access.
+- Deploy a maintained ClamAV daemon on the same private network. Do not expose its TCP port to the internet.
 - Keep PostgreSQL, Auth and private object storage in the configured Supabase project.
 - Do not expose the processor directly to end users. If the host cannot provide private networking, restrict ingress and require the long random `PROCESSOR_SHARED_SECRET` on every non-health request.
 
@@ -31,9 +32,18 @@
 - `PROCESSOR_SHARED_SECRET` matching the web service
 - `STORAGE_BUCKET=documents`
 - `WORKER_NAME` unique per deployed worker
+- `MALWARE_SCAN_MODE=clamav` (mandatory in staging and production)
+- `CLAMAV_HOST` private DNS name or sidecar address for the ClamAV daemon
+- `CLAMAV_PORT=3310`
+- `CLAMAV_TIMEOUT_SECONDS=120` (tune only from measured large-file scan times)
 - `OPENAI_API_KEY` only after billing and approved data controls are active
 
 Never place service-role, processor or OpenAI secrets in a `NEXT_PUBLIC_*` variable, source control, container image or browser configuration.
+Keep ClamAV on private networking, update its signature database continuously, and alert when the
+processor readiness endpoint reports that the scanner is unavailable. The processor fails closed:
+files remain quarantined and unavailable to users until a clean scan completes.
+Set ClamAV's `StreamMaxLength` to at least the EngiCite upload limit of 250 MB; a lower daemon limit
+will safely reject larger uploads and keep them quarantined instead of bypassing scanning.
 Never place the Paystack secret key in a `NEXT_PUBLIC_*` variable. Configure Paystack's webhook URL as
 `https://YOUR-APP/api/v1/billing/paystack/webhook`; EngiCite validates the raw-body SHA-512 signature
 before it processes any subscription state.
@@ -50,9 +60,12 @@ before it processes any subscription state.
 
 ## Acceptance sequence
 
-1. Deploy processor and verify `/internal/v1/health/live` and `/internal/v1/health/ready`.
+1. Deploy ClamAV, confirm current signatures, then deploy the processor and verify
+   `/internal/v1/health/live` and `/internal/v1/health/ready`.
 2. Deploy web with the processor's private URL and matching internal credential.
 3. Configure Supabase Site URL and exact authentication redirect URLs for staging.
-4. Exercise registration, login, tenant isolation, invitation, upload, processing, preview, progress, package generation and signed package download.
+4. Exercise registration, login, tenant isolation, invitation, upload, processing, preview, progress,
+   package generation and signed package download. Include a safe antivirus test file and confirm it
+   cannot be previewed, downloaded, approved or added to a transmittal.
 5. Run `scripts/check-security-headers.mjs` and `scripts/load-smoke.mjs` against the staging URL.
 6. Record results in the production release checklist before promoting the same immutable build.

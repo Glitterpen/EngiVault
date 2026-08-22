@@ -4,6 +4,7 @@ from pathlib import Path
 from pypdf import PdfWriter
 
 from app.extraction import ExtractionResult
+from app.malware import MalwareDetected, MalwareScannerUnavailable, MalwareScanResult
 from app.validation import MIME_PDF
 from app.worker import ProcessingJob, process_next
 
@@ -90,3 +91,39 @@ def test_embedding_failure_still_completes_full_text_processing(tmp_path: Path) 
     assert gateway.finished is not None
     assert gateway.finished["succeeded"] is True
     assert gateway.finished["metrics"]["semantic_indexed"] is False  # type: ignore[index]
+
+
+def test_detected_malware_never_reaches_document_parser(tmp_path: Path) -> None:
+    class InfectedScanner:
+        def scan(self, _: Path) -> MalwareScanResult:
+            raise MalwareDetected("detected")
+
+        def ready(self) -> None:
+            return None
+
+    content = pdf_bytes(tmp_path)
+    gateway = FakeGateway(content, job_for(content))
+
+    assert process_next(gateway, malware_scanner=InfectedScanner()) == "failed"
+    assert gateway.result is None
+    assert gateway.finished is not None
+    assert gateway.finished["failure_code"] == "MALWARE_DETECTED"
+    assert gateway.finished["retryable"] is False
+
+
+def test_unavailable_scanner_keeps_revision_quarantined_for_retry(tmp_path: Path) -> None:
+    class UnavailableScanner:
+        def scan(self, _: Path) -> MalwareScanResult:
+            raise MalwareScannerUnavailable("unavailable")
+
+        def ready(self) -> None:
+            return None
+
+    content = pdf_bytes(tmp_path)
+    gateway = FakeGateway(content, job_for(content))
+
+    assert process_next(gateway, malware_scanner=UnavailableScanner()) == "retrying"
+    assert gateway.result is None
+    assert gateway.finished is not None
+    assert gateway.finished["failure_code"] == "MALWARE_SCANNER_UNAVAILABLE"
+    assert gateway.finished["retryable"] is True

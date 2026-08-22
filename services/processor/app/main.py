@@ -1,6 +1,8 @@
 import hmac
+import tempfile
 import time
 from collections import defaultdict, deque
+from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
@@ -12,6 +14,7 @@ from .config import settings
 from .electronic_seal import AdobeIntesiElectronicSealer, AdobeIntesiSealConfig
 from .embeddings import OpenAIEmbedder
 from .gateway import GatewayError, SupabaseGateway
+from .malware import MalwareDetected, MalwareScannerUnavailable, build_malware_scanner
 from .mdr_import import MdrImportError, parse_mdr_workbook
 from .packages import build_package
 from .project_backups import build_project_backup
@@ -95,7 +98,21 @@ async def parse_mdr_import(request: Request, x_filename: str = Header(default="M
     if not content or len(content) > 5_242_880:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Excel file must be no larger than 5 MB")
     try:
+        config = settings()
+        scanner = build_malware_scanner(config.malware_scan_mode, host=config.clamav_host,
+                                        port=config.clamav_port,
+                                        timeout_seconds=config.clamav_timeout_seconds)
+        with tempfile.TemporaryDirectory(prefix="engicite-mdr-import-") as directory:
+            source = Path(directory) / "import.xlsx"
+            source.write_bytes(content)
+            scanner.scan(source)
         return parse_mdr_workbook(content, x_filename)
+    except MalwareDetected as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="The workbook failed the security scan.") from error
+    except MalwareScannerUnavailable as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="The workbook security scan is temporarily unavailable.") from error
     except MdrImportError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
 
@@ -105,9 +122,18 @@ def live() -> dict[str, str]:
 
 @app.get("/internal/v1/health/ready")
 def ready() -> dict[str, str]:
-    configured = settings().supabase_url and settings().supabase_service_role_key
+    config = settings()
+    configured = config.supabase_url and config.supabase_service_role_key
     if not configured:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Processor storage is not configured")
+    scanner = build_malware_scanner(config.malware_scan_mode, host=config.clamav_host,
+                                    port=config.clamav_port,
+                                    timeout_seconds=config.clamav_timeout_seconds)
+    try:
+        scanner.ready()
+    except MalwareScannerUnavailable as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Processor malware scanner is unavailable") from error
     return {"status": "ready"}
 
 @app.post("/internal/v1/process-next", dependencies=[Depends(require_service)])
@@ -118,8 +144,12 @@ def process_next_revision() -> dict[str, str]:
     gateway = SupabaseGateway(config.supabase_url, config.supabase_service_role_key,
                               config.storage_bucket, config.worker_name)
     embedder = OpenAIEmbedder(config.openai_api_key,config.embedding_model,config.embedding_dimensions) if config.openai_api_key else None
+    malware_scanner=build_malware_scanner(config.malware_scan_mode,host=config.clamav_host,
+                                          port=config.clamav_port,
+                                          timeout_seconds=config.clamav_timeout_seconds)
     try:
-        outcome = process_next(gateway, max_file_bytes=config.max_file_bytes,embedder=embedder)
+        outcome = process_next(gateway,max_file_bytes=config.max_file_bytes,embedder=embedder,
+                               malware_scanner=malware_scanner)
     finally:
         gateway.close()
         if embedder: embedder.close()
