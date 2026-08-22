@@ -1,11 +1,12 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     environment: str = "development"
-    processor_shared_secret: str = "local-development-only"
+    processor_shared_secret: str = Field(min_length=32)
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     storage_bucket: str = "documents"
