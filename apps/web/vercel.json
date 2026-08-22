@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/internal/cron/project-backups",
-      "schedule": "15 * * * *"
+      "schedule": "15 2 * * *"
     }
   ]
 }
