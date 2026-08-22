@@ -1,4 +1,4 @@
-export const ORGANISATION_TRIAL_DAYS = 30;
+export const ORGANISATION_TRIAL_DAYS = 90;
 
 export type SubscriptionStatus =
   | "trialing"
@@ -6,25 +6,6 @@ export type SubscriptionStatus =
   | "past_due"
   | "paused"
   | "cancelled";
-
-export function localSubscriptionStatus(providerStatus: string): SubscriptionStatus {
-  switch (providerStatus) {
-    case "trialing":
-      return "trialing";
-    case "active":
-      return "active";
-    case "paused":
-      return "paused";
-    case "canceled":
-    case "incomplete_expired":
-      return "cancelled";
-    case "past_due":
-    case "incomplete":
-    case "unpaid":
-    default:
-      return "past_due";
-  }
-}
 
 export function paystackSubscriptionStatus(providerStatus: string): SubscriptionStatus {
   switch (providerStatus) {
@@ -46,8 +27,4 @@ export function trialDaysRemaining(trialEndsAt: string | null, now = new Date())
   if (!trialEndsAt) return 0;
   const remaining = new Date(trialEndsAt).getTime() - now.getTime();
   return Math.max(0, Math.ceil(remaining / 86_400_000));
-}
-
-export function fromUnixTime(value: number | null | undefined): string | null {
-  return value ? new Date(value * 1000).toISOString() : null;
 }

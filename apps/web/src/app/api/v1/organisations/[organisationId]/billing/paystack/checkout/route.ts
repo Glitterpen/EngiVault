@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireBillingAdministrator, trustedBillingRequest } from "@/lib/billing-access";
+import { ORGANISATION_TRIAL_DAYS } from "@/lib/billing";
 import { initializePaystackSubscription } from "@/lib/paystack";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -33,21 +34,26 @@ export async function POST(
   try {
     if (!access.user.email) throw new Error("The billing administrator has no verified email.");
     const admin = createAdminClient();
-    const { data: localSubscription } = await admin
-      .from("subscriptions")
-      .select("status,trial_ends_at,provider_subscription_reference")
-      .eq("organisation_id", organisationId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: localSubscription }, { data: organisation }] = await Promise.all([
+      admin
+        .from("subscriptions")
+        .select("status,trial_ends_at,provider_subscription_reference")
+        .eq("organisation_id", organisationId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin.from("organisations").select("created_at").eq("id", organisationId).maybeSingle(),
+    ]);
     if (localSubscription?.provider_subscription_reference) {
       return NextResponse.redirect(new URL(`${returnUrl}?billing=already-subscribed`), 303);
     }
-    if (
-      localSubscription?.status === "trialing" &&
-      localSubscription.trial_ends_at &&
-      new Date(localSubscription.trial_ends_at).getTime() > Date.now()
-    ) {
+    const organisationPilotEnd = organisation?.created_at
+      ? new Date(organisation.created_at).getTime() + ORGANISATION_TRIAL_DAYS * 86_400_000
+      : 0;
+    const subscriptionPilotEnd = localSubscription?.trial_ends_at
+      ? new Date(localSubscription.trial_ends_at).getTime()
+      : 0;
+    if (Math.max(organisationPilotEnd, subscriptionPilotEnd) > Date.now()) {
       return NextResponse.redirect(new URL(`${returnUrl}?billing=paystack-after-trial`), 303);
     }
 

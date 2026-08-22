@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser, requireProject } from "@/lib/auth";
+import { requireAuthenticatedUser, requireUser, requireProject } from "@/lib/auth";
 import { DOCUMENT_ISSUE_STATUS_VALUES, isDocumentIssueStatus } from "@/lib/document-issue-status";
 import { organisationLogoValidation,projectLogoValidation } from "@/lib/file-validation";
 import { canCreateOrganisationWorkspace } from "@/lib/role-experience";
@@ -19,7 +19,7 @@ export async function createOrganisation(_:MutationState,form:FormData):Promise<
  if(!(logo instanceof File))return {message:"Choose your company logo."};
  const logoError=organisationLogoValidation(logo.size,logo.type,new Uint8Array(await logo.slice(0,16).arrayBuffer()));
  if(logoError)return {message:logoError};
- const {supabase,user}=await requireUser();
+ const {supabase,user}=await requireAuthenticatedUser();
  const {data:memberships,error:membershipError}=await supabase.rpc("get_my_organisations");
  if(membershipError)return {message:"Organisation creation permission could not be verified."};
  const organisationRoles=(memberships??[]).map((membership:{role:string})=>String(membership.role));

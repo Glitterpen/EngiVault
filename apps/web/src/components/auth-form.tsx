@@ -11,9 +11,9 @@ export function AuthForm({mode,action,next,accessDenied=false}:{mode:"login"|"re
   const alternateBase=registering?"/login":"/register";
   const alternateHref=next?`${alternateBase}?next=${encodeURIComponent(next)}`:alternateBase;
   return <div className="w-full max-w-md">
-    <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">{organisationRegistration?"Organisation onboarding":"Secure workspace"}</p>
-    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Welcome back"}</h2>
-    <p className="mt-2 text-sm leading-6 text-[#617083]">{organisationRegistration?"Individual self-registration is not available. This creates the organisation owner account; project staff must join through invitations.":invitation?(registering?"Use the exact work email that received the organisation-controlled project invitation.":"Sign in using the exact work email that received the project invitation."):"Sign in to an organisation and project role already assigned to your account."}</p>
+    <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">{organisationRegistration?"Organisation onboarding":invitation?"Project invitation":"Organisation-controlled access"}</p>
+    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Sign in to EngiCite"}</h2>
+    <p className="mt-2 text-sm leading-6 text-[#617083]">{organisationRegistration?"Create the organisation owner account and private company workspace. Project Managers, Document Controllers and Discipline Engineers join only through organisation-controlled invitations.":invitation?(registering?"Use the exact work email that received your project invitation. Your assigned role and discipline will be applied automatically.":"Sign in with the exact work email that received your project invitation."):"Open the secure workspace assigned to you as an Organisation Administrator, Project Manager, Document Controller or Discipline Engineer. Your role and discipline control what you can see and do."}</p>
     {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
     <form action={formAction} className="mt-8 space-y-5">
       {next&&<input type="hidden" name="next" value={next}/>}
@@ -24,7 +24,7 @@ export function AuthForm({mode,action,next,accessDenied=false}:{mode:"login"|"re
       {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{state.message}</div>}
       <button className="ev-button w-full" disabled={pending}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
     </form>
-    <p className="mt-6 text-center text-sm text-[#617083]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Representing a new organisation? "}<Link className="font-bold text-[#e8733f] hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register organisation"}</Link></p>
+    <p className="mt-6 text-center text-sm text-[#617083]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="font-bold text-[#e8733f] hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>
   </div>;
 }
 

@@ -1,9 +1,9 @@
 import {redirect} from "next/navigation";
 import {OrganisationCreateForm} from "@/components/organisation-create-form";
-import {requireUser} from "@/lib/auth";
+import {requireAuthenticatedUser} from "@/lib/auth";
 
 export default async function OrganisationSetupPage(){
-  const {supabase,user}=await requireUser();
+  const {supabase,user}=await requireAuthenticatedUser();
   const {data:organisations}=await supabase.rpc("get_my_organisations");
   if(organisations?.length)redirect("/app");
   if(user.user_metadata?.onboarding_mode!=="organisation")redirect("/login?access=required");

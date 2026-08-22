@@ -17,10 +17,6 @@
 - `PROCESSOR_URL`
 - `PROCESSOR_SHARED_SECRET`
 - `OPENAI_API_KEY` only after billing and approved data controls are active
-- `STRIPE_SECRET_KEY` server-only test or live key for the target environment
-- `STRIPE_PRICE_ID` recurring Price for the EngiCite organisation subscription
-- `STRIPE_PLAN_CODE=team` mapping the Stripe Price to the controlled EngiCite plan
-- `STRIPE_WEBHOOK_SECRET` signing secret for `/api/v1/billing/stripe/webhook`
 - `PAYSTACK_SECRET_KEY` server-only test or live secret for the target environment
 - `PAYSTACK_PLAN_CODE` recurring Paystack plan code, for example `PLN_...`
 - `PAYSTACK_PLAN_AMOUNT_SUBUNIT` plan amount in the currency subunit (for NGN, kobo)
@@ -38,8 +34,6 @@
 - `OPENAI_API_KEY` only after billing and approved data controls are active
 
 Never place service-role, processor or OpenAI secrets in a `NEXT_PUBLIC_*` variable, source control, container image or browser configuration.
-Never place Stripe secret or webhook keys in a `NEXT_PUBLIC_*` variable. Configure separate
-Stripe test and live webhook endpoints and require verified webhook state before granting paid access.
 Never place the Paystack secret key in a `NEXT_PUBLIC_*` variable. Configure Paystack's webhook URL as
 `https://YOUR-APP/api/v1/billing/paystack/webhook`; EngiCite validates the raw-body SHA-512 signature
 before it processes any subscription state.

@@ -6,6 +6,7 @@ const today = new Date("2026-08-08T12:00:00Z");
 describe("engineer deliverable status", () => {
   it("prioritises the latest DCC control decision", () => {
     expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-01",controlStatus:"accepted"},today)).toBe("accepted");
+    expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-01",controlStatus:"accepted",progressCredit:33},today)).toBe("next_revision");
     expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-01",controlStatus:"submitted"},today)).toBe("in_review");
     expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-20",controlStatus:"returned"},today)).toBe("returned");
   });
@@ -18,6 +19,7 @@ describe("engineer deliverable status", () => {
 
   it("treats returned, overdue, upcoming and unsubmitted work as actionable", () => {
     expect(requiresEngineerAction("returned")).toBe(true);
+    expect(requiresEngineerAction("next_revision")).toBe(true);
     expect(requiresEngineerAction("overdue")).toBe(true);
     expect(requiresEngineerAction("due_soon")).toBe(true);
     expect(requiresEngineerAction("not_submitted")).toBe(true);

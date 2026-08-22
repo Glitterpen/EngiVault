@@ -24,6 +24,11 @@ __pycache__/
 .docx-work/
 ~$*
 
+# Local business deliverables and working notes
+deliverables/8-week_execution_cost_phasing/
+deliverables/crudivax_energy_service_limited/
+services/processor/what we noticed in the new developm.md
+
 # IDE and OS
 .DS_Store
 Thumbs.db

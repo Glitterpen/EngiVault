@@ -1,5 +1,10 @@
 # Production operational acceptance
 
+- [ ] Database and private Storage backups completed before the update; recovery marker recorded.
+- [ ] Non-destructive migration guard passes and every migration is additive or backward compatible.
+- [ ] Existing document-revision IDs, Storage paths, filenames, byte sizes and SHA-256 values remain unchanged.
+- [ ] Pre- and post-deployment tenant manifests reconcile project, document, revision, audit-event and Storage-object counts.
+- [ ] A signed download and SHA-256 sample confirms existing PDF, DOCX, XLSX and DWG files remain intact.
 - [ ] Threat model reviewed and residual risks accepted.
 - [ ] CI, CodeQL, dependency audits, RLS and permission tests pass.
 - [ ] Independent penetration test has no open critical/high findings.

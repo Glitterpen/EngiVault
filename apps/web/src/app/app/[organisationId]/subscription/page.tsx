@@ -10,9 +10,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
-import { trialDaysRemaining } from "@/lib/billing";
+import { ORGANISATION_TRIAL_DAYS, trialDaysRemaining } from "@/lib/billing";
 import { isPaystackCheckoutConfigured } from "@/lib/paystack";
-import { isStripeCheckoutConfigured } from "@/lib/stripe";
 
 type SearchParams = { checkout?: string; billing?: string };
 type Entitlements = {
@@ -62,11 +61,11 @@ export default async function SubscriptionPage({
   const plan = Array.isArray(subscription?.plans) ? subscription.plans[0] : subscription?.plans;
   const entitlements = (plan?.entitlements ?? {}) as Entitlements;
   const trialDays = trialDaysRemaining(subscription?.trial_ends_at ?? null);
-  const stripeReady = isStripeCheckoutConfigured();
+  const pilotActive = subscription?.status === "trialing" && trialDays > 0;
   const paystackReady = isPaystackCheckoutConfigured();
   const providerSubscription = Boolean(subscription?.provider_subscription_reference);
   const activeProvider = providerSubscription
-    ? (subscription?.provider_name ?? billingCustomer?.provider_name ?? "stripe")
+    ? (subscription?.provider_name ?? billingCustomer?.provider_name ?? "paystack")
     : null;
   const message = pageMessage(query);
 
@@ -90,7 +89,7 @@ export default async function SubscriptionPage({
           </p>
         </div>
         <span className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ed] px-3 py-2 text-xs font-bold text-[#0c5b45]">
-          <ShieldCheck size={15} /> Secure hosted payment options
+          <ShieldCheck size={15} /> Secure hosted payment
         </span>
       </div>
 
@@ -110,18 +109,20 @@ export default async function SubscriptionPage({
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold">{plan?.name ?? "EngiCite Trial"}</h2>
                 <p className="mt-2 text-sm text-white/65">
-                  {subscription?.status === "trialing"
-                    ? `${trialDays} day${trialDays === 1 ? "" : "s"} remaining in the free trial`
+                  {pilotActive
+                    ? `${trialDays} day${trialDays === 1 ? "" : "s"} remaining in the card-free pilot`
                     : statusDescription(subscription?.status)}
                 </p>
               </div>
               <StatusBadge status={subscription?.status ?? "unassigned"} />
             </div>
-            {subscription?.status === "trialing" && (
+            {pilotActive && (
               <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/15">
                 <div
                   className="h-full rounded-full bg-[#ed7138]"
-                  style={{ width: `${Math.max(3, Math.min(100, (trialDays / 30) * 100))}%` }}
+                  style={{
+                    width: `${Math.max(3, Math.min(100, (trialDays / ORGANISATION_TRIAL_DAYS) * 100))}%`,
+                  }}
                 />
               </div>
             )}
@@ -146,6 +147,16 @@ export default async function SubscriptionPage({
                 {(totals.get("ai_tokens") ?? 0).toLocaleString()} tokens
               </p>
             </div>
+            <div className="mt-4 rounded-xl border border-[#bcd8cc] bg-[#f0f8f4] p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]">
+                <ShieldCheck size={16} /> Workspace continuity protected
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#47665b]">
+                If the pilot or a subscription ends, EngiCite pauses paid workspace access without
+                deleting project history or files. Reactivation returns the organisation to the same
+                projects, records and audit trail.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -154,17 +165,23 @@ export default async function SubscriptionPage({
             <CreditCard size={20} />
           </span>
           <h2 className="mt-4 text-xl font-semibold">
-            {providerSubscription ? "Manage subscription" : "Continue after your trial"}
+            {providerSubscription
+              ? "Manage subscription"
+              : pilotActive
+                ? "Your three-month pilot"
+                : "Continue with Paystack"}
           </h2>
           <p className="mt-2 text-sm leading-6 text-[#617083]">
             {providerSubscription
               ? `Open the secure ${providerLabel(activeProvider)} billing page to update payment details or manage the subscription.`
-              : "Choose Stripe or Paystack. The provider shows the exact price and billing interval before you confirm payment."}
+              : pilotActive
+                ? "Use EngiCite throughout the pilot without entering a card or any payment details."
+                : "Paystack shows the exact price and billing interval before you confirm payment."}
           </p>
 
           {!providerSubscription && (
             <ul className="mt-5 space-y-3 text-sm text-[#24384f]">
-              <Benefit>No payment is taken before the trial ends</Benefit>
+              <Benefit>No card or payment details are required during the pilot</Benefit>
               <Benefit>Card details never pass through EngiCite</Benefit>
               <Benefit>Only a verified payment webhook activates access</Benefit>
             </ul>
@@ -182,58 +199,35 @@ export default async function SubscriptionPage({
                 </button>
               </form>
             ) : (
-              <form
-                className="mt-6"
-                action={`/api/v1/organisations/${organisationId}/billing/portal`}
-                method="post"
-              >
-                <button className="ev-button w-full" type="submit" disabled={!stripeReady}>
-                  <ExternalLink size={16} /> Manage with Stripe
-                </button>
-              </form>
+              <div className="mt-6 rounded-lg bg-[#fff8f4] px-3 py-2 text-xs leading-5 text-[#8a4b30]">
+                This subscription uses a retired payment provider. Contact EngiCite support before
+                changing its payment details.
+              </div>
             )
+          ) : pilotActive ? (
+            <div className="mt-6 rounded-xl border border-[#bcd8cc] bg-[#f0f8f4] p-4 text-sm leading-6 text-[#0c5b45]">
+              <p className="font-semibold">No card required</p>
+              <p className="mt-1">
+                Paystack checkout will become available after the pilot. You have {trialDays} day
+                {trialDays === 1 ? "" : "s"} remaining.
+              </p>
+            </div>
           ) : (
-            <div className="mt-6 space-y-3">
-              <PaymentOption
-                description="Card checkout with deferred first billing while the trial is active."
-                icon={<CreditCard size={18} />}
-                name="Stripe"
-              >
-                {stripeReady ? (
-                  <form
-                    action={`/api/v1/organisations/${organisationId}/billing/checkout`}
-                    method="post"
-                  >
-                    <button className="ev-button w-full" type="submit">
-                      <Sparkles size={16} /> Continue with Stripe
-                    </button>
-                  </form>
-                ) : (
-                  <ConfigurationNotice provider="Stripe" />
-                )}
-              </PaymentOption>
-
+            <div className="mt-6">
               <PaymentOption
                 description="Local and international payment channels supported by your Paystack account."
                 icon={<Building2 size={18} />}
                 name="Paystack"
               >
                 {paystackReady ? (
-                  trialDays > 0 && subscription?.status === "trialing" ? (
-                    <div className="rounded-lg bg-[#f5f8f7] px-3 py-2 text-xs leading-5 text-[#617083]">
-                      Available in {trialDays} day{trialDays === 1 ? "" : "s"}. Paystack charges the
-                      first plan payment at checkout, so EngiCite will not open it early.
-                    </div>
-                  ) : (
-                    <form
-                      action={`/api/v1/organisations/${organisationId}/billing/paystack/checkout`}
-                      method="post"
-                    >
-                      <button className="ev-button w-full" type="submit">
-                        <Sparkles size={16} /> Continue with Paystack
-                      </button>
-                    </form>
-                  )
+                  <form
+                    action={`/api/v1/organisations/${organisationId}/billing/paystack/checkout`}
+                    method="post"
+                  >
+                    <button className="ev-button w-full" type="submit">
+                      <Sparkles size={16} /> Continue with Paystack
+                    </button>
+                  </form>
                 ) : (
                   <ConfigurationNotice provider="Paystack" />
                 )}
@@ -334,13 +328,13 @@ function statusDescription(status?: string) {
 }
 
 function providerLabel(provider: string | null) {
-  return provider === "paystack" ? "Paystack" : "Stripe";
+  return provider === "paystack" ? "Paystack" : "legacy provider";
 }
 
 function pageMessage(query: SearchParams) {
   if (query.checkout === "success") {
     return {
-      text: "Checkout completed. Stripe is confirming the subscription; this page will reflect the verified webhook shortly.",
+      text: "Checkout completed. The payment provider is confirming the subscription; this page will update after verification.",
       tone: "border-[#bcd8cc] bg-[#f0f8f4] text-[#0c5b45]",
     };
   }
@@ -359,13 +353,13 @@ function pageMessage(query: SearchParams) {
   if (query.billing) {
     if (query.billing === "trial-ended") {
       return {
-        text: "Your 30-day trial has ended. Activate the organisation subscription to reopen its project workspaces.",
+        text: "Your 90-day pilot has ended. Activate the organisation subscription to reopen its project workspaces.",
         tone: "border-[#f0c9b7] bg-[#fff8f4] text-[#8a4b30]",
       };
     }
     if (query.billing === "paystack-after-trial") {
       return {
-        text: "Paystack checkout opens when the free trial ends because its plan checkout charges the first payment immediately. You can use Stripe now or return at the end of the trial.",
+        text: "Paystack checkout opens after the 90-day card-free pilot because its plan checkout charges the first payment immediately. Return at the end of the pilot to subscribe.",
         tone: "border-[#dce2e9] bg-white text-[#617083]",
       };
     }

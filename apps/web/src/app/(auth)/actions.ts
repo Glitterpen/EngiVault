@@ -12,6 +12,8 @@ const registerSchema = z.object({ name:z.string().trim().min(2).max(80), email, 
 const organisationRegisterSchema=registerSchema.extend({organisationName:z.string().trim().min(2).max(100),organisationSlug:z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48)});
 const invitationDestination=/^\/invite\/([a-f0-9]{64})$/i;
 const loginRoles=new Set(["organisation_admin","project_admin","document_controller","engineer"]);
+type AccessError={code?:string;message?:string;details?:string;hint?:string};
+const accessErrorSummary=(error:AccessError|null)=>error?{code:error.code,message:error.message,details:error.details,hint:error.hint}:null;
 
 export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
   const parsed=loginSchema.safeParse(Object.fromEntries(formData));
@@ -42,7 +44,17 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
     supabase.rpc("get_my_organisations"),
     supabase.from("project_access").select("role"),
   ]);
-  if(organisationError||projectError){await supabase.auth.signOut();return {message:"Organisation access could not be verified. Try again shortly."}}
+  if(organisationError||projectError){
+    const reference=[organisationError?`org_${organisationError.code??"unknown"}`:null,projectError?`project_${projectError.code??"unknown"}`:null].filter(Boolean).join("_");
+    console.error("[auth] Organisation access verification failed",{organisation:accessErrorSummary(organisationError),project:accessErrorSummary(projectError)});
+    await supabase.auth.signOut();
+    return {message:`Organisation access could not be verified. Try again shortly. Reference: ${reference}.`};
+  }
+  if(!organisations?.length){
+    if(authentication.user?.user_metadata?.onboarding_mode==="organisation")redirect("/organisation/setup");
+    await supabase.auth.signOut();
+    return {message:"This account does not belong to an active EngiCite organisation. Ask an Organisation Administrator to send a controlled project invitation."};
+  }
   const roles=[...(organisations??[]).map((item:{role:string})=>String(item.role)),...(projects??[]).map(item=>String(item.role))];
   if(!roles.some(role=>loginRoles.has(role))){
     if(authentication.user?.user_metadata?.onboarding_mode==="organisation")redirect("/organisation/setup");

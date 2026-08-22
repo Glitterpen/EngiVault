@@ -6,6 +6,14 @@
 - Storage objects replicated or exported independently; database backups do not contain object bytes.
 - Encryption keys, service credentials and recovery access stored in an approved secrets manager.
 
+## Before every application, feature or security update
+
+1. Record a PostgreSQL backup/PITR marker and export the current organisation manifest.
+2. Back up private Storage separately while preserving bucket names and complete object paths.
+3. Record document-revision and Storage-object counts plus a representative SHA-256 sample.
+4. Apply the update to staging restored from production-shaped data and run the non-destructive migration guard.
+5. Deploy only after the post-update counts and sampled hashes match the pre-update evidence.
+
 ## Quarterly restore drill
 
 1. Record the source backup timestamp and a restore ticket. Restore into a new isolated project, never over production.
