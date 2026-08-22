@@ -41,13 +41,17 @@ export async function POST(request:Request,ctx:{params:Promise<{organisationId:s
   }
 
   const invitation=data as RenewedInvitation;
-  const {data:project}=await supabase.from("projects").select("name,project_introduction,key_objectives,planned_start_date,planned_end_date").eq("organisation_id",organisationId).eq("id",projectId).single();
+  const [{data:project},{data:organisation}]=await Promise.all([
+    supabase.from("projects").select("name,project_introduction,key_objectives,planned_start_date,planned_end_date").eq("organisation_id",organisationId).eq("id",projectId).single(),
+    supabase.from("organisations").select("name").eq("id",organisationId).single()
+  ]);
   const base=process.env.NEXT_PUBLIC_APP_URL??new URL(request.url).origin;
   const acceptUrl=`${base}/invite/${raw}`;
   const delivery=await sendInvitationEmail({
     to:invitation.email,
     acceptUrl,
     projectName:project?.name??"your EngiCite project",
+    organisationName:organisation?.name,
     projectIntroduction:project?.project_introduction,
     keyObjectives:project?.key_objectives,
     plannedStart:project?.planned_start_date,
