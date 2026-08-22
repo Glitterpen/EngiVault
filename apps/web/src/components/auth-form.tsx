@@ -20,12 +20,15 @@ export function AuthForm({mode,action,resendAction,next,accessDenied=false}:{mod
       {next&&<input type="hidden" name="next" value={next}/>}
       {registering&&<Field label="Full name" name="name" autoComplete="name" error={state?.errors?.name?.[0]}/>}
       {organisationRegistration&&<><Field label="Organisation name" name="organisationName" autoComplete="organization" error={state?.errors?.organisationName?.[0]}/><Field label="Organisation URL name" name="organisationSlug" hint="Lowercase letters, numbers and hyphens, e.g. north-field-engineering" error={state?.errors?.organisationSlug?.[0]}/></>}
-      <Field label="Work email" name="email" type="email" autoComplete="email" error={state?.errors?.email?.[0]}/>
+      <Field label="Work email" name="email" type="email" autoComplete="email" error={state?.errors?.email?.[0]??resendState?.errors?.email?.[0]}/>
       <Field label="Password" name="password" type="password" autoComplete={registering?"new-password":"current-password"} hint={registering?"Minimum 12 characters":undefined} error={state?.errors?.password?.[0]}/>
       {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{state.message}</div>}
       {resendState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resendState.message}</div>}
       <button className="ev-button w-full" disabled={pending}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
-      {(state?.showResend||resendState?.showResend)&&<button className="ev-button-secondary w-full justify-center" type="submit" formAction={resendFormAction} disabled={pending||resendPending}>{resendPending?"Requesting verification...":"Resend verification email"}</button>}
+      <div className="rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-3">
+        <p className="text-xs leading-5 text-[#617083]">Already created this account but no verification email arrived? Enter the exact work email above. A password is not required for this request.</p>
+        <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resendFormAction} formNoValidate disabled={pending||resendPending}>{resendPending?"Requesting verification...":"Resend verification email"}</button>
+      </div>
     </form>
     <p className="mt-6 text-center text-sm text-[#617083]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="font-bold text-[#e8733f] hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>
   </div>;
