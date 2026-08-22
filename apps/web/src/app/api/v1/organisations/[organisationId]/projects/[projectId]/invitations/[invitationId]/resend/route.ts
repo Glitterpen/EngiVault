@@ -13,6 +13,7 @@ type RenewedInvitation={
   last_sent_at:string;
   send_count:number;
 };
+type InvitationIdentity={organisation_name:string;project_name:string};
 
 export async function POST(request:Request,ctx:{params:Promise<{organisationId:string;projectId:string;invitationId:string}>}){
   const {organisationId,projectId,invitationId}=await ctx.params;
@@ -41,17 +42,19 @@ export async function POST(request:Request,ctx:{params:Promise<{organisationId:s
   }
 
   const invitation=data as RenewedInvitation;
-  const [{data:project},{data:organisation}]=await Promise.all([
+  const [{data:project},{data:invitationContext,error:identityError}]=await Promise.all([
     supabase.from("projects").select("name,project_introduction,key_objectives,planned_start_date,planned_end_date").eq("organisation_id",organisationId).eq("id",projectId).single(),
-    supabase.from("organisations").select("name").eq("id",organisationId).single()
+    supabase.rpc("get_project_invitation_registration_context",{raw_token:raw,candidate_email:invitation.email}).maybeSingle()
   ]);
   const base=process.env.NEXT_PUBLIC_APP_URL??new URL(request.url).origin;
   const acceptUrl=`${base}/invite/${raw}`;
-  const delivery=await sendInvitationEmail({
+  const identity=invitationContext as InvitationIdentity|null;
+  if(identityError||!identity?.organisation_name)console.error("[invitation-email] Organisation identity unavailable",{code:identityError?.code??"missing_context",organisationId,projectId});
+  const delivery=identity?.organisation_name?await sendInvitationEmail({
     to:invitation.email,
     acceptUrl,
-    projectName:project?.name??"your EngiCite project",
-    organisationName:organisation?.name,
+    projectName:identity.project_name??project?.name??"your project",
+    organisationName:identity.organisation_name,
     projectIntroduction:project?.project_introduction,
     keyObjectives:project?.key_objectives,
     plannedStart:project?.planned_start_date,
@@ -59,11 +62,11 @@ export async function POST(request:Request,ctx:{params:Promise<{organisationId:s
     role:invitation.project_role,
     discipline:invitation.discipline??undefined,
     reminder:true
-  }).catch(()=>({sent:false as const,reason:"provider_error" as const}));
+  }).catch(()=>({sent:false as const,reason:"provider_error" as const})):{sent:false as const,reason:"identity_unavailable" as const};
 
   return Response.json({
     invitation,
     delivery:{acceptUrl,emailSent:delivery.sent},
-    message:delivery.sent?"A fresh invitation link was emailed successfully.":"A fresh invitation link was created, but email delivery is not configured. Copy and send the secure link."
+    message:delivery.sent?"A fresh invitation link was emailed successfully.":delivery.reason==="identity_unavailable"?"A fresh link was created, but the organisation identity could not be verified, so no email was sent.":"A fresh invitation link was created, but email delivery is not configured. Copy and send the secure link."
   });
 }

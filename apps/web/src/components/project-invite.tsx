@@ -38,7 +38,7 @@ export function ProjectInvite({organisationId,projectId,disciplines,bare=false,a
       const body=await response.json();
       if(!response.ok)throw new Error(body.error?.message??"Invitation could not be created.");
       setUrl(body.delivery.acceptUrl);
-      setMessage(body.delivery.emailSent?"Invitation emailed successfully. The acceptance link is also available below.":"Secure invitation created. Email delivery is not configured, so copy and send the one-time link below.");
+      setMessage(body.delivery.emailSent?"Invitation emailed successfully. The acceptance link is also available below.":body.delivery.reason==="identity_unavailable"?"Invitation created, but the organisation identity could not be verified, so no email was sent. Copy the one-time link below.":"Secure invitation created. Email delivery is not configured, so copy and send the one-time link below.");
     }catch(error){
       setFailed(true);setMessage(error instanceof Error?error.message:"Invitation failed.");
     }finally{setBusy(false)}
