@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import {can,canInviteProjectRole,canPreviewProjectRole,invitableProjectRoles} from "./permissions";
+import {can,canInviteProjectRole,canPreviewProjectRole,canRemoveProjectMember,invitableProjectRoles} from "./permissions";
 
 describe("role capabilities",()=>{
   it("prevents viewers and engineers from controlling the MDR",()=>{
@@ -44,6 +44,15 @@ describe("role capabilities",()=>{
     expect(canInviteProjectRole("project_admin","project_admin")).toBe(false);
     expect(canInviteProjectRole("project_admin","viewer")).toBe(false);
     expect(canInviteProjectRole("document_controller","viewer")).toBe(false);
+  });
+  it("limits appointment removal to the same authority that appoints the role",()=>{
+    expect(canRemoveProjectMember("organisation_admin","project_admin")).toBe(true);
+    expect(canRemoveProjectMember("organisation_admin","document_controller")).toBe(true);
+    expect(canRemoveProjectMember("organisation_admin","engineer")).toBe(false);
+    expect(canRemoveProjectMember("project_admin","engineer")).toBe(true);
+    expect(canRemoveProjectMember("project_admin","document_controller")).toBe(false);
+    expect(canRemoveProjectMember("document_controller","engineer")).toBe(true);
+    expect(canRemoveProjectMember("engineer","engineer")).toBe(false);
   });
   it("reserves lifecycle, backup and role-preview governance for organisation administrators",()=>{
     for(const capability of ["project:lifecycle","project:backup","project:preview_roles"] as const){

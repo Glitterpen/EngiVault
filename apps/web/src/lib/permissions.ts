@@ -29,6 +29,10 @@ export function canInviteProjectRole(role:string,targetRole:string):targetRole i
   return role in invitations&&invitations[role as EffectiveRole].has(targetRole as InvitableProjectRole);
 }
 
+export function canRemoveProjectMember(role:string,targetRole:string):boolean{
+  return canInviteProjectRole(role,targetRole);
+}
+
 export const administratorPreviewRoles:AdministratorPreviewRole[]=["project_admin","document_controller","engineer"];
 
 export function canPreviewProjectRole(actualRole:string,targetRole:string):targetRole is AdministratorPreviewRole{
