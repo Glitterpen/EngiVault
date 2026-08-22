@@ -11,6 +11,7 @@ const password = z.string().min(12,"Use at least 12 characters.").max(128);
 const loginSchema = z.object({ email, password: z.string().min(1,"Enter your password.") });
 const registerSchema = z.object({ name:z.string().trim().min(2).max(80), email, password });
 const organisationRegisterSchema=registerSchema.extend({organisationName:z.string().trim().min(2).max(100),organisationSlug:z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48)});
+const passwordResetSchema=z.object({password,confirmPassword:z.string()}).refine(value=>value.password===value.confirmPassword,{message:"Passwords must match.",path:["confirmPassword"]});
 const invitationDestination=/^\/invite\/([a-f0-9]{64})$/i;
 const loginRoles=new Set(["organisation_admin","project_admin","document_controller","engineer"]);
 type AccessError={code?:string;message?:string;details?:string;hint?:string};
@@ -130,6 +131,51 @@ export async function resendVerification(_:AuthState,formData:FormData):Promise<
         : "A fresh verification email could not be requested. Try again shortly.";
     return {message:`${guidance} Reference: ${code}.`,showResend:true};
   }
-  return {message:"A fresh account-verification email has been requested. Check your inbox and spam folder; the secure link may take a minute to arrive.",showResend:true};
+  return {message:"If this email belongs to an unconfirmed account, a fresh verification message will arrive shortly. If the account is already confirmed, use Sign in or request a password reset instead.",showResend:true};
+}
+export async function requestPasswordReset(_:AuthState,formData:FormData):Promise<AuthState>{
+  const parsed=email.safeParse(formData.get("email"));
+  if(!parsed.success)return {errors:{email:[parsed.error.issues[0]?.message??"Enter a valid email address."]}};
+  const requestedDestination=safeAuthDestination(String(formData.get("next")??""));
+  const invitation=requestedDestination.match(invitationDestination);
+  const supabase=await createClient();
+  if(invitation){
+    const {data,error:invitationError}=await supabase
+      .rpc("get_project_invitation_registration_context",{raw_token:invitation[1],candidate_email:parsed.data})
+      .maybeSingle();
+    if(invitationError||!data)return {message:"Password recovery can only be requested for the exact work email on an active project invitation."};
+  }
+  const returnDestination=invitation?requestedDestination:"/app";
+  const recoveryDestination=`/auth/update-password?next=${encodeURIComponent(returnDestination)}`;
+  const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
+  const callbackUrl=new URL("/auth/callback",appUrl);
+  callbackUrl.searchParams.set("next",recoveryDestination);
+  const {error}=await supabase.auth.resetPasswordForEmail(parsed.data,{redirectTo:callbackUrl.toString()});
+  if(error){
+    const code=error.code??`http_${error.status}`;
+    const guidance=code==="over_email_send_rate_limit"
+      ? "A recovery email was requested recently. Wait at least 60 seconds before trying again."
+      : "A password-recovery email could not be requested. Try again shortly.";
+    return {message:`${guidance} Reference: ${code}.`};
+  }
+  return {message:"If this email belongs to an EngiCite account, a secure password-reset link will arrive shortly. Check the inbox and spam folder."};
+}
+export async function updatePassword(_:AuthState,formData:FormData):Promise<AuthState>{
+  const parsed=passwordResetSchema.safeParse(Object.fromEntries(formData));
+  if(!parsed.success)return {errors:parsed.error.flatten().fieldErrors};
+  const supabase=await createClient();
+  const {data:{user},error:userError}=await supabase.auth.getUser();
+  if(userError||!user)return {message:"This password-reset session is unavailable or has expired. Request a fresh recovery email."};
+  const {error}=await supabase.auth.updateUser({password:parsed.data.password});
+  if(error){
+    const code=error.code??`http_${error.status}`;
+    const guidance=code==="same_password"?"Choose a password you have not used for this account.":"The new password could not be saved. Try again shortly.";
+    return {message:`${guidance} Reference: ${code}.`};
+  }
+  const destination=safeAuthDestination(String(formData.get("next")??""));
+  await supabase.auth.signOut();
+  const params=new URLSearchParams({password:"updated"});
+  if(destination!=="/app")params.set("next",destination);
+  redirect(`/login?${params.toString()}`);
 }
 export async function signOut(){ const supabase=await createClient(); await supabase.auth.signOut(); redirect("/login"); }

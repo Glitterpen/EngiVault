@@ -1,5 +1,19 @@
 const invitationPath = /^\/invite\/[a-f0-9]{64}$/i;
 
+function primaryDestination(candidate: string) {
+  if (
+    candidate === "/app" ||
+    candidate === "/organisation/setup" ||
+    candidate.startsWith("/app/") ||
+    candidate.startsWith("/app?") ||
+    invitationPath.test(candidate)
+  ) {
+    return candidate;
+  }
+
+  return null;
+}
+
 export function safeAuthDestination(value: string | null | undefined) {
   const candidate = value?.trim() ?? "";
 
@@ -12,14 +26,13 @@ export function safeAuthDestination(value: string | null | undefined) {
     return "/app";
   }
 
-  if (
-    candidate === "/app" ||
-    candidate === "/organisation/setup" ||
-    candidate.startsWith("/app/") ||
-    candidate.startsWith("/app?") ||
-    invitationPath.test(candidate)
-  ) {
-    return candidate;
+  const primary = primaryDestination(candidate);
+  if (primary) return primary;
+
+  const recoveryUrl = new URL(candidate, "https://engicite.local");
+  if (recoveryUrl.pathname === "/auth/update-password") {
+    const recoveryDestination = primaryDestination(recoveryUrl.searchParams.get("next")?.trim() ?? "") ?? "/app";
+    return `/auth/update-password?next=${encodeURIComponent(recoveryDestination)}`;
   }
 
   return "/app";

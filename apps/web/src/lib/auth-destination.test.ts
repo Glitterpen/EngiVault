@@ -12,6 +12,17 @@ describe("safeAuthDestination", () => {
     expect(safeAuthDestination(`/invite/${token}`)).toBe(`/invite/${token}`);
   });
 
+  it("preserves a password-recovery route with a safe invitation return", () => {
+    const token = "b".repeat(64);
+    expect(safeAuthDestination(`/auth/update-password?next=${encodeURIComponent(`/invite/${token}`)}`))
+      .toBe(`/auth/update-password?next=${encodeURIComponent(`/invite/${token}`)}`);
+  });
+
+  it("removes an unsafe password-recovery return destination", () => {
+    expect(safeAuthDestination("/auth/update-password?next=https%3A%2F%2Fattacker.example"))
+      .toBe("/auth/update-password?next=%2Fapp");
+  });
+
   it.each([
     "https://attacker.example",
     "//attacker.example",
