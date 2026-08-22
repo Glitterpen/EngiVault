@@ -21,6 +21,10 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback", "http://localhost:3000/auth/callback"]
 enable_signup = true
 
+[auth.email.template.confirmation]
+subject = "{{ if .Data.inviting_organisation_name }}{{ .Data.inviting_organisation_name }}: verify your project account{{ else }}Confirm your EngiCite organisation account{{ end }}"
+content_path = "./supabase/templates/confirmation.html"
+
 [storage]
 enabled = true
 file_size_limit = "250MiB"

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { safeAuthDestination } from "@/lib/auth-destination";
+import { sanitiseEmailHeaderText } from "@/lib/email-sender";
 
 export type AuthState = { message?: string; errors?: Record<string,string[]> } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -23,7 +24,7 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
   if(error){
     const code=error.code??`http_${error.status}`;
     const guidance=code==="email_not_confirmed"
-      ? "Your email has not been verified. Open the verification email from Supabase, then try again."
+      ? "Your email has not been verified. Open the secure account-verification email sent for your organisation, then try again."
       : code==="invalid_credentials"
         ? "The email or password is incorrect. Check both entries and try again."
         : code==="user_banned"
@@ -70,14 +71,28 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   if(!parsed.success) return {errors:parsed.error.flatten().fieldErrors};
   const supabase=await createClient();
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
+  let invitationContext:{organisation_name:string;project_name:string}|null=null;
   if(invitation){
-    const {data:validInvitation,error:invitationError}=await supabase.rpc("validate_project_invitation",{raw_token:invitation[1],candidate_email:parsed.data.email});
-    if(invitationError||!validInvitation)return {message:"Account creation requires an active invitation addressed to this exact work email."};
+    const {data,error:invitationError}=await supabase
+      .rpc("get_project_invitation_registration_context",{raw_token:invitation[1],candidate_email:parsed.data.email})
+      .maybeSingle();
+    if(invitationError||!data)return {message:"Account creation requires an active invitation addressed to this exact work email."};
+    const trustedContext=data as {organisation_name:string;project_name:string};
+    invitationContext={
+      organisation_name:sanitiseEmailHeaderText(trustedContext.organisation_name,"Inviting organisation").slice(0,120),
+      project_name:sanitiseEmailHeaderText(trustedContext.project_name,"Invited project").slice(0,160),
+    };
   }
   const destination=invitation?requestedDestination:"/organisation/setup";
   const callbackUrl=new URL("/auth/callback",appUrl);
   callbackUrl.searchParams.set("next",destination);
-  const organisationData=invitation?{}:{onboarding_mode:"organisation",organisation_name:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationName,organisation_slug:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationSlug};
+  const organisationData=invitation
+    ? {
+        onboarding_mode:"project_invitation",
+        inviting_organisation_name:invitationContext?.organisation_name,
+        inviting_project_name:invitationContext?.project_name,
+      }
+    : {onboarding_mode:"organisation",organisation_name:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationName,organisation_slug:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationSlug};
   const {data,error}=await supabase.auth.signUp({email:parsed.data.email,password:parsed.data.password,options:{data:{display_name:parsed.data.name,...organisationData},emailRedirectTo:callbackUrl.toString()}});
   if(error){
     const code=error.code??`http_${error.status}`;
@@ -85,6 +100,8 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
     return {message:`${guidance} Reference: ${code}.`};
   }
   if(data.session)redirect(destination);
-  return {message:destination.startsWith("/invite/")?"Check your email to verify your invited account. The project invitation will continue automatically after verification.":"Check your work email to verify the organisation owner account, then complete the organisation profile and company logo."};
+  return {message:destination.startsWith("/invite/")
+    ? `Check your email for a secure ${invitationContext?.organisation_name??"organisation"} account-verification message. Confirm it to join ${invitationContext?.project_name??"the invited project"}.`
+    : "Check your work email to verify the organisation owner account, then complete the organisation profile and company logo."};
 }
 export async function signOut(){ const supabase=await createClient(); await supabase.auth.signOut(); redirect("/login"); }

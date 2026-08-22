@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;background:#f5f7f9;font-family:Arial,sans-serif;color:#10243e">
+    <div style="max-width:560px;margin:0 auto;padding:32px 20px">
+      <div style="background:#ffffff;border:1px solid #dfe7e3;border-radius:16px;padding:32px">
+        {{ if .Data.inviting_organisation_name }}
+          <p style="margin:0 0 10px;color:#e8733f;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Secure project account</p>
+          <h1 style="margin:0 0 16px;font-size:24px;line-height:1.25">Verify your account for {{ .Data.inviting_organisation_name }}</h1>
+          <p style="margin:0 0 16px;line-height:1.6"><strong>{{ .Data.inviting_organisation_name }}</strong> invited you to work on <strong>{{ .Data.inviting_project_name }}</strong> through its secure EngiCite workspace.</p>
+          <p style="margin:0 0 24px;line-height:1.6">Confirm this work email to activate the organisation-controlled account and continue to the project invitation.</p>
+        {{ else }}
+          <p style="margin:0 0 10px;color:#e8733f;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Organisation onboarding</p>
+          <h1 style="margin:0 0 16px;font-size:24px;line-height:1.25">Verify your EngiCite organisation account</h1>
+          <p style="margin:0 0 24px;line-height:1.6">Confirm this work email to activate the organisation owner account.</p>
+        {{ end }}
+        <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#e8733f;color:#ffffff;text-decoration:none;padding:13px 20px;border-radius:8px;font-weight:700">Verify work email</a></p>
+        <p style="margin:0;color:#617083;font-size:12px;line-height:1.6">This security message was sent by EngiCite on behalf of the organisation named above. If you do not recognise the organisation or project, do not verify the account.</p>
+      </div>
+    </div>
+  </body>
+</html>
