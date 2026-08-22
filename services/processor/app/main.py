@@ -19,6 +19,20 @@ from .worker import process_next
 
 app = FastAPI(title="EngiCite document processor", version="0.2.0", docs_url=None, redoc_url=None)
 _requests: dict[str, deque[float]] = defaultdict(deque)
+_HEALTH_PATHS = {"/internal/v1/health/live", "/internal/v1/health/ready"}
+_AUTHENTICATED_REQUESTS_PER_MINUTE = 600
+_UNAUTHENTICATED_REQUESTS_PER_MINUTE = 30
+
+
+def _rate_limit_bucket(request: Request) -> tuple[str, int]:
+    supplied_secret = request.headers.get("x-processor-secret", "")
+    authenticated = bool(supplied_secret) and hmac.compare_digest(
+        supplied_secret,
+        settings().processor_shared_secret,
+    )
+    if authenticated:
+        return "authenticated-service", _AUTHENTICATED_REQUESTS_PER_MINUTE
+    return "unauthenticated", _UNAUTHENTICATED_REQUESTS_PER_MINUTE
 
 @app.middleware("http")
 async def harden_requests(request, call_next):
@@ -27,13 +41,13 @@ async def harden_requests(request, call_next):
         maximum = 5_242_880 if request.url.path == "/internal/v1/parse-mdr-import" else 1_048_576
         if length and int(length) > maximum:
             return Response(status_code=413, content="Request body is too large")
-    if request.url.path != "/internal/v1/health/live":
-        key = request.headers.get("x-processor-secret", "anonymous")[:16]
+    if request.url.path not in _HEALTH_PATHS:
+        key, maximum_requests = _rate_limit_bucket(request)
         now = time.monotonic()
         window = _requests[key]
         while window and window[0] < now - 60:
             window.popleft()
-        if len(window) >= 120:
+        if len(window) >= maximum_requests:
             return Response(status_code=429, content="Request rate exceeded", headers={"Retry-After": "60"})
         window.append(now)
     response = await call_next(request)

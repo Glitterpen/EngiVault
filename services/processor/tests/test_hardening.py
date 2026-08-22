@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import _requests, app
 
 
 def test_processor_rejects_large_requests():
@@ -16,3 +16,24 @@ def test_processor_adds_security_headers():
     assert response.status_code == 200
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_rotating_invalid_credentials_cannot_bypass_rate_limit():
+    _requests.clear()
+    client = TestClient(app)
+
+    for index in range(30):
+        response = client.post(
+            "/internal/v1/process-next",
+            headers={"x-processor-secret": f"invalid-{index}"},
+        )
+        assert response.status_code == 401
+
+    blocked = client.post(
+        "/internal/v1/process-next",
+        headers={"x-processor-secret": "another-invalid-value"},
+    )
+
+    assert blocked.status_code == 429
+    assert blocked.headers["retry-after"] == "60"
+    _requests.clear()
