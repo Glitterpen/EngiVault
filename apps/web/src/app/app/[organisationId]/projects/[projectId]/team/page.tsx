@@ -26,7 +26,7 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
   const [{data:team},{data:categoryRows},{data:pendingRows}]=await Promise.all([
     supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),
     supabase.from("document_categories").select("code,name").eq("organisation_id",organisationId).eq("kind","discipline").eq("is_active",true).order("sort_order"),
-    supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId})
+    allowedRoles.length?supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId}):Promise.resolve({data:[]})
   ]);
   const allMembers=(team??[]) as Member[];
   const members=isDcc?allMembers.filter(member=>member.role==="engineer"):isOrganisationAdmin?allMembers.filter(member=>member.role==="project_admin"||member.role==="document_controller"):allMembers;
@@ -38,13 +38,13 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
   return <div className="mx-auto max-w-6xl">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Link href={isDcc?`/app/${organisationId}/projects/${projectId}/control`:`/app/${organisationId}/projects/${projectId}/overview`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16}/> {isDcc?"Document control centre":"Project overview"}</Link>
-      <div className="flex flex-wrap gap-2">{allowedRoles.length>0&&<ProjectInviteDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} allowedRoles={allowedRoles} label={isDcc?"Invite discipline engineer":isOrganisationAdmin?"Appoint Project Manager or DCC":"Invite project resource"}/>} {canReview&&<Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="ev-button-secondary"><ClipboardCheck size={16}/> Review submissions</Link>}</div>
+      <div className="flex flex-wrap gap-2">{allowedRoles.length>0&&<ProjectInviteDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} allowedRoles={allowedRoles} label={isOrganisationAdmin?"Appoint Project Manager or DCC":"Invite discipline engineer"}/>} {canReview&&<Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="ev-button-secondary"><ClipboardCheck size={16}/> Review submissions</Link>}</div>
     </div>
     <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">{workspaceKicker}</p>
     <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Users/> {workspaceTitle}</h1>
-    <p className="mt-2 text-sm text-[#617083]">{isDcc?"Invite engineers and control the disciplines where they may submit deliverables. Other management roles are intentionally hidden from this DCC view.":isOrganisationAdmin?"Appoint only the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Plan project resources and invite discipline engineers. Organisation leadership appoints the Project Manager and Document Controller."}</p>
+    <p className="mt-2 text-sm text-[#617083]">{isDcc?"View the discipline engineers already appointed by the Project Manager, then assign their MDR deliverables from each document record. Document Control cannot create project invitations.":isOrganisationAdmin?"Appoint only the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Plan project resources and invite discipline engineers. Organisation leadership appoints the Project Manager and Document Controller."}</p>
 
-    <PendingProjectInvitations organisationId={organisationId} projectId={projectId} invitations={pending}/>
+    {allowedRoles.length>0&&<PendingProjectInvitations organisationId={organisationId} projectId={projectId} invitations={pending}/>}
 
     <div className="mt-8 flex items-end justify-between gap-3"><div><p className="ev-label">Accepted access</p><h2 className="mt-1 text-xl font-semibold">Active team members</h2></div><span className="text-xs font-semibold text-[#617083]">{members.length} active</span></div>
     <section className="mt-4 grid gap-4">

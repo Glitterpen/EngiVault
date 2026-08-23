@@ -20,7 +20,7 @@ export default async function InvitePage({params}:{params:Promise<{token:string}
         <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Secure project invitation</p>
         <h1 className="mt-3 text-2xl font-semibold text-[#10243e]">Use the invited account</h1>
         <p className="mt-3 text-sm leading-6 text-[#65736f]">You are currently signed in as <strong className="text-[#10243e]">{user.email}</strong>, but this invitation cannot be accepted by that account.</p>
-        <p className="mt-3 text-sm leading-6 text-[#65736f]">Switch accounts and sign in with the exact email address that received the invitation. If the link has expired or was already used, ask the Project Manager or Document Controller for a new invitation.</p>
+        <p className="mt-3 text-sm leading-6 text-[#65736f]">Switch accounts and sign in with the exact email address that received the invitation. If the link has expired or was already used, ask the Organisation Administrator or Project Manager for a new invitation.</p>
         <form action={switchAccount} className="mt-6">
           <button className="ev-button w-full">Sign out and use invited email</button>
         </form>

@@ -2,11 +2,11 @@ export type EffectiveRole="organisation_admin"|"project_admin"|"document_control
 export type ProjectRole="project_admin"|"document_controller"|"engineer"|"viewer";
 export type InvitableProjectRole=Exclude<ProjectRole,"viewer">;
 export type AdministratorPreviewRole=Exclude<ProjectRole,"viewer">;
-export type Capability="project:create"|"project:appoint"|"project:lifecycle"|"project:backup"|"project:preview_roles"|"project:manage"|"members:manage"|"engineers:manage"|"document:register"|"document:write"|"document:submit_discipline"|"document:read"|"document:download"|"ai:use"|"audit:read";
+export type Capability="project:create"|"project:appoint"|"project:lifecycle"|"project:backup"|"project:preview_roles"|"project:manage"|"members:manage"|"engineers:manage"|"document:register"|"document:write"|"document:assign"|"document:submit_discipline"|"document:read"|"document:download"|"ai:use"|"audit:read";
 const grants:Record<EffectiveRole,ReadonlySet<Capability>>={
   organisation_admin:new Set(["project:create","project:appoint","project:lifecycle","project:backup","project:preview_roles","document:read","document:download","audit:read"]),
   project_admin:new Set(["project:manage","members:manage","engineers:manage","document:read","document:download","audit:read"]),
-  document_controller:new Set(["engineers:manage","document:register","document:write","document:read","document:download","ai:use"]),
+  document_controller:new Set(["document:register","document:write","document:assign","document:read","document:download","ai:use"]),
   engineer:new Set(["document:submit_discipline","document:read","document:download","ai:use"]),
   viewer:new Set(["document:read","document:download"]),
 };
@@ -15,7 +15,7 @@ export function can(role:string,capability:Capability):boolean{return role in gr
 const invitations:Record<EffectiveRole,ReadonlySet<InvitableProjectRole>>={
   organisation_admin:new Set(["project_admin","document_controller"]),
   project_admin:new Set(["engineer"]),
-  document_controller:new Set(["engineer"]),
+  document_controller:new Set(),
   engineer:new Set(),
   viewer:new Set(),
 };

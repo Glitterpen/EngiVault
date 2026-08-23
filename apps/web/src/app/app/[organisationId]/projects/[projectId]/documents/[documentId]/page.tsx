@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound,redirect } from "next/navigation";
-import { ArrowLeft,Bell,ClipboardCheck,Download,Eye,FileCog,FileText,History,UserPlus } from "lucide-react";
+import { ArrowLeft,Bell,ClipboardCheck,Download,Eye,FileCog,FileText,History } from "lucide-react";
 import { requireProject } from "@/lib/auth";
 import { RevisionUpload } from "@/components/revision-upload";
 import { RevisionProcessingStatus } from "@/components/revision-processing-status";
 import { RevisionCompare } from "@/components/revision-compare";
 import { DocumentAdminForm } from "@/components/record-admin-forms";
 import { DocumentPlanForm } from "@/components/document-plan-form";
-import { ProjectInviteDialog } from "@/components/project-invite-dialog";
+import {DocumentAssignmentManager,type AssignableEngineer} from "@/components/document-assignment-manager";
+import {disciplineMatches} from "@/lib/discipline-access";
 import {projectHomePath,workspacePersona} from "@/lib/role-experience";
 import {projectDeliveryStageLabel,projectIssueProgressCredit,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
 
@@ -25,6 +26,15 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
   const deliveryStage=((project?.delivery_stage as ProjectDeliveryStage|null)??"feed");
   const {data:disciplineAccess}=role==="engineer"?await supabase.rpc("can_upload_document",{org:organisationId,project:projectId,document:documentId}):{data:false};
   if(role==="engineer"&&!disciplineAccess)notFound();
+
+  const [{data:teamData},{data:assignmentData}]=canWrite?await Promise.all([
+    supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),
+    supabase.from("document_assignments").select("user_id,status").eq("organisation_id",organisationId).eq("project_id",projectId).eq("document_id",documentId),
+  ]):[{data:[]},{data:[]}];
+  const assignedUsers=new Set((assignmentData??[]).filter(assignment=>assignment.status==="active").map(assignment=>assignment.user_id));
+  const assignableEngineers=((teamData??[]) as {user_id:string;display_name:string;email:string;role:string;disciplines:string[]}[])
+    .filter(member=>member.role==="engineer"&&(member.disciplines??[]).some(discipline=>disciplineMatches(discipline,String(doc.discipline))))
+    .map<AssignableEngineer>(member=>({userId:member.user_id,name:member.display_name,email:member.email,assigned:assignedUsers.has(member.user_id)}));
 
   const {data:revisions}=await supabase.from("document_revisions").select("id,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,control_status,review_comment").eq("document_id",documentId).order("created_at",{ascending:false});
   const revisionIds=(revisions??[]).map(revision=>revision.id);
@@ -66,7 +76,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
       </section>
       <aside id="submit-revision" className={`min-w-0 space-y-5 ${canUpload?"order-first lg:order-none":""}`}>
         {canUpload&&<RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage} completedIssueStatuses={completedIssueStatuses}/>}
-        {canWrite&&<div className="ev-card p-6"><div className="flex items-center gap-2"><UserPlus size={18} className="text-[#e8733f]"/><h2 className="font-bold">Assign the discipline engineer</h2></div><p className="mt-3 text-sm leading-6 text-[#617083]">Invite an authorised <strong className="text-[#10243e]">{doc.discipline}</strong> engineer to submit this document. Document Control cannot upload revisions.</p><div className="mt-5"><ProjectInviteDialog organisationId={organisationId} projectId={projectId} disciplines={[{code:String(doc.discipline),name:String(doc.discipline)}]} allowedRoles={["engineer"]} lockedDiscipline={String(doc.discipline)} label={`Invite ${doc.discipline} engineer`}/></div><div className="mt-5 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-4"><p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><Bell size={16}/> Submission notification</p><p className="mt-2 text-xs leading-5 text-[#617083]">When the engineer uploads a revision, you will receive an EngiCite notification and the submission will enter the DCC review queue.</p><Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] hover:text-[#e8733f]"><ClipboardCheck size={16}/> Open submission review</Link></div></div>}
+        {canWrite&&<><DocumentAssignmentManager organisationId={organisationId} projectId={projectId} documentId={documentId} discipline={String(doc.discipline)} engineers={assignableEngineers}/><div className="ev-card p-6"><p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><Bell size={16}/> Submission notification</p><p className="mt-2 text-xs leading-5 text-[#617083]">When an assigned engineer uploads a revision, you will receive an EngiCite notification and the submission will enter the DCC review queue.</p><Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] hover:text-[#e8733f]"><ClipboardCheck size={16}/> Open submission review</Link></div></>}
         <RevisionCompare endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/comparisons`} revisions={(revisions??[]).filter(revision=>revision.state==="ready")}/>
       </aside>
     </div>
