@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { safeAuthDestination } from "@/lib/auth-destination";
 import { sanitiseEmailHeaderText } from "@/lib/email-sender";
+import { passwordRecoveryConfirmationUrl } from "@/lib/auth-email-callback";
 
 export type AuthState = { message?: string; errors?: Record<string,string[]>; showResend?: boolean } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -146,11 +147,9 @@ export async function requestPasswordReset(_:AuthState,formData:FormData):Promis
     if(invitationError||!data)return {message:"Password recovery can only be requested for the exact work email on an active project invitation."};
   }
   const returnDestination=invitation?requestedDestination:"/app";
-  const recoveryDestination=`/auth/update-password?next=${encodeURIComponent(returnDestination)}`;
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
-  const callbackUrl=new URL("/auth/callback",appUrl);
-  callbackUrl.searchParams.set("next",recoveryDestination);
-  const {error}=await supabase.auth.resetPasswordForEmail(parsed.data,{redirectTo:callbackUrl.toString()});
+  const confirmationUrl=passwordRecoveryConfirmationUrl(appUrl,returnDestination);
+  const {error}=await supabase.auth.resetPasswordForEmail(parsed.data,{redirectTo:confirmationUrl});
   if(error){
     const code=error.code??`http_${error.status}`;
     const guidance=code==="over_email_send_rate_limit"

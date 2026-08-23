@@ -22,3 +22,9 @@ export function passwordRecoveryDestination(destination: string) {
     ? destination
     : `/auth/update-password?next=${encodeURIComponent(destination)}`;
 }
+
+export function passwordRecoveryConfirmationUrl(appUrl: string, destination: string) {
+  const confirmationUrl = new URL("/auth/recover", appUrl);
+  confirmationUrl.searchParams.set("next", destination);
+  return confirmationUrl.toString();
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isPasswordRecoveryCallback,
+  passwordRecoveryConfirmationUrl,
   passwordRecoveryDestination,
   supportedEmailOtpType,
 } from "./auth-email-callback";
@@ -22,5 +23,10 @@ describe("Supabase email callback routing", () => {
 
   it("sends a recovery token without an explicit destination to password update", () => {
     expect(passwordRecoveryDestination("/app")).toBe("/auth/update-password?next=%2Fapp");
+  });
+
+  it("builds a non-consuming recovery confirmation URL", () => {
+    expect(passwordRecoveryConfirmationUrl("https://engicite.example", "/invite/" + "a".repeat(64)))
+      .toBe("https://engicite.example/auth/recover?next=%2Finvite%2F" + "a".repeat(64));
   });
 });

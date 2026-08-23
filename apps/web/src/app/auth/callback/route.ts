@@ -34,3 +34,25 @@ export async function GET(request:Request){
   if(destination!=="/app")loginUrl.searchParams.set("next",destination);
   return NextResponse.redirect(loginUrl);
 }
+
+export async function POST(request:Request){
+  const url=new URL(request.url);
+  const formData=await request.formData();
+  const destination=safeAuthDestination(String(formData.get("next")??""));
+  const tokenHash=String(formData.get("token_hash")??"");
+  const type=supportedEmailOtpType(String(formData.get("type")??""));
+  const loginUrl=new URL("/login",url.origin);
+  if(!tokenHash||type!=="recovery"){
+    loginUrl.searchParams.set("password","unavailable");
+    if(destination!=="/app")loginUrl.searchParams.set("next",destination);
+    return NextResponse.redirect(loginUrl,303);
+  }
+  const supabase=await createClient();
+  const {error}=await supabase.auth.verifyOtp({token_hash:tokenHash,type});
+  if(error){
+    loginUrl.searchParams.set("password","unavailable");
+    if(destination!=="/app")loginUrl.searchParams.set("next",destination);
+    return NextResponse.redirect(loginUrl,303);
+  }
+  return NextResponse.redirect(new URL(passwordRecoveryDestination(destination),url.origin),303);
+}
