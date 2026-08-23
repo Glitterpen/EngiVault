@@ -64,6 +64,8 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
           await supabase.auth.signOut();
           return {message:"Organisation owner access could not be restored. Try again shortly."};
         }
+        const {error:refreshError}=await supabase.auth.refreshSession();
+        if(refreshError)console.error("[auth] Organisation recovery session refresh failed",accessErrorSummary(refreshError));
       }
       redirect("/organisation/setup");
     }
