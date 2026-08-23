@@ -97,9 +97,10 @@ export async function setOrganisationArchived(form:FormData){const parsed=z.obje
 export async function deleteOrganisation(_:MutationState,form:FormData):Promise<MutationState>{
  const parsed=z.object({organisationId:z.uuid(),confirmationName:z.string().trim().min(2).max(100),acknowledge:z.literal("yes")}).safeParse(Object.fromEntries(form));
  if(!parsed.success)return {message:"Type the exact organisation name and confirm that you understand the effect."};
- const {supabase}=await requireUser();
+ const {supabase,user}=await requireUser();
  const {error}=await supabase.rpc("soft_delete_organisation",{target_organisation:parsed.data.organisationId,confirmation_name:parsed.data.confirmationName});
  if(error)return {message:error.code==="PGRST202"?"Apply the organisation-management database update before deleting.":error.message.includes("confirmation")?"The organisation name does not match.":error.message.includes("forbidden")?"Only an Organisation Administrator can delete this organisation.":`Organisation could not be deleted. Reference: ${error.code}.`};
+ await supabase.auth.updateUser({data:{...user.user_metadata,onboarding_mode:"organisation"}});
  revalidatePath("/app");redirect("/app")
 }
 export async function updateProject(_:MutationState,form:FormData):Promise<MutationState>{

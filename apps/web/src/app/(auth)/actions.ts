@@ -43,9 +43,10 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
     if(invitationError||!validInvitation){await supabase.auth.signOut();return {message:"This invitation is expired, unavailable or addressed to a different account."}}
     redirect(destination);
   }
-  const [{data:organisations,error:organisationError},{data:projects,error:projectError}]=await Promise.all([
+  const [{data:organisations,error:organisationError},{data:projects,error:projectError},{data:recoverableOwner,error:recoveryCheckError}]=await Promise.all([
     supabase.rpc("get_my_organisations"),
     supabase.from("project_access").select("role"),
+    supabase.rpc("has_recoverable_created_organisation"),
   ]);
   if(organisationError||projectError){
     const reference=[organisationError?`org_${organisationError.code??"unknown"}`:null,projectError?`project_${projectError.code??"unknown"}`:null].filter(Boolean).join("_");
@@ -54,7 +55,19 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
     return {message:`Organisation access could not be verified. Try again shortly. Reference: ${reference}.`};
   }
   if(!organisations?.length){
-    if(authentication.user?.user_metadata?.onboarding_mode==="organisation")redirect("/organisation/setup");
+    const canResumeOwnerOnboarding=recoverableOwner===true;
+    if(authentication.user?.user_metadata?.onboarding_mode==="organisation"||canResumeOwnerOnboarding){
+      if(canResumeOwnerOnboarding&&authentication.user?.user_metadata?.onboarding_mode!=="organisation"){
+        const {error:onboardingError}=await supabase.auth.updateUser({data:{...authentication.user.user_metadata,onboarding_mode:"organisation"}});
+        if(onboardingError){
+          console.error("[auth] Organisation recovery mode could not be restored",accessErrorSummary(onboardingError));
+          await supabase.auth.signOut();
+          return {message:"Organisation owner access could not be restored. Try again shortly."};
+        }
+      }
+      redirect("/organisation/setup");
+    }
+    if(recoveryCheckError&&recoveryCheckError.code!=="PGRST202")console.error("[auth] Organisation recovery check failed",accessErrorSummary(recoveryCheckError));
     await supabase.auth.signOut();
     return {message:"This account does not belong to an active EngiCite organisation. Ask an Organisation Administrator to send a controlled project invitation."};
   }
