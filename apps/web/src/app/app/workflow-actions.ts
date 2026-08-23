@@ -6,6 +6,7 @@ import { requireProject,requireUser } from "@/lib/auth";
 import {can,canInviteProjectRole,canRemoveProjectMember} from "@/lib/permissions";
 import {PROJECT_DELIVERY_STAGE_VALUES} from "@/lib/project-delivery-stage";
 import {sendMdrAssignmentEmail} from "@/lib/mdr-assignment-email";
+import {createAdminClient} from "@/lib/supabase/admin";
 
 const ids=z.object({organisationId:z.uuid(),projectId:z.uuid()});
 export type WorkflowState={message?:string;ok?:boolean}|undefined;
@@ -29,19 +30,25 @@ export async function setDocumentAssignment(_:WorkflowState,form:FormData):Promi
   if(!enabled)return {message:"MDR assignment removed.",ok:true};
   if(previousAssignment?.status==="active")return {message:"This MDR deliverable is already assigned.",ok:true};
 
-  const [{data:teamRows},{data:organisation},{data:project},{data:document}]=await Promise.all([
-    supabase.rpc("get_project_team",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId}),
-    supabase.from("organisations").select("name").eq("id",parsed.data.organisationId).maybeSingle(),
-    supabase.from("projects").select("code,name").eq("organisation_id",parsed.data.organisationId).eq("id",parsed.data.projectId).maybeSingle(),
-    supabase.from("documents").select("document_number,title,discipline,planned_submission_date,required_issue_status").eq("organisation_id",parsed.data.organisationId).eq("project_id",parsed.data.projectId).eq("id",parsed.data.documentId).maybeSingle(),
-  ]);
-  const engineer=((teamRows??[]) as {user_id:string;display_name:string;email:string;role:string}[]).find(member=>member.user_id===parsed.data.userId&&member.role==="engineer");
-  const appUrl=process.env.NEXT_PUBLIC_APP_URL;
-  if(!engineer||!organisation?.name||!project?.name||!project.code||!document?.document_number||!appUrl){
-    console.error("[mdr-assignment-email] Assignment saved but email identity is incomplete",{organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,documentId:parsed.data.documentId});
+  let admin:ReturnType<typeof createAdminClient>;
+  try{admin=createAdminClient()}catch{
+    console.error("[mdr-assignment-email] Assignment saved but the server identity client is unavailable",{organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,documentId:parsed.data.documentId});
     return {message:"MDR deliverable assigned. The in-app notification was sent, but the email could not be prepared.",ok:true};
   }
-  const delivery=await sendMdrAssignmentEmail({recipientEmail:engineer.email,recipientName:engineer.display_name,organisationName:organisation.name,projectCode:project.code,projectName:project.name,documentNumber:document.document_number,documentTitle:document.title,discipline:document.discipline,plannedSubmissionDate:document.planned_submission_date,requiredIssueStatus:document.required_issue_status,documentUrl:new URL(`${base}/documents/${parsed.data.documentId}`,appUrl).toString()});
+  const [{data:membership},{data:engineer},{data:organisation},{data:project},{data:document}]=await Promise.all([
+    admin.from("project_memberships").select("role,status").eq("organisation_id",parsed.data.organisationId).eq("project_id",parsed.data.projectId).eq("user_id",parsed.data.userId).eq("role","engineer").eq("status","active").maybeSingle(),
+    admin.from("profiles").select("display_name,email_snapshot").eq("id",parsed.data.userId).maybeSingle(),
+    admin.from("organisations").select("name").eq("id",parsed.data.organisationId).eq("status","active").maybeSingle(),
+    admin.from("projects").select("code,name").eq("organisation_id",parsed.data.organisationId).eq("id",parsed.data.projectId).maybeSingle(),
+    admin.from("documents").select("document_number,title,discipline,planned_submission_date,required_issue_status").eq("organisation_id",parsed.data.organisationId).eq("project_id",parsed.data.projectId).eq("id",parsed.data.documentId).eq("lifecycle_status","active").maybeSingle(),
+  ]);
+  const vercelHost=process.env.VERCEL_PROJECT_PRODUCTION_URL??process.env.VERCEL_URL;
+  const appUrl=process.env.NEXT_PUBLIC_APP_URL??(vercelHost?`https://${vercelHost}`:"http://127.0.0.1:3000");
+  if(!membership||!engineer?.email_snapshot||!organisation?.name||!project?.name||!project.code||!document?.document_number){
+    console.error("[mdr-assignment-email] Assignment saved but email identity is incomplete",{membership:Boolean(membership),engineer:Boolean(engineer?.email_snapshot),organisation:Boolean(organisation?.name),project:Boolean(project?.name&&project.code),document:Boolean(document?.document_number),organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,documentId:parsed.data.documentId});
+    return {message:"MDR deliverable assigned. The in-app notification was sent, but the email could not be prepared.",ok:true};
+  }
+  const delivery=await sendMdrAssignmentEmail({recipientEmail:String(engineer.email_snapshot),recipientName:engineer.display_name,organisationName:organisation.name,projectCode:project.code,projectName:project.name,documentNumber:document.document_number,documentTitle:document.title,discipline:document.discipline,plannedSubmissionDate:document.planned_submission_date,requiredIssueStatus:document.required_issue_status,documentUrl:new URL(`${base}/documents/${parsed.data.documentId}`,appUrl).toString()});
   if(!delivery.sent){
     console.error("[mdr-assignment-email] Assignment saved but email delivery failed",{reason:delivery.reason,organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,documentId:parsed.data.documentId});
     return {message:"MDR deliverable assigned. The in-app notification was sent, but email delivery is temporarily unavailable.",ok:true};
