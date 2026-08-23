@@ -29,9 +29,9 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       {resetState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resetState.message}</div>}
       <button className="ev-button w-full" disabled={pending}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
       <div className="rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-3">
-        <p className="text-xs font-bold uppercase tracking-[.12em] text-[#10243e]">Account access help</p>
-        <p className="mt-1 text-xs leading-5 text-[#617083]">Enter the exact work email above. A password is not required to request either secure email.</p>
-        <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={pending||resendPending||resetPending}>{resetPending?"Requesting password reset...":"Forgot password · Email reset link"}</button>
+        <p className="text-xs font-bold uppercase tracking-[.12em] text-[#10243e]">Need help signing in?</p>
+        <p className="mt-1 text-xs leading-5 text-[#617083]">Enter the exact work email above, then choose the help you need.</p>
+        <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={pending||resendPending||resetPending}>{resetPending?"Requesting password reset...":"Forgot password?"}</button>
         <button className="mt-2 w-full rounded-lg px-3 py-2 text-xs font-bold text-[#0c5b45] hover:bg-[#eaf3ef] disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={pending||resendPending||resetPending}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
       </div>
     </form>
