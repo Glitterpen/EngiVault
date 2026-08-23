@@ -103,8 +103,8 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   }
   if(data.session)redirect(destination);
   return {message:destination.startsWith("/invite/")
-    ? `Check your email for a secure ${invitationContext?.organisation_name??"organisation"} account-verification message. Confirm it to join ${invitationContext?.project_name??"the invited project"}.`
-    : "Check your work email to verify the organisation owner account, then complete the organisation profile and company logo.",showResend:true};
+    ? `If this is a new account, check your email for a secure ${invitationContext?.organisation_name??"organisation"} verification message. If the email is already registered, sign in or use Forgot password instead.`
+    : "If this work email is new to EngiCite, a verification message will arrive shortly. If it is already registered, no new registration email is sent—sign in or use Forgot password instead.",showResend:true};
 }
 export async function resendVerification(_:AuthState,formData:FormData):Promise<AuthState>{
   const parsed=email.safeParse(formData.get("email"));

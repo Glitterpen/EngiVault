@@ -22,7 +22,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       {next&&<input type="hidden" name="next" value={next}/>}
       {registering&&<Field label="Full name" name="name" autoComplete="name" error={state?.errors?.name?.[0]}/>}
       {organisationRegistration&&<><Field label="Organisation name" name="organisationName" autoComplete="organization" error={state?.errors?.organisationName?.[0]}/><Field label="Organisation URL name" name="organisationSlug" hint="Lowercase letters, numbers and hyphens, e.g. north-field-engineering" error={state?.errors?.organisationSlug?.[0]}/></>}
-      <Field label="Work email" name="email" type="email" autoComplete="email" error={state?.errors?.email?.[0]??resendState?.errors?.email?.[0]??resetState?.errors?.email?.[0]}/>
+      <Field label="Work email" name="email" type="email" autoComplete="email" hint={organisationRegistration?"Use an email not already registered with EngiCite. Existing Organisation Administrators should sign in instead.":undefined} error={state?.errors?.email?.[0]??resendState?.errors?.email?.[0]??resetState?.errors?.email?.[0]}/>
       <Field label="Password" name="password" type="password" autoComplete={registering?"new-password":"current-password"} hint={registering?"Minimum 12 characters":undefined} error={state?.errors?.password?.[0]}/>
       {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{state.message}</div>}
       {resendState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resendState.message}</div>}
