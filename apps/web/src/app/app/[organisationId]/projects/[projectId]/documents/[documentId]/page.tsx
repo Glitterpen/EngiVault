@@ -32,6 +32,9 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
   const runByRevision=new Map((runs??[]).map(run=>[run.revision_id,run]));
   const canUpload=isEngineer&&Boolean(disciplineAccess);
   const showAside=canUpload||canWrite;
+  const completedIssueStatuses=[...new Set((revisions??[])
+    .filter(revision=>["ready","superseded"].includes(revision.state)&&["submitted","accepted"].includes(revision.control_status))
+    .map(revision=>revision.issue_status))];
 
   return <div className="mx-auto max-w-6xl">
     <Link href={projectHomePath(organisationId,projectId,role)} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]"><ArrowLeft size={16}/>{isEngineer?"My deliverables":"Role workspace"}</Link>
@@ -62,7 +65,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
         </div>
       </section>
       <aside id="submit-revision" className={`min-w-0 space-y-5 ${canUpload?"order-first lg:order-none":""}`}>
-        {canUpload&&<RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage}/>}
+        {canUpload&&<RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage} completedIssueStatuses={completedIssueStatuses}/>}
         {canWrite&&<div className="ev-card p-6"><div className="flex items-center gap-2"><UserPlus size={18} className="text-[#e8733f]"/><h2 className="font-bold">Assign the discipline engineer</h2></div><p className="mt-3 text-sm leading-6 text-[#617083]">Invite an authorised <strong className="text-[#10243e]">{doc.discipline}</strong> engineer to submit this document. Document Control cannot upload revisions.</p><div className="mt-5"><ProjectInviteDialog organisationId={organisationId} projectId={projectId} disciplines={[{code:String(doc.discipline),name:String(doc.discipline)}]} allowedRoles={["engineer"]} lockedDiscipline={String(doc.discipline)} label={`Invite ${doc.discipline} engineer`}/></div><div className="mt-5 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-4"><p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><Bell size={16}/> Submission notification</p><p className="mt-2 text-xs leading-5 text-[#617083]">When the engineer uploads a revision, you will receive an EngiCite notification and the submission will enter the DCC review queue.</p><Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] hover:text-[#e8733f]"><ClipboardCheck size={16}/> Open submission review</Link></div></div>}
         <RevisionCompare endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/comparisons`} revisions={(revisions??[]).filter(revision=>revision.state==="ready")}/>
       </aside>

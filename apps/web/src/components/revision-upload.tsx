@@ -18,6 +18,11 @@ import {
   MAX_UPLOAD_BYTES,
 } from "@/lib/file-validation";
 import { requiresNativeCompanion } from "@/lib/native-file-requirement";
+import {
+  blockedIssueStatuses,
+  ISSUE_FOR_APPROVAL,
+  ISSUE_FOR_REVIEW,
+} from "@/lib/document-issue-sequence";
 import { createClient } from "@/lib/supabase/browser";
 
 type PreparedFile = {
@@ -40,11 +45,13 @@ export function RevisionUpload({
   projectId,
   documentId,
   deliveryStage,
+  completedIssueStatuses,
 }: {
   organisationId: string;
   projectId: string;
   documentId: string;
   deliveryStage: ProjectDeliveryStage;
+  completedIssueStatuses: string[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState("");
@@ -55,6 +62,9 @@ export function RevisionUpload({
   const [issueStatus, setIssueStatus] = useState("");
   const [failed, setFailed] = useState(false);
   const nativeRequired = requiresNativeCompanion(deliveryStage, issueStatus, selectedFile?.name);
+  const unavailableIssueStatuses = blockedIssueStatuses(completedIssueStatuses);
+  const hasSubmittedIfr = completedIssueStatuses.includes(ISSUE_FOR_REVIEW);
+  const hasSubmittedIfa = completedIssueStatuses.includes(ISSUE_FOR_APPROVAL);
 
   async function submit(formData: FormData, file: File, companion: File | null) {
     setBusy(true);
@@ -199,12 +209,24 @@ export function RevisionUpload({
       <IssueStatusSelect
         name="issueStatus"
         disabled={busy}
+        disabledValues={unavailableIssueStatuses}
         onChange={(event) => {
           setIssueStatus(event.currentTarget.value);
           setFailed(false);
           setStatus("");
         }}
       />
+      {(!hasSubmittedIfr || !hasSubmittedIfa) && (
+        <div className="mt-3 rounded-xl border border-[#e2e7e4] bg-[#fafbf9] p-3 text-xs leading-5 text-[#617083]">
+          <strong className="text-[#0c5b45]">Controlled issue sequence:</strong>{" "}
+          IFR must complete secure submission before IFA becomes available. IFA must then complete secure submission before IFD or IFC becomes available.
+          {!hasSubmittedIfr
+            ? " Submit IFR first for this document."
+            : !hasSubmittedIfa
+              ? " IFR is complete; submit IFA next."
+              : ""}
+        </div>
+      )}
       <label className="mt-4 block">
         <span className="ev-label">Issue date</span>
         <input className="ev-input" name="issueDate" type="date" disabled={busy} />

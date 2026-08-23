@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(21);
 select has_table('public','api_rate_limits','rate limit state exists');
 select has_function('public','consume_rate_limit',array['uuid','text','integer','integer'],'rate limiter exists');
 select has_table('public','organisation_deletion_requests','deletion requests exist');
@@ -25,6 +25,18 @@ select ok(
 select ok(
   position('revision.state <> ''ready''' in pg_get_functiondef('public.review_document_revision(uuid,text,text)'::regprocedure)) > 0,
   'DCC review requires completed security processing'
+);
+select has_function('public','required_issue_predecessor',array['text'],'controlled issue predecessor rule exists');
+select has_function('public','enforce_document_issue_sequence',array[]::text[],'database issue sequence guard exists');
+select is(
+  public.required_issue_predecessor('Issued for Approval (IFA)'),
+  'Issued for Review (IFR)',
+  'IFA requires a completed IFR submission'
+);
+select is(
+  public.required_issue_predecessor('Issued for Construction (IFC)'),
+  'Issued for Approval (IFA)',
+  'IFC requires a completed IFA submission'
 );
 select * from finish();
 rollback;

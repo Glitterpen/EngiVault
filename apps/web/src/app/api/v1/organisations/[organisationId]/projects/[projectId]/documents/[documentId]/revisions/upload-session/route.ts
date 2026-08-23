@@ -7,6 +7,7 @@ import {
   MAX_UPLOAD_BYTES,
 } from "@/lib/file-validation";
 import { DOCUMENT_ISSUE_STATUS_VALUES } from "@/lib/document-issue-status";
+import { requiredIssuePredecessor } from "@/lib/document-issue-sequence";
 import { requiresNativeCompanion } from "@/lib/native-file-requirement";
 import type { ProjectDeliveryStage } from "@/lib/project-delivery-stage";
 import { rateLimited } from "@/lib/rate-limit";
@@ -91,6 +92,37 @@ export async function POST(
     );
   }
   const deliveryStage = project.delivery_stage as ProjectDeliveryStage;
+  const requiredPredecessor = requiredIssuePredecessor(body.data.issueStatus);
+  if (requiredPredecessor) {
+    const { data: predecessor, error: predecessorError } = await supabase
+      .from("document_revisions")
+      .select("id")
+      .eq("organisation_id", organisationId)
+      .eq("project_id", projectId)
+      .eq("document_id", documentId)
+      .eq("issue_status", requiredPredecessor)
+      .in("state", ["ready", "superseded"])
+      .in("control_status", ["submitted", "accepted"])
+      .limit(1)
+      .maybeSingle();
+    if (predecessorError) {
+      return Response.json(
+        { error: { code: "ISSUE_SEQUENCE_UNAVAILABLE", message: "The document issue sequence could not be verified. Try again shortly." } },
+        { status: 503 },
+      );
+    }
+    if (!predecessor) {
+      return Response.json(
+        {
+          error: {
+            code: "ISSUE_SEQUENCE_REQUIRED",
+            message: `${body.data.issueStatus} is unavailable until ${requiredPredecessor} has completed secure submission for this document.`,
+          },
+        },
+        { status: 409 },
+      );
+    }
+  }
   if (requiresNativeCompanion(deliveryStage, body.data.issueStatus, body.data.fileName) && !body.data.nativeFile) {
     return Response.json(
       {
@@ -132,9 +164,12 @@ export async function POST(
     control_status: "submitted",
   });
   if (error) {
+    const sequenceViolation = error.code === "23514" && error.message.includes("issue sequence prerequisite");
     const message = error.code === "23505"
       ? "This revision code already exists for the document."
-      : error.code === "23514"
+      : sequenceViolation
+        ? "The previous controlled issue stage must complete secure submission before this revision can be registered."
+        : error.code === "23514"
         ? "The final FEED or construction issue PDF requires its editable native source."
         : `The revision could not be registered. Reference: ${error.code}.`;
     return Response.json(

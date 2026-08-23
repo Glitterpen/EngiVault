@@ -12,6 +12,7 @@ export function IssueStatusSelect({
   allowEmpty = false,
   emptyLabel = "Select issue status",
   disabled = false,
+  disabledValues = [],
   onChange,
 }: {
   name: string;
@@ -20,6 +21,7 @@ export function IssueStatusSelect({
   allowEmpty?: boolean;
   emptyLabel?: string;
   disabled?: boolean;
+  disabledValues?: readonly string[];
   onChange?: ChangeEventHandler<HTMLSelectElement>;
 }) {
   const legacyValue = defaultValue && !isDocumentIssueStatus(defaultValue) ? defaultValue : null;
@@ -42,7 +44,11 @@ export function IssueStatusSelect({
         {DOCUMENT_ISSUE_STATUS_GROUPS.map((group) => (
           <optgroup key={group} label={group}>
             {DOCUMENT_ISSUE_STATUSES.filter((status) => status.group === group).map((status) => (
-              <option key={status.value} value={status.value}>
+              <option
+                key={status.value}
+                value={status.value}
+                disabled={disabledValues.includes(status.value)}
+              >
                 {status.value}
               </option>
             ))}
