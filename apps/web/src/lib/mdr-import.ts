@@ -42,7 +42,10 @@ export function validateMdrPreview(
   existingDocumentNumbers: string[],
 ): MdrPreviewRow[] {
   const disciplines = categoryMap(categories.filter((category) => category.kind === "discipline"));
-  const documentTypes = categoryMap(categories.filter((category) => category.kind === "document_type"));
+  const documentTypes = categoryMap(
+    categories.filter((category) => category.kind === "document_type"),
+    { list: "Register / List", register: "Register / List" },
+  );
   const issueStatuses = new Map(DOCUMENT_ISSUE_STATUS_VALUES.map((value) => [value.toLowerCase(), value]));
   const existing = new Set(existingDocumentNumbers.map(normalise));
   const counts = new Map<string, number>();
@@ -93,17 +96,21 @@ export function validateMdrPreview(
   });
 }
 
-function categoryMap(categories: Category[]) {
+function categoryMap(categories: Category[], aliases: Record<string, string> = {}) {
   const result = new Map<string, string>();
   for (const category of categories) {
     result.set(normalise(category.code), category.name);
     result.set(normalise(category.name), category.name);
   }
+  for (const [alias, controlledName] of Object.entries(aliases)) {
+    const controlledValue = result.get(normalise(controlledName));
+    if (controlledValue) result.set(normalise(alias), controlledValue);
+  }
   return result;
 }
 
 function normalise(value: string) {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase().replaceAll("&", "and").replace(/[^a-z0-9]+/g, "");
 }
 
 function nullableText(value: unknown) {

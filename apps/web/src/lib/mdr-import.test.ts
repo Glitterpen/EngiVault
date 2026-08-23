@@ -6,6 +6,9 @@ const categories = [
   { kind: "discipline", code: "PIP", name: "Piping" },
   { kind: "document_type", code: "REP", name: "Report" },
   { kind: "document_type", code: "DWG", name: "Drawing" },
+  { kind: "document_type", code: "LST", name: "Register / List" },
+  { kind: "document_type", code: "REQ", name: "Requisition" },
+  { kind: "document_type", code: "PHI", name: "Philosophy" },
 ];
 
 const validRow = {
@@ -25,6 +28,30 @@ describe("MDR spreadsheet validation", () => {
     expect(row.is_valid).toBe(true);
     expect(row.discipline).toBe("Process");
     expect(row.document_type).toBe("Report");
+  });
+
+  it("accepts document types advertised by the EngiCite spreadsheet", () => {
+    const rows = validateMdrPreview(
+      [
+        { ...validRow, row_number: 5, document_number: "PRJ-PRO-001", document_type: "List" },
+        { ...validRow, row_number: 6, document_number: "PRJ-PRO-002", document_type: "Material Take Off" },
+        { ...validRow, row_number: 7, document_number: "PRJ-PRO-003", document_type: "REQ" },
+        { ...validRow, row_number: 8, document_number: "PRJ-PRO-004", document_type: "Philosophy" },
+      ],
+      [
+        ...categories,
+        { kind: "document_type", code: "MTO", name: "Material Take-Off" },
+      ],
+      [],
+    );
+
+    expect(rows.every((row) => row.is_valid)).toBe(true);
+    expect(rows.map((row) => row.document_type)).toEqual([
+      "Register / List",
+      "Material Take-Off",
+      "Requisition",
+      "Philosophy",
+    ]);
   });
 
   it("blocks existing and within-workbook document number duplicates", () => {
