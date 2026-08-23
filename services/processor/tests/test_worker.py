@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 from pypdf import PdfWriter
@@ -10,8 +11,9 @@ from app.worker import ProcessingJob, process_next
 
 
 class FakeGateway:
-    def __init__(self, content: bytes, job: ProcessingJob | None) -> None:
+    def __init__(self, content: bytes, job: ProcessingJob | None, native_content: bytes | None = None) -> None:
         self.content = content
+        self.native_content = native_content
         self.job = job
         self.result: ExtractionResult | None = None
         self.finished: dict[str, object] | None = None
@@ -22,6 +24,10 @@ class FakeGateway:
 
     def download(self, job: ProcessingJob, target: Path) -> None:
         target.write_bytes(self.content)
+
+    def download_native(self, job: ProcessingJob, target: Path) -> None:
+        assert self.native_content is not None
+        target.write_bytes(self.native_content)
 
     def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None:
         self.result = result
@@ -45,6 +51,17 @@ def job_for(content: bytes) -> ProcessingJob:
                          sha256=hashlib.sha256(content).hexdigest(), pipeline_version="v1", attempt=1)
 
 
+def job_with_native(content: bytes, native: bytes) -> ProcessingJob:
+    job = job_for(content)
+    return replace(
+        job,
+        native_storage_key="organisations/200/projects/300/revisions/400/native/drawing.dwg",
+        native_declared_mime="image/vnd.dwg",
+        native_byte_size=len(native),
+        native_sha256=hashlib.sha256(native).hexdigest(),
+    )
+
+
 def pdf_bytes(tmp_path: Path) -> bytes:
     path = tmp_path / "source.pdf"
     writer = PdfWriter()
@@ -61,6 +78,39 @@ def test_process_next_commits_extracted_units(tmp_path: Path) -> None:
     assert gateway.result is not None
     assert gateway.result.units[0].page_number == 1
     assert gateway.finished is not None and gateway.finished["succeeded"] is True
+
+
+def test_native_source_is_validated_and_malware_scanned(tmp_path: Path) -> None:
+    class TrackingScanner:
+        def __init__(self) -> None:
+            self.scans = 0
+
+        def scan(self, _: Path) -> MalwareScanResult:
+            self.scans += 1
+            return MalwareScanResult(status="clean", engine="test")
+
+        def ready(self) -> None:
+            return None
+
+    content = pdf_bytes(tmp_path)
+    native = b"AC1032 editable drawing source"
+    scanner = TrackingScanner()
+    gateway = FakeGateway(content, job_with_native(content, native), native)
+
+    assert process_next(gateway, malware_scanner=scanner) == "processed"
+    assert scanner.scans == 2
+    assert gateway.finished is not None
+    assert gateway.finished["metrics"]["native_source_scanned"] is True  # type: ignore[index]
+
+
+def test_invalid_native_source_fails_the_complete_revision(tmp_path: Path) -> None:
+    content = pdf_bytes(tmp_path)
+    native = b"MZ renamed executable"
+    gateway = FakeGateway(content, job_with_native(content, native), native)
+
+    assert process_next(gateway) == "failed"
+    assert gateway.finished is not None
+    assert gateway.finished["failure_code"] == "UNSUPPORTED_SIGNATURE"
 
 
 def test_invalid_signature_fails_without_storing_units() -> None:

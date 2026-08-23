@@ -29,11 +29,16 @@ class ProcessingJob:
     sha256: str
     pipeline_version: str
     attempt: int
+    native_storage_key: str | None = None
+    native_declared_mime: str | None = None
+    native_byte_size: int | None = None
+    native_sha256: str | None = None
 
 
 class ProcessingGateway(Protocol):
     def claim(self) -> ProcessingJob | None: ...
     def download(self, job: ProcessingJob, target: Path) -> None: ...
+    def download_native(self, job: ProcessingJob, target: Path) -> None: ...
     def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None: ...
     def replace_search_chunks(self, job: ProcessingJob, result: ExtractionResult,
                               embeddings: list[list[float]], embedding_model: str | None) -> None: ...
@@ -64,6 +69,25 @@ def process_next(
                                       max_file_bytes=max_file_bytes)
             detected_mime = validated.detected_mime
             scan = scanner.scan(source)
+            native_scan = None
+            native_detected_mime = None
+            if job.native_storage_key:
+                if not job.native_declared_mime or job.native_byte_size is None or not job.native_sha256:
+                    raise FileValidationError(
+                        "NATIVE_METADATA_INCOMPLETE",
+                        "Editable native source metadata is incomplete.",
+                    )
+                native_source = Path(directory) / "native-source.bin"
+                gateway.download_native(job, native_source)
+                native_validated = validate_file(
+                    native_source,
+                    declared_mime=job.native_declared_mime,
+                    expected_size=job.native_byte_size,
+                    expected_sha256=job.native_sha256,
+                    max_file_bytes=max_file_bytes,
+                )
+                native_detected_mime = native_validated.detected_mime
+                native_scan = scanner.scan(native_source)
             result = extract_document(source, validated.detected_mime)
             gateway.replace_units(job, result)
             embeddings: list[list[float]] = []
@@ -79,6 +103,9 @@ def process_next(
             metrics = {**result.metrics, "preview_strategy": result.preview_strategy,
                        "semantic_indexed": bool(embeddings),
                        "malware_scan": scan.status, "malware_engine": scan.engine,
+                       "native_source_scanned": native_scan is not None,
+                       "native_source_mime": native_detected_mime,
+                       "native_malware_scan": native_scan.status if native_scan else None,
                        "duration_ms": round((time.monotonic() - started) * 1000)}
             gateway.finish(job, succeeded=True, retryable=False, detected_mime=validated.detected_mime,
                            failure_code=None, failure_detail=None, metrics=metrics)

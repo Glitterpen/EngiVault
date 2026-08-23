@@ -3,6 +3,7 @@ import {
   DOCUMENT_ISSUE_STATUS_GROUPS,
   isDocumentIssueStatus,
 } from "@/lib/document-issue-status";
+import type { ChangeEventHandler } from "react";
 
 export function IssueStatusSelect({
   name,
@@ -11,6 +12,7 @@ export function IssueStatusSelect({
   allowEmpty = false,
   emptyLabel = "Select issue status",
   disabled = false,
+  onChange,
 }: {
   name: string;
   label?: string;
@@ -18,6 +20,7 @@ export function IssueStatusSelect({
   allowEmpty?: boolean;
   emptyLabel?: string;
   disabled?: boolean;
+  onChange?: ChangeEventHandler<HTMLSelectElement>;
 }) {
   const legacyValue = defaultValue && !isDocumentIssueStatus(defaultValue) ? defaultValue : null;
 
@@ -30,6 +33,7 @@ export function IssueStatusSelect({
         defaultValue={defaultValue}
         required={!allowEmpty}
         disabled={disabled}
+        onChange={onChange}
       >
         <option value="" disabled={!allowEmpty}>
           {emptyLabel}

@@ -26,23 +26,31 @@ class SupabaseGateway:
         self.client.close()
 
     def claim(self) -> ProcessingJob | None:
-        response = self.client.post("/rest/v1/rpc/claim_processing_run", json={"worker_name": self.worker_name})
+        response = self.client.post("/rest/v1/rpc/claim_processing_run_v2", json={"worker_name": self.worker_name})
         self._raise(response, "Job claim failed.")
         rows = response.json()
         return ProcessingJob(**rows[0]) if rows else None
 
     def download(self, job: ProcessingJob, target: Path) -> None:
-        object_path = quote(job.storage_key, safe="/")
+        self._download_processing_object(job.storage_key, job.byte_size, target)
+
+    def download_native(self, job: ProcessingJob, target: Path) -> None:
+        if not job.native_storage_key or job.native_byte_size is None:
+            raise GatewayError("Native source identity is incomplete.")
+        self._download_processing_object(job.native_storage_key, job.native_byte_size, target)
+
+    def _download_processing_object(self, storage_key: str, authorised_size: int, target: Path) -> None:
+        object_path = quote(storage_key, safe="/")
         written = 0
         with self.client.stream("GET", f"/storage/v1/object/authenticated/{quote(self.bucket)}/{object_path}") as response:
             self._raise(response, "Object download failed.")
             with target.open("xb") as stream:
                 for chunk in response.iter_bytes(1024 * 1024):
                     written += len(chunk)
-                    if written > job.byte_size:
+                    if written > authorised_size:
                         raise GatewayError("Downloaded object exceeds its authorised size.")
                     stream.write(chunk)
-        if written != job.byte_size:
+        if written != authorised_size:
             raise GatewayError("Downloaded object size differs from its authorised size.")
 
     def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None:
@@ -85,7 +93,7 @@ class SupabaseGateway:
         rows=items.json();ids=[row["revision_id"] for row in rows if row.get("revision_id") and row.get("inclusion_state")=="included"]
         revisions={}
         if ids:
-            result=self.client.get("/rest/v1/document_revisions",params={"id":f"in.({','.join(ids)})","select":"id,storage_key,original_filename,byte_size,sha256"});self._raise(result,"Package revisions unavailable.");revisions={row["id"]:row for row in result.json()}
+            result=self.client.get("/rest/v1/document_revisions",params={"id":f"in.({','.join(ids)})","select":"id,storage_key,original_filename,byte_size,sha256,native_storage_key,native_original_filename,native_byte_size,native_sha256"});self._raise(result,"Package revisions unavailable.");revisions={row["id"]:row for row in result.json()}
         return package.json()[0],rows,revisions
 
     def download_key(self, storage_key: str, target: Path, max_bytes: int = 2_147_483_648) -> int:

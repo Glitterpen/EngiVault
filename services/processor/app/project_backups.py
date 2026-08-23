@@ -28,6 +28,7 @@ def build_project_backup(gateway: SupabaseGateway, backup_id: str) -> dict[str, 
         storage_key = f"organisations/{job['organisation_id']}/projects/{job['project_id']}/backups/{backup_id}/{project_code}_Project_Backup.zip"
         checksums: list[str] = []
         included = 0
+        native_sources = 0
         skipped = 0
         with tempfile.TemporaryDirectory(prefix="engicite-backup-") as temporary:
             root = Path(temporary)
@@ -61,6 +62,22 @@ def build_project_backup(gateway: SupabaseGateway, backup_id: str) -> dict[str, 
                     ])
                     output.write(source, archive_name)
                     checksums.append(f"{digest}  {archive_name}")
+                    native_storage_source = revision.get("native_storage_key")
+                    if native_storage_source:
+                        native_source = root / f"revision-native-{index}"
+                        gateway.download_key(str(native_storage_source), native_source, max_bytes=5_368_709_120)
+                        native_digest = hashlib.sha256(native_source.read_bytes()).hexdigest()
+                        native_expected = revision.get("native_sha256")
+                        if native_expected and native_digest != native_expected:
+                            raise GatewayError("Project backup native source checksum mismatch.")
+                        native_filename = _safe(revision.get("native_original_filename"), "native-source")
+                        native_archive_name = "/".join([
+                            "Documents", _safe(document.get("discipline")), _safe(document.get("document_number")),
+                            f"Revision {_safe(revision.get('revision_code'), 'UNKNOWN')}", "Native Source", native_filename,
+                        ])
+                        output.write(native_source, native_archive_name)
+                        checksums.append(f"{native_digest}  {native_archive_name}")
+                        native_sources += 1
                     included += 1
                 output.writestr("00 - Backup Control/file-checksums.sha256", "\n".join(checksums))
             archive_size = archive.stat().st_size
@@ -68,7 +85,8 @@ def build_project_backup(gateway: SupabaseGateway, backup_id: str) -> dict[str, 
             gateway.upload_backup(storage_key, archive)
         manifest = {
             "format": "engicite-portable-project-backup-v1",
-            "documents": len(documents), "revision_files": included, "skipped_revision_files": skipped,
+            "documents": len(documents), "revision_files": included, "native_source_files": native_sources,
+            "skipped_revision_files": skipped,
             "audit_events": len(datasets["audit_events"]), "archive_bytes": archive_size,
             "provider": job["provider"],
             "external_delivery": "complete" if job["provider"] == "engicite" else "awaiting_configured_connector",

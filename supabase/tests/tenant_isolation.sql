@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(36);
 
 insert into auth.users(id,email,encrypted_password,email_confirmed_at,raw_user_meta_data) values
  ('10000000-0000-0000-0000-000000000001','admin-a@example.test','x',now(),'{"display_name":"Admin A"}'),
@@ -62,6 +62,10 @@ select ok(has_function_privilege('authenticated','public.complete_revision_uploa
 select ok(not has_function_privilege('anon','public.complete_revision_upload(uuid)','execute'),'anonymous users cannot complete uploads');
 select ok(has_function_privilege('authenticated','public.authorize_revision_download(uuid)','execute'),'authenticated users can request guarded downloads');
 select ok(not has_function_privilege('anon','public.authorize_revision_download(uuid)','execute'),'anonymous users cannot authorise downloads');
+select ok(has_function_privilege('authenticated','public.authorize_revision_native_download(uuid)','execute'),'authenticated users can request guarded native-source downloads');
+select ok(not has_function_privilege('anon','public.authorize_revision_native_download(uuid)','execute'),'anonymous users cannot authorise native-source downloads');
+select ok(has_function_privilege('service_role','public.claim_processing_run_v2(text)','execute'),'service role can claim native-aware processing runs');
+select ok(not has_function_privilege('authenticated','public.claim_processing_run_v2(text)','execute'),'browser users cannot claim processing runs');
 select ok('image/vnd.dwg'=any((select allowed_mime_types from storage.buckets where id='documents')),'private bucket allows canonical DWG MIME');
 select ok((select relrowsecurity from pg_class where oid='public.processing_runs'::regclass),'processing run RLS enabled');
 select ok(not has_table_privilege('authenticated','public.processing_runs','insert'),'browser users cannot insert processing runs');

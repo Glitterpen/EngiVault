@@ -7,6 +7,7 @@ import {
   Clock3,
   Download,
   Eye,
+  FileCog,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
@@ -19,6 +20,7 @@ type Revision = {
   revision_code: string;
   issue_status: string;
   original_filename: string;
+  native_original_filename: string | null;
   created_at: string;
   state: string;
   documents: {
@@ -41,7 +43,7 @@ export default async function ReviewsPage({
   const { data } = await supabase
     .from("document_revisions")
     .select(
-      "id,document_id,revision_code,issue_status,original_filename,created_at,state,documents!inner(document_number,title,discipline)",
+      "id,document_id,revision_code,issue_status,original_filename,native_original_filename,created_at,state,documents!inner(document_number,title,discipline)",
     )
     .eq("organisation_id", organisationId)
     .eq("project_id", projectId)
@@ -79,6 +81,7 @@ export default async function ReviewsPage({
             const canReview = row.state === "ready";
             const previewHref = `/app/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/preview`;
             const downloadHref = `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/download`;
+            const nativeDownloadHref = `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/native-download`;
 
             return (
               <article className="ev-card overflow-hidden" key={row.id}>
@@ -123,6 +126,16 @@ export default async function ReviewsPage({
                         <Download size={16} /> Original file
                       </a>
                     )}
+                    {enhancedPreviewAvailable && row.native_original_filename && (
+                      <a
+                        href={nativeDownloadHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ev-button-secondary"
+                      >
+                        <FileCog size={16} /> Native source
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -131,6 +144,7 @@ export default async function ReviewsPage({
                   <ConformanceItem label="Revision" value={row.revision_code} />
                   <ConformanceItem label="Issue status" value={row.issue_status} />
                   <ConformanceItem label="Submitted file" value={row.original_filename} />
+                  {row.native_original_filename&&<ConformanceItem label="Editable native source" value={row.native_original_filename}/>}
                 </div>
 
                 <form action={reviewRevision} className="p-5">
@@ -154,8 +168,8 @@ export default async function ReviewsPage({
                         className="mt-0.5 size-4 accent-[#0c5b45]"
                       />
                       <span>
-                        I opened the secure preview or original file and confirmed that the file,
-                        document number, revision and issue status conform to the MDR.
+                        I opened the secure preview and, where attached, the editable native source,
+                        and confirmed that the files, document number, revision and issue status conform to the MDR.
                       </span>
                     </label>
                     {!canReview && (

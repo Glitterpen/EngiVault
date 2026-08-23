@@ -11,7 +11,7 @@ export async function POST(_:Request,ctx:{params:Promise<{organisationId:string;
   const {data:revision}=await supabase.from("document_revisions").select("id").eq("id",revisionId).eq("organisation_id",organisationId).eq("project_id",projectId).eq("document_id",documentId).maybeSingle();
   if(!revision)return Response.json({error:{code:"NOT_FOUND",message:"Revision is unavailable."}},{status:404});
   const {error}=await supabase.rpc("complete_revision_upload",{target_revision:revisionId});
-  if(error)return Response.json({error:{code:"UPLOAD_INCOMPLETE",message:`The uploaded file could not enter secure processing. Reference: ${error.code}.`}},{status:409});
+  if(error)return Response.json({error:{code:"UPLOAD_INCOMPLETE",message:error.code==="23514"?"The controlled PDF and its required editable native source must both finish uploading before submission.":`The uploaded files could not enter secure processing. Reference: ${error.code}.`}},{status:409});
   after(async()=>{try{await processNextDocumentRevision()}catch{/* The queue remains available for the transmittal preparation worker. */}});
   return Response.json({revisionId,state:"queued"});
 }

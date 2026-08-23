@@ -2,16 +2,38 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UploadCloud } from "lucide-react";
+import { FileCog, UploadCloud } from "lucide-react";
 import { IssueStatusSelect } from "@/components/issue-status-select";
-import {projectDeliveryStage,projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
+import {
+  projectDeliveryStage,
+  projectDeliveryStageLabel,
+  projectTerminalIssueStatus,
+  type ProjectDeliveryStage,
+} from "@/lib/project-delivery-stage";
 import {
   canonicalUploadMime,
   hasExpectedMime,
   hasSupportedSignature,
+  isNativeEngineeringFile,
   MAX_UPLOAD_BYTES,
 } from "@/lib/file-validation";
+import { requiresNativeCompanion } from "@/lib/native-file-requirement";
 import { createClient } from "@/lib/supabase/browser";
+
+type PreparedFile = {
+  file: File;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  sha256: string;
+};
+
+type UploadSession = {
+  revisionId: string;
+  path: string;
+  token: string;
+  native?: { path: string; token: string };
+};
 
 export function RevisionUpload({
   organisationId,
@@ -29,28 +51,25 @@ export function RevisionUpload({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [nativeFile, setNativeFile] = useState<File | null>(null);
+  const [issueStatus, setIssueStatus] = useState("");
   const [failed, setFailed] = useState(false);
+  const nativeRequired = requiresNativeCompanion(deliveryStage, issueStatus, selectedFile?.name);
 
-  async function submit(formData: FormData, file: File) {
+  async function submit(formData: FormData, file: File, companion: File | null) {
     setBusy(true);
     setFailed(false);
-    setProgress(10);
-    setStatus("Validating file…");
+    setProgress(8);
+    setStatus("Validating controlled files...");
     try {
-      const mime = canonicalUploadMime(file.name, file.type);
-      if (!mime || !hasExpectedMime(file.name, mime) || file.size > MAX_UPLOAD_BYTES) {
-        throw new Error("Choose a PDF, DOCX, XLSX or DWG file up to 250 MB.");
+      const preparedPrimary = await prepareFile(file, false);
+      const preparedNative = companion ? await prepareFile(companion, true) : null;
+      if (requiresNativeCompanion(deliveryStage, String(formData.get("issueStatus") ?? ""), file.name) && !preparedNative) {
+        throw new Error(`Attach the editable native source before submitting ${projectTerminalIssueStatus(deliveryStage)}.`);
       }
-      const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-      if (!hasSupportedSignature(file.name, header)) {
-        throw new Error("The file contents do not match the selected engineering file type.");
-      }
+
       setProgress(25);
-      setStatus("Calculating file checksum…");
-      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-      const sha256 = Array.from(new Uint8Array(digest), (byte) =>
-        byte.toString(16).padStart(2, "0"),
-      ).join("");
+      setStatus(preparedNative ? "Calculating checksums for both files..." : "Calculating file checksum...");
       const response = await fetch(
         `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/upload-session`,
         {
@@ -60,37 +79,64 @@ export function RevisionUpload({
             revisionCode: formData.get("revisionCode"),
             issueStatus: formData.get("issueStatus"),
             issueDate: formData.get("issueDate") || undefined,
-            fileName: file.name,
-            mimeType: mime,
-            size: file.size,
-            sha256,
+            fileName: preparedPrimary.fileName,
+            mimeType: preparedPrimary.mimeType,
+            size: preparedPrimary.size,
+            sha256: preparedPrimary.sha256,
+            nativeFile: preparedNative
+              ? {
+                  fileName: preparedNative.fileName,
+                  mimeType: preparedNative.mimeType,
+                  size: preparedNative.size,
+                  sha256: preparedNative.sha256,
+                }
+              : undefined,
           }),
         },
       );
       if (response.redirected && new URL(response.url).pathname === "/login") {
         throw new Error("Your session expired before the upload started. Sign in again, then retry this upload.");
       }
-      const session = await response.json();
+      const session = (await response.json()) as UploadSession & { error?: { message?: string } };
       if (!response.ok) throw new Error(session.error?.message ?? "Upload session failed.");
-      setProgress(50);
-      setStatus("Uploading to private storage…");
-      const { error } = await createClient()
-        .storage.from("documents")
-        .uploadToSignedUrl(session.path, session.token, file, { contentType: mime, upsert: false });
+
+      const storage = createClient().storage.from("documents");
+      setProgress(45);
+      setStatus("Uploading the controlled issue file to private storage...");
+      const { error } = await storage.uploadToSignedUrl(session.path, session.token, file, {
+        contentType: preparedPrimary.mimeType,
+        upsert: false,
+      });
       if (error) throw error;
-      setProgress(85);
-      setStatus("Moving file into secure quarantine…");
+
+      if (preparedNative) {
+        if (!session.native) throw new Error("The native-source upload link is unavailable. Start the upload again.");
+        setProgress(68);
+        setStatus("Uploading the editable native source to private storage...");
+        const { error: nativeError } = await storage.uploadToSignedUrl(
+          session.native.path,
+          session.native.token,
+          preparedNative.file,
+          { contentType: preparedNative.mimeType, upsert: false },
+        );
+        if (nativeError) throw nativeError;
+      }
+
+      setProgress(88);
+      setStatus("Moving the complete revision into secure quarantine...");
       const completed = await fetch(
         `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/${session.revisionId}/complete`,
         { method: "POST" },
       );
       if (completed.redirected && new URL(completed.url).pathname === "/login") {
-        throw new Error("The file reached secure storage, but your session expired before it could be registered. Sign in again and retry.");
+        throw new Error("The files reached secure storage, but your session expired before they could be registered. Sign in again and retry.");
       }
       const completion = await completed.json();
       if (!completed.ok) throw new Error(completion.error?.message ?? "Upload completion failed.");
       setProgress(100);
-      setStatus("Upload complete. The revision is queued for secure processing.");
+      setStatus(preparedNative
+        ? "Upload complete. The PDF and native source are queued for security processing."
+        : "Upload complete. The revision is queued for secure processing.");
       router.refresh();
     } catch (error) {
       setFailed(true);
@@ -123,7 +169,14 @@ export function RevisionUpload({
       if (statusInput instanceof HTMLElement) statusInput.focus();
       return;
     }
-    void submit(formData, selectedFile);
+    if (nativeRequired && !nativeFile) {
+      const nativeInput = form.elements.namedItem("nativeFile");
+      setFailed(true);
+      setStatus(`Attach the editable DWG, DOCX or XLSX source required for ${projectTerminalIssueStatus(deliveryStage)}.`);
+      if (nativeInput instanceof HTMLElement) nativeInput.focus();
+      return;
+    }
+    void submit(formData, selectedFile, nativeRequired ? nativeFile : null);
   }
 
   return (
@@ -138,15 +191,26 @@ export function RevisionUpload({
         <UploadCloud size={18} className="text-[#e8733f]" />
         <h2 className="font-semibold">Upload revision</h2>
       </div>
-      <div className="mt-4 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-xs leading-5 text-[#617083]"><strong className="text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow:</strong> {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.</div>
+      <div className="mt-4 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-xs leading-5 text-[#617083]">
+        <strong className="text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow:</strong>{" "}
+        {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.
+      </div>
       <Field name="revisionCode" label="Revision" placeholder="C02" disabled={busy} />
-      <IssueStatusSelect name="issueStatus" disabled={busy} />
+      <IssueStatusSelect
+        name="issueStatus"
+        disabled={busy}
+        onChange={(event) => {
+          setIssueStatus(event.currentTarget.value);
+          setFailed(false);
+          setStatus("");
+        }}
+      />
       <label className="mt-4 block">
         <span className="ev-label">Issue date</span>
         <input className="ev-input" name="issueDate" type="date" disabled={busy} />
       </label>
       <label className="mt-4 block">
-        <span className="ev-label">File</span>
+        <span className="ev-label">Controlled issue file</span>
         <input
           className="block w-full cursor-pointer rounded-lg border border-dashed border-[#ced6df] bg-white p-3 text-sm text-[#617083] file:mr-4 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-4 file:py-2 file:text-sm file:font-bold file:text-[#10243e] hover:file:bg-[#f4f6f8]"
           name="file"
@@ -163,32 +227,54 @@ export function RevisionUpload({
         />
       </label>
       <p className="mt-2 text-xs text-[#617083]">PDF, DOCX, XLSX or DWG · maximum 250 MB</p>
+
+      {nativeRequired && (
+        <div className="mt-4 rounded-xl border border-[#efb394] bg-[#fff7f2] p-4">
+          <div className="flex items-start gap-3">
+            <FileCog size={18} className="mt-0.5 shrink-0 text-[#e8733f]" />
+            <div>
+              <p className="text-sm font-bold text-[#8b3d1f]">Editable native source required</p>
+              <p className="mt-1 text-xs leading-5 text-[#765044]">
+                This PDF is being issued at the project&apos;s final {projectDeliveryStageLabel(deliveryStage)} milestone. Attach its editable DWG, DOCX or XLSX source before submission.
+              </p>
+            </div>
+          </div>
+          <label className="mt-3 block">
+            <span className="ev-label">Native source file</span>
+            <input
+              className="block w-full cursor-pointer rounded-lg border border-dashed border-[#e5a27f] bg-white p-3 text-sm text-[#617083] file:mr-4 file:cursor-pointer file:rounded-lg file:border file:border-[#e5a27f] file:bg-[#fff7f2] file:px-4 file:py-2 file:text-sm file:font-bold file:text-[#8b3d1f]"
+              name="nativeFile"
+              type="file"
+              accept=".dwg,.docx,.xlsx"
+              required
+              disabled={busy}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.item(0) ?? null;
+                setNativeFile(file);
+                setStatus(file ? `${file.name} will be secured with the issued PDF.` : "");
+                setFailed(false);
+              }}
+            />
+          </label>
+        </div>
+      )}
+
       <button
         type="button"
         className="ev-button mt-5 w-full"
         disabled={busy}
         onClick={(event) => startUpload(event.currentTarget.form)}
       >
-        {busy ? "Working…" : "Start secure upload"}
+        {busy ? "Working..." : "Start secure upload"}
       </button>
       {(busy || progress === 100) && (
-        <div
-          className="mt-4 h-2 overflow-hidden rounded-full bg-[#e5ebe8]"
-          aria-label={`Upload progress ${progress}%`}
-        >
-          <div
-            className="h-full rounded-full bg-[#e8733f] transition-all"
-            style={{ width: `${progress}%` }}
-          />
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e5ebe8]" aria-label={`Upload progress ${progress}%`}>
+          <div className="h-full rounded-full bg-[#e8733f] transition-all" style={{ width: `${progress}%` }} />
         </div>
       )}
       {status && (
         <p
-          className={`mt-3 rounded-lg p-3 text-xs leading-5 ${
-            failed
-              ? "border border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]"
-              : "bg-[#eef4f1] text-[#0c5b45]"
-          }`}
+          className={`mt-3 rounded-lg p-3 text-xs leading-5 ${failed ? "border border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]" : "bg-[#eef4f1] text-[#0c5b45]"}`}
           role={failed ? "alert" : "status"}
         >
           {status}
@@ -196,6 +282,30 @@ export function RevisionUpload({
       )}
     </form>
   );
+}
+
+async function prepareFile(file: File, nativeOnly: boolean): Promise<PreparedFile> {
+  const mimeType = canonicalUploadMime(file.name, file.type);
+  if (!mimeType || !hasExpectedMime(file.name, mimeType) || file.size > MAX_UPLOAD_BYTES) {
+    throw new Error(nativeOnly
+      ? "Choose an editable DWG, DOCX or XLSX native file up to 250 MB."
+      : "Choose a PDF, DOCX, XLSX or DWG file up to 250 MB.");
+  }
+  if (nativeOnly && !isNativeEngineeringFile(file.name)) {
+    throw new Error("The native source must be a DWG, DOCX or XLSX file.");
+  }
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  if (!hasSupportedSignature(file.name, header)) {
+    throw new Error("The file contents do not match the selected engineering file type.");
+  }
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return {
+    file,
+    fileName: file.name,
+    mimeType,
+    size: file.size,
+    sha256: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""),
+  };
 }
 
 function Field({
@@ -212,13 +322,7 @@ function Field({
   return (
     <label className="mt-4 block">
       <span className="ev-label">{label}</span>
-      <input
-        className="ev-input"
-        name={name}
-        placeholder={placeholder}
-        required
-        disabled={disabled}
-      />
+      <input className="ev-input" name={name} placeholder={placeholder} required disabled={disabled} />
     </label>
   );
 }

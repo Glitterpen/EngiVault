@@ -11,10 +11,13 @@ const MIME_BY_EXTENSION:Record<string,string>={
   dwg:"image/vnd.dwg",
 };
 
+const NATIVE_ENGINEERING_EXTENSIONS=new Set(["dwg","docx","xlsx"]);
+
 export function fileExtension(name:string){return name.split(".").pop()?.toLowerCase()??""}
 export function expectedMime(name:string){return MIME_BY_EXTENSION[fileExtension(name)]??null}
 export function canonicalUploadMime(name:string,reportedMime:string){const expected=expectedMime(name);return fileExtension(name)==="dwg"?expected:reportedMime}
 export function hasExpectedMime(name:string,mime:string){return expectedMime(name)===mime}
+export function isNativeEngineeringFile(name:string){return NATIVE_ENGINEERING_EXTENSIONS.has(fileExtension(name))}
 
 export function hasSupportedSignature(name:string,header:Uint8Array){
   const ext=fileExtension(name);
