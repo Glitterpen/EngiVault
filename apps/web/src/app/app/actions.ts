@@ -7,6 +7,9 @@ import { DOCUMENT_ISSUE_STATUS_VALUES, isDocumentIssueStatus } from "@/lib/docum
 import { organisationLogoValidation,projectLogoValidation } from "@/lib/file-validation";
 import { canCreateOrganisationWorkspace } from "@/lib/role-experience";
 import {buildProjectBackup} from "@/lib/processor";
+import {createAdminClient} from "@/lib/supabase/admin";
+import {processQueuedIdentityPurges} from "@/lib/identity-purge";
+import {validIdentityPurgeIds} from "@/lib/identity-purge-values";
 
 const slug=z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48);
 const issueStatus=z.enum(DOCUMENT_ISSUE_STATUS_VALUES);
@@ -97,11 +100,19 @@ export async function setOrganisationArchived(form:FormData){const parsed=z.obje
 export async function deleteOrganisation(_:MutationState,form:FormData):Promise<MutationState>{
  const parsed=z.object({organisationId:z.uuid(),confirmationName:z.string().trim().min(2).max(100),acknowledge:z.literal("yes")}).safeParse(Object.fromEntries(form));
  if(!parsed.success)return {message:"Type the exact organisation name and confirm that you understand the effect."};
- const {supabase,user}=await requireUser();
- const {error}=await supabase.rpc("soft_delete_organisation",{target_organisation:parsed.data.organisationId,confirmation_name:parsed.data.confirmationName});
+ const {supabase}=await requireUser();
+ const {data,error}=await supabase.rpc("soft_delete_organisation",{target_organisation:parsed.data.organisationId,confirmation_name:parsed.data.confirmationName});
  if(error)return {message:error.code==="PGRST202"?"Apply the organisation-management database update before deleting.":error.message.includes("confirmation")?"The organisation name does not match.":error.message.includes("forbidden")?"Only an Organisation Administrator can delete this organisation.":`Organisation could not be deleted. Reference: ${error.code}.`};
- await supabase.auth.updateUser({data:{...user.user_metadata,onboarding_mode:"organisation"}});
- revalidatePath("/app");redirect("/app")
+ const result=Array.isArray(data)?data[0] as {orphan_user_ids?:unknown;caller_is_orphan?:boolean}|undefined:undefined;
+ const orphanUserIds=validIdentityPurgeIds(result?.orphan_user_ids);
+ let purgeFailed=false;
+ if(orphanUserIds.length){
+  try{const purge=await processQueuedIdentityPurges(createAdminClient(),orphanUserIds);purgeFailed=purge.failed>0}
+  catch(identityError){purgeFailed=true;console.error("[identity-purge] Immediate organisation deletion cleanup failed",identityError)}
+ }
+ revalidatePath("/app");
+ if(result?.caller_is_orphan){await supabase.auth.signOut();redirect(`/login?organisation=deleted${purgeFailed?"&identity=queued":""}`)}
+ redirect("/app")
 }
 export async function updateProject(_:MutationState,form:FormData):Promise<MutationState>{
  const optionalText=z.string().trim().max(180);

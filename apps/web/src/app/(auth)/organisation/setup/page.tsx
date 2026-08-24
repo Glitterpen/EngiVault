@@ -10,7 +10,7 @@ export default async function OrganisationSetupPage(){
   return <div className="w-full max-w-lg">
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Organisation owner setup</p>
     <h1 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Complete your organisation</h1>
-    <p className="mt-2 text-sm leading-6 text-[#617083]">Add the company logo to create the private organisation workspace. If you previously deleted an organisation, enter its original URL name to restore the preserved workspace. Project staff will continue to join through controlled invitations.</p>
+    <p className="mt-2 text-sm leading-6 text-[#617083]">Add the company logo to create the private organisation workspace. Project staff join only through controlled invitations. A deleted organisation cannot be restored from this page because its memberships, assignments and email identities are removed.</p>
     <div className="mt-7"><OrganisationCreateForm initialName={String(user.user_metadata?.organisation_name??"")} initialSlug={String(user.user_metadata?.organisation_slug??"")}/></div>
   </div>;
 }

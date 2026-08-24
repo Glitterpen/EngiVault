@@ -12,6 +12,10 @@
     {
       "path": "/api/internal/cron/project-backups",
       "schedule": "15 2 * * *"
+    },
+    {
+      "path": "/api/internal/cron/identity-purges",
+      "schedule": "25 * * * *"
     }
   ]
 }
