@@ -6,7 +6,7 @@ export function deletedIdentityEmail(userId:string){
 }
 
 export function deletedIdentityPassword(){
-  return `${crypto.randomUUID()}${crypto.randomUUID()}Aa1!`;
+  return `${crypto.randomUUID().replaceAll("-","")}${crypto.randomUUID().replaceAll("-","")}Aa1!`;
 }
 
 export function validIdentityPurgeIds(values:unknown):string[]{

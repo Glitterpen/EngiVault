@@ -8,6 +8,10 @@ describe("deleted identity values",()=>{
     expect(deletedIdentityEmail(id)).toBe("deleted-9b9e9b35381144eb988dbb2b081b506c@deleted.invalid");
   });
   it("rejects malformed identity input",()=>expect(()=>deletedIdentityEmail("not-a-user")).toThrow("Invalid user identity"));
-  it("creates an unusable high-entropy replacement password",()=>expect(deletedIdentityPassword().length).toBeGreaterThan(70));
+  it("creates an unusable high-entropy replacement password within the Supabase 72-character limit",()=>{
+    const password=deletedIdentityPassword();
+    expect(password.length).toBeGreaterThanOrEqual(64);
+    expect(password.length).toBeLessThanOrEqual(72);
+  });
   it("deduplicates and rejects untrusted queue values",()=>expect(validIdentityPurgeIds([id,id,null,"bad"])).toEqual([id]));
 });
