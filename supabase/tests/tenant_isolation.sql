@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(43);
 
 insert into auth.users(id,email,encrypted_password,email_confirmed_at,raw_user_meta_data) values
  ('10000000-0000-0000-0000-000000000001','admin-a@example.test','x',now(),'{"display_name":"Admin A"}'),
@@ -34,6 +34,7 @@ insert into public.project_member_disciplines(organisation_id,project_id,user_id
  ('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000004','Piping');
 insert into public.documents(id,organisation_id,project_id,document_number,title,document_type,discipline,created_by) values
  ('a2000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','A-DOC-1','Visible A','Drawing','Piping','10000000-0000-0000-0000-000000000001'),
+ ('a2000000-0000-0000-0000-000000000002','a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','A-DOC-2','Visible A bulk assignment','Drawing','Piping','10000000-0000-0000-0000-000000000001'),
  ('b2000000-0000-0000-0000-000000000001','b0000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000001','B-DOC-1','Secret B','Drawing','Piping','20000000-0000-0000-0000-000000000001');
 
 update public.subscriptions
@@ -50,6 +51,17 @@ set local request.jwt.claim.sub='10000000-0000-0000-0000-000000000004';
 select ok(not public.can_upload_document('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','a2000000-0000-0000-0000-000000000001'),'discipline access alone does not grant MDR upload access');
 set local request.jwt.claim.sub='10000000-0000-0000-0000-000000000003';
 select lives_ok($$select public.assign_document('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','a2000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000004',true)$$,'document controller can assign an existing discipline-matched engineer');
+select is(
+  public.assign_discipline_documents('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','Piping','10000000-0000-0000-0000-000000000004'),
+  '{"discipline":"Piping","new_assignments":1,"total_documents":2}'::jsonb,
+  'document controller can assign every active discipline deliverable in one guarded action'
+);
+select throws_ok(
+  $$select public.assign_discipline_documents('b0000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000001','Piping','10000000-0000-0000-0000-000000000004')$$,
+  '42501',
+  null,
+  'document controller cannot bulk-assign another tenant project'
+);
 set local request.jwt.claim.sub='10000000-0000-0000-0000-000000000004';
 select ok(public.can_upload_document('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','a2000000-0000-0000-0000-000000000001'),'assigned discipline engineer can upload the MDR deliverable');
 set local request.jwt.claim.sub='10000000-0000-0000-0000-000000000005';
@@ -58,13 +70,13 @@ set local request.jwt.claim.sub='10000000-0000-0000-0000-000000000002';
 set local request.jwt.claim.role='authenticated';
 select is((select count(*) from public.organisations),1::bigint,'viewer sees only own organisation');
 select is((select count(*) from public.projects),1::bigint,'viewer sees only assigned project');
-select is((select count(*) from public.documents),1::bigint,'viewer sees only assigned project documents');
+select is((select count(*) from public.documents),2::bigint,'viewer sees only own assigned project documents');
 select is((select title from public.documents where id='b2000000-0000-0000-0000-000000000001'),null,'cross-tenant document is concealed');
 select throws_ok($$insert into public.documents(organisation_id,project_id,document_number,title,document_type,discipline) values('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001','BAD','Denied','Test','Test')$$,'42501',null,'viewer cannot create document');
 select throws_ok($$update public.project_memberships set role='project_admin' where user_id=auth.uid()$$,'42501',null,'viewer cannot self-escalate');
 select ok(not public.is_org_admin('a0000000-0000-0000-0000-000000000001'),'viewer is not org admin');
 select ok(not public.has_organisation_entitlement('a0000000-0000-0000-0000-000000000001'),'expired pilot pauses workspace entitlement');
-select is((select count(*) from public.documents),1::bigint,'expired pilot retains the tenant project record');
+select is((select count(*) from public.documents),2::bigint,'expired pilot retains the tenant project records');
 select ok(public.has_project_access('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001'),'viewer has assigned access');
 select ok(not public.has_project_access('b0000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000001'),'viewer lacks other tenant access');
 select ok((select relrowsecurity from pg_class where oid='public.document_revisions'::regclass),'revision RLS enabled');
@@ -89,7 +101,7 @@ select is((select count(*) from public.notifications),0::bigint,'user can delete
 set local request.jwt.claim.sub='10000000-0000-0000-0000-000000000004';
 select is(
   (public.get_engineer_project_impact('a0000000-0000-0000-0000-000000000001','a1000000-0000-0000-0000-000000000001')->>'engineer_total_documents')::integer,
-  1,
+  2,
   'engineer receives aggregate impact for the assigned discipline'
 );
 select throws_ok(

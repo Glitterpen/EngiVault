@@ -6,6 +6,7 @@ import { requireProject,requireUser } from "@/lib/auth";
 import {can,canInviteProjectRole,canRemoveProjectMember} from "@/lib/permissions";
 import {PROJECT_DELIVERY_STAGE_VALUES} from "@/lib/project-delivery-stage";
 import {sendMdrAssignmentEmail} from "@/lib/mdr-assignment-email";
+import {sendDisciplineAssignmentEmail} from "@/lib/discipline-assignment-email";
 import {createAdminClient} from "@/lib/supabase/admin";
 
 const ids=z.object({organisationId:z.uuid(),projectId:z.uuid()});
@@ -54,6 +55,51 @@ export async function setDocumentAssignment(_:WorkflowState,form:FormData):Promi
     return {message:"MDR deliverable assigned. The in-app notification was sent, but email delivery is temporarily unavailable.",ok:true};
   }
   return {message:"MDR deliverable assigned and the engineer was notified by email.",ok:true};
+}
+export async function assignDisciplineDocuments(_:WorkflowState,form:FormData):Promise<WorkflowState>{
+  const parsed=ids.extend({discipline:z.string().trim().min(2).max(80),userId:z.uuid()}).safeParse(Object.fromEntries(form));
+  if(!parsed.success)return {message:"Select an MDR discipline and an eligible engineer."};
+  const {supabase,access}=await requireProject(parsed.data.organisationId,parsed.data.projectId);
+  if(!can(String(access.role),"document:assign"))return {message:"Only the Project Document Controller can assign MDR deliverables."};
+  const {data,error}=await supabase.rpc("assign_discipline_documents",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,target_discipline:parsed.data.discipline,target_user:parsed.data.userId});
+  if(error){
+    if(error.code==="42501")return {message:"Only the Project Document Controller can assign MDR deliverables."};
+    if(error.code==="22023")return {message:"Select an active Project Manager-appointed engineer in a discipline that has active MDR deliverables."};
+    if(error.code==="PGRST202")return {message:"Apply the discipline assignment database update, then try again."};
+    return {message:`The discipline assignment could not be completed. Reference: ${error.code}.`};
+  }
+  const result=(data??{}) as {discipline?:string;total_documents?:number;new_assignments?:number};
+  const assignedDiscipline=result.discipline??parsed.data.discipline;
+  const totalDocuments=Number(result.total_documents??0);
+  const newAssignments=Number(result.new_assignments??0);
+  const base=`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}`;
+  revalidatePath(`${base}/documents`);
+  revalidatePath(`${base}/assignments`);
+  if(newAssignments===0)return {message:`All ${totalDocuments} active ${assignedDiscipline} deliverables were already assigned to this engineer. No duplicate notification was sent.`,ok:true};
+
+  let admin:ReturnType<typeof createAdminClient>;
+  try{admin=createAdminClient()}catch{
+    console.error("[discipline-assignment-email] Assignment saved but the server identity client is unavailable",{organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,discipline:assignedDiscipline});
+    return {message:`${newAssignments} new ${assignedDiscipline} deliverables assigned. The in-app notification was sent, but the email could not be prepared.`,ok:true};
+  }
+  const [{data:membership},{data:engineer},{data:organisation},{data:project}]=await Promise.all([
+    admin.from("project_memberships").select("role,status").eq("organisation_id",parsed.data.organisationId).eq("project_id",parsed.data.projectId).eq("user_id",parsed.data.userId).eq("role","engineer").eq("status","active").maybeSingle(),
+    admin.from("profiles").select("display_name,email_snapshot").eq("id",parsed.data.userId).maybeSingle(),
+    admin.from("organisations").select("name").eq("id",parsed.data.organisationId).eq("status","active").maybeSingle(),
+    admin.from("projects").select("code,name").eq("organisation_id",parsed.data.organisationId).eq("id",parsed.data.projectId).maybeSingle(),
+  ]);
+  const vercelHost=process.env.VERCEL_PROJECT_PRODUCTION_URL??process.env.VERCEL_URL;
+  const appUrl=process.env.NEXT_PUBLIC_APP_URL??(vercelHost?`https://${vercelHost}`:"http://127.0.0.1:3000");
+  if(!membership||!engineer?.email_snapshot||!organisation?.name||!project?.name||!project.code){
+    console.error("[discipline-assignment-email] Assignment saved but email identity is incomplete",{membership:Boolean(membership),engineer:Boolean(engineer?.email_snapshot),organisation:Boolean(organisation?.name),project:Boolean(project?.name&&project.code),organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,discipline:assignedDiscipline});
+    return {message:`${newAssignments} new ${assignedDiscipline} deliverables assigned. The in-app notification was sent, but the email could not be prepared.`,ok:true};
+  }
+  const delivery=await sendDisciplineAssignmentEmail({recipientEmail:String(engineer.email_snapshot),recipientName:engineer.display_name,organisationName:organisation.name,projectCode:project.code,projectName:project.name,discipline:assignedDiscipline,totalDocuments,newAssignments,assignmentsUrl:new URL(`${base}/assignments`,appUrl).toString()});
+  if(!delivery.sent){
+    console.error("[discipline-assignment-email] Assignment saved but email delivery failed",{reason:delivery.reason,organisationId:parsed.data.organisationId,projectId:parsed.data.projectId,discipline:assignedDiscipline});
+    return {message:`${newAssignments} new ${assignedDiscipline} deliverables assigned. The in-app notification was sent, but email delivery is temporarily unavailable.`,ok:true};
+  }
+  return {message:`${newAssignments} new ${assignedDiscipline} deliverables assigned (${totalDocuments} total). The engineer was notified by email.`,ok:true};
 }
 export async function setMemberRole(form:FormData){const parsed=ids.extend({userId:z.uuid(),role:z.enum(["project_admin","document_controller","engineer"])}).safeParse(Object.fromEntries(form));if(!parsed.success)return;const {supabase,access}=await requireProject(parsed.data.organisationId,parsed.data.projectId);if(!canInviteProjectRole(String(access.role),parsed.data.role))return;const {error}=await supabase.rpc("set_project_member_role",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,target_user:parsed.data.userId,target_role:parsed.data.role});if(error)return;revalidatePath(`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}/team`);revalidatePath(`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}/documents`);revalidatePath(`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}/assignments`)}
 export async function removeProjectMember(_:WorkflowState,form:FormData):Promise<WorkflowState>{const parsed=ids.extend({userId:z.uuid(),memberRole:z.enum(["project_admin","document_controller","engineer"])}).safeParse(Object.fromEntries(form));if(!parsed.success)return {message:"The project appointment could not be identified."};const {supabase,user,access}=await requireProject(parsed.data.organisationId,parsed.data.projectId);if(user.id===parsed.data.userId)return {message:"You cannot remove your own project appointment."};if(!canRemoveProjectMember(String(access.role),parsed.data.memberRole))return {message:"You do not have permission to remove this project appointment."};const {error}=await supabase.rpc("remove_project_team_member",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,target_user:parsed.data.userId});if(error){if(error.code==="PGRST202")return {message:"Apply the project appointment removal database update, then try again."};if(error.code==="23514")return {message:"Appoint another Project Manager before removing the final active Project Manager."};if(error.code==="P0002")return {message:"This appointment is no longer active. Refresh the page."};if(error.code==="42501")return {message:"You do not have permission to remove this project appointment."};return {message:`The project appointment could not be removed. Reference: ${error.code}.`}}const base=`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}`;revalidatePath(`${base}/team`);revalidatePath(`${base}/assignments`);revalidatePath(`${base}/documents`);revalidatePath(`${base}/overview`);revalidatePath(`/app/${parsed.data.organisationId}`);return {message:"Project appointment removed. Historical records and audit evidence were retained.",ok:true}}
