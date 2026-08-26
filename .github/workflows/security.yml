@@ -30,7 +30,7 @@ jobs:
         working-directory: apps/web
       - run: pnpm audit --prod --audit-level high
         working-directory: apps/web
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]" pip-audit
         working-directory: services/processor
