@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(37);
 select has_table('public','api_rate_limits','rate limit state exists');
 select has_function('public','consume_rate_limit',array['uuid','text','integer','integer'],'rate limiter exists');
 select has_table('public','organisation_deletion_requests','deletion requests exist');
@@ -52,5 +52,22 @@ select is(
   'Issued for Approval (IFA)',
   'IFC requires a completed IFA submission'
 );
+select has_table('public','notification_email_deliveries','notification email delivery outbox exists');
+select has_function('public','queue_notification_email',array[]::text[],'notification insert queue function exists');
+select has_function('public','claim_notification_email_deliveries',array['integer'],'service notification email claim exists');
+select has_function('public','finish_notification_email_delivery',array['uuid','boolean','text','text'],'service notification email completion exists');
+select ok(
+  exists(
+    select 1 from pg_trigger trigger_record
+    join pg_class table_record on table_record.oid=trigger_record.tgrelid
+    join pg_namespace schema_record on schema_record.oid=table_record.relnamespace
+    where schema_record.nspname='public' and table_record.relname='notifications'
+      and trigger_record.tgname='notifications_queue_email' and not trigger_record.tgisinternal
+  ),
+  'new notifications automatically enter the email outbox'
+);
+select ok(not has_function_privilege('authenticated','public.claim_notification_email_deliveries(integer)','execute'),'members cannot claim notification emails');
+select ok(not has_function_privilege('authenticated','public.finish_notification_email_delivery(uuid,boolean,text,text)','execute'),'members cannot finish notification emails');
+select ok(not has_table_privilege('authenticated','public.notification_email_deliveries','select'),'members cannot inspect notification email delivery state');
 select * from finish();
 rollback;

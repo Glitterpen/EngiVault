@@ -1,0 +1,13 @@
+# Security-sensitive changes require review by the EngiCite repository owner.
+/.github/ @Glitterpen
+/apps/web/src/app/api/ @Glitterpen
+/apps/web/src/lib/auth.ts @Glitterpen
+/apps/web/src/lib/env.ts @Glitterpen
+/apps/web/src/lib/permissions.ts @Glitterpen
+/apps/web/src/lib/request-security.ts @Glitterpen
+/apps/web/src/lib/supabase/ @Glitterpen
+/apps/web/src/proxy.ts @Glitterpen
+/services/processor/ @Glitterpen
+/supabase/migrations/ @Glitterpen
+/supabase/tests/ @Glitterpen
+

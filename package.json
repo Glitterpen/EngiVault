@@ -6,6 +6,7 @@
     "dev": "pnpm --dir apps/web dev",
     "build": "pnpm --dir apps/web build",
     "check:migrations": "node scripts/check-non-destructive-migrations.mjs",
+    "check:secrets": "node scripts/check-no-tracked-secrets.mjs",
     "lint": "pnpm --dir apps/web lint",
     "test": "pnpm --dir apps/web test",
     "typecheck": "pnpm --dir apps/web typecheck"

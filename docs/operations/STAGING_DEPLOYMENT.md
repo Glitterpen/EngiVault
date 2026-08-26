@@ -14,7 +14,10 @@
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` for server-only scheduled jobs
-- `CRON_SECRET` for the daily submission-reminder and weekly project-report jobs
+- `RESEND_API_KEY` for project invitations and transactional notification delivery
+- `INVITATION_FROM_EMAIL` on the verified Resend domain
+- `NOTIFICATION_FROM_EMAIL` on the verified Resend domain
+- `CRON_SECRET` for notification delivery, submission reminders, weekly reports, backups and identity cleanup
 - `PROCESSOR_URL`
 - `PROCESSOR_SHARED_SECRET`
 - `OPENAI_API_KEY` only after billing and approved data controls are active
@@ -39,6 +42,10 @@
 - `OPENAI_API_KEY` only after billing and approved data controls are active
 
 Never place service-role, processor or OpenAI secrets in a `NEXT_PUBLIC_*` variable, source control, container image or browser configuration.
+The general notification outbox runs every five minutes and therefore requires Vercel Pro or Enterprise.
+Vercel Hobby permits only daily cron execution. After deployment, confirm `/api/internal/cron/notification-emails`
+appears in the production Cron Jobs list and records successful invocations. Invitation emails remain immediate;
+new in-app notification emails are durable and retryable through the database outbox.
 Keep ClamAV on private networking, update its signature database continuously, and alert when the
 processor readiness endpoint reports that the scanner is unavailable. The processor fails closed:
 files remain quarantined and unavailable to users until a clean scan completes.
