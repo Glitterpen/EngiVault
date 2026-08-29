@@ -2,7 +2,7 @@
 -- data after a recipient loses tenant access. Submission-overdue notifications
 -- retain their existing purpose-built reminder queue to prevent duplicates.
 
-create table public.notification_email_deliveries(
+create table if not exists public.notification_email_deliveries(
   id uuid primary key default gen_random_uuid(),
   notification_id uuid not null unique references public.notifications(id) on delete cascade,
   status text not null default 'queued' check(status in('queued','sending','sent','failed','skipped')),
@@ -15,7 +15,7 @@ create table public.notification_email_deliveries(
   updated_at timestamptz not null default now()
 );
 
-create index notification_email_deliveries_pending_idx
+create index if not exists notification_email_deliveries_pending_idx
   on public.notification_email_deliveries(status,created_at)
   where status in('queued','sending','failed');
 
@@ -23,7 +23,7 @@ alter table public.notification_email_deliveries enable row level security;
 revoke all on public.notification_email_deliveries from public,anon,authenticated;
 grant select,insert,update on public.notification_email_deliveries to service_role;
 
-create function public.queue_notification_email()
+create or replace function public.queue_notification_email()
 returns trigger
 language plpgsql
 security definer
@@ -43,11 +43,12 @@ $$;
 
 revoke all on function public.queue_notification_email() from public,anon,authenticated;
 
+drop trigger if exists notifications_queue_email on public.notifications;
 create trigger notifications_queue_email
 after insert on public.notifications
 for each row execute function public.queue_notification_email();
 
-create function public.claim_notification_email_deliveries(batch_size integer default 25)
+create or replace function public.claim_notification_email_deliveries(batch_size integer default 25)
 returns table(
   delivery_id uuid,
   notification_id uuid,
@@ -166,7 +167,7 @@ begin
 end
 $$;
 
-create function public.finish_notification_email_delivery(
+create or replace function public.finish_notification_email_delivery(
   target_delivery uuid,
   delivered boolean,
   provider_reference text default null,
