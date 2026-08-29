@@ -28,9 +28,9 @@ export function AccountMenu({email,initialRoleLabel}:{email:string;initialRoleLa
   },[organisationId,projectId,projectKey]);
 
   return <details className="group relative">
-    <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2.5 text-[#58687b] transition hover:border-[#cbd7d1] hover:bg-white" aria-label="Open account details">
+    <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2 text-[#58687b] transition hover:border-[#cbd7d1] hover:bg-white sm:gap-2 sm:pr-2.5" aria-label={`Open account details, ${currentRoleLabel}`}>
       <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{initial}</span>
-      <span className="max-w-36 truncate text-[11px] font-bold text-[#35485d] sm:max-w-52 sm:text-xs">{currentRoleLabel}</span>
+      <span className="hidden max-w-52 truncate text-xs font-bold text-[#35485d] sm:block">{currentRoleLabel}</span>
       <ChevronDown size={14} className="shrink-0 transition group-open:rotate-180"/>
     </summary>
     <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 overflow-hidden rounded-2xl border border-[#dce4ea] bg-white shadow-[0_18px_50px_rgba(16,36,62,.16)]">

@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export function Brand({ href = "/", inverse = false, compact = false }: { href?: string; inverse?: boolean; compact?: boolean }) {
   return (
-    <Link href={href} className={`relative block overflow-hidden ${compact ? "h-12 w-44" : "h-14 w-52"}`} aria-label="EngiCite home">
+    <Link href={href} className={`relative block shrink-0 overflow-hidden ${compact ? "h-12 w-44" : "h-14 w-52"}`} aria-label="EngiCite home">
       <span className="absolute inset-0">
         <Image
           src={inverse ? "/engicite-logo-inverse.png" : "/engicite-logo-transparent.png"}
