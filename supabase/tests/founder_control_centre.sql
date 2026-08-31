@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(21);
 
 insert into auth.users(id,email,encrypted_password,email_confirmed_at,raw_user_meta_data) values
  ('f0000000-0000-0000-0000-000000000001','founder@example.test','x',now(),'{"display_name":"Platform Founder"}'),
@@ -49,6 +49,7 @@ select ok(public.is_platform_founder(true),'AAL2 satisfies the founder MFA requi
 select is(jsonb_array_length(public.get_founder_dashboard('Founder Test','all',100,0)->'organisations'),3,'legacy AAL2 dashboard still returns all matching organisations');
 select is(jsonb_array_length(public.get_founder_portfolio('Founder Test','all','current',100,0)->'organisations'),2,'current founder portfolio excludes deleted organisations');
 select is(jsonb_array_length(public.get_founder_portfolio('Founder Test','all','deleted',100,0)->'organisations'),1,'deleted organisations are isolated in their own portfolio');
+select is((public.get_founder_portfolio(null,'all','current',100,0)->'summary'->>'users')::integer,1,'customer user totals exclude platform founder identities');
 select is(jsonb_array_length(public.get_founder_organisation_detail('f1000000-0000-0000-0000-000000000001')->'users'),1,'organisation detail loads identities only for the selected tenant');
 reset role;
 

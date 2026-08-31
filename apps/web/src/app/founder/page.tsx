@@ -21,7 +21,7 @@ export default async function FounderPage({searchParams}:{searchParams:Promise<S
     <section className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Platform summary">
       <SummaryCard icon={<Building2 size={19}/>} label="Current organisations" value={dashboard.summary.organisations} note={`${dashboard.summary.new_organisations} new this week`}/>
       <SummaryCard icon={<KeyRound size={19}/>} label="Current licences" value={dashboard.summary.active_licences} note="Pilot or paid access"/>
-      <SummaryCard icon={<UsersRound size={19}/>} label="App users" value={dashboard.summary.users} note="All registered accounts"/>
+      <SummaryCard icon={<UsersRound size={19}/>} label="Customer users" value={dashboard.summary.users} note="Founder identities excluded"/>
       <SummaryCard icon={<ShieldAlert size={19}/>} label="Need attention" value={dashboard.summary.needs_attention} note="Account or delivery risk" tone={dashboard.summary.needs_attention?"warning":"normal"}/>
       <SummaryCard icon={<CircleUserRound size={19}/>} label="Orphaned users" value={dashboard.summary.orphaned_users} note="No active organisation" tone={dashboard.summary.orphaned_users?"critical":"normal"}/>
       <SummaryCard icon={<CheckCircle2 size={19}/>} label="Healthy tenants" value={Math.max(0,dashboard.summary.organisations-dashboard.summary.needs_attention)} note="No material warning" tone="success"/>
