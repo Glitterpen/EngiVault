@@ -24,7 +24,14 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       {organisationRegistration&&<><Field label="Organisation name" name="organisationName" autoComplete="organization" error={state?.errors?.organisationName?.[0]}/><Field label="Organisation URL name" name="organisationSlug" hint="Lowercase letters, numbers and hyphens, e.g. north-field-engineering" error={state?.errors?.organisationSlug?.[0]}/></>}
       <Field label="Work email" name="email" type="email" autoComplete="email" hint={organisationRegistration?"Use an email not already registered with EngiCite. Existing Organisation Administrators should sign in instead.":undefined} error={state?.errors?.email?.[0]??resendState?.errors?.email?.[0]??resetState?.errors?.email?.[0]}/>
       <Field label="Password" name="password" type="password" autoComplete={registering?"new-password":"current-password"} hint={registering?"Minimum 12 characters":undefined} error={state?.errors?.password?.[0]}/>
-      {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{state.message}</div>}
+      {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm leading-6" role={state.showLogin?"alert":"status"}>
+        <p>{state.message}</p>
+        {state.showLogin&&<div className="mt-3 rounded-lg border border-[#efc7bb] bg-[#fff7f4] p-3 text-[#8b3d1f]">
+          <p className="font-bold">Already have an account? Do not wait for another email.</p>
+          <p className="mt-1 text-xs leading-5">Verified accounts do not receive a second registration message. Sign in with this work email, or use Forgot password if needed.</p>
+          <Link className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#e8733f] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#d86130]" href={alternateHref}>Sign in instead</Link>
+        </div>}
+      </div>}
       {resendState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resendState.message}</div>}
       {resetState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resetState.message}</div>}
       <button className="ev-button w-full" disabled={pending}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>

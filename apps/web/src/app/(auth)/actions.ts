@@ -6,7 +6,7 @@ import { safeAuthDestination } from "@/lib/auth-destination";
 import { sanitiseEmailHeaderText } from "@/lib/email-sender";
 import { passwordRecoveryConfirmationUrl } from "@/lib/auth-email-callback";
 
-export type AuthState = { message?: string; errors?: Record<string,string[]>; showResend?: boolean } | undefined;
+export type AuthState = { message?: string; errors?: Record<string,string[]>; showResend?: boolean; showLogin?: boolean } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
 const password = z.string().min(12,"Use at least 12 characters.").max(128);
 const loginSchema = z.object({ email, password: z.string().min(1,"Enter your password.") });
@@ -114,12 +114,12 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   if(error){
     const code=error.code??`http_${error.status}`;
     const guidance=code==="user_already_exists"?"An account already exists for this email. Use Sign in instead.":code==="email_address_invalid"?"Enter a valid deliverable email address.":code==="over_email_send_rate_limit"?"Email delivery is temporarily rate-limited. Wait a minute and try again.":"Registration could not be completed.";
-    return {message:`${guidance} Reference: ${code}.`};
+    return {message:`${guidance} Reference: ${code}.`,showLogin:code==="user_already_exists"};
   }
   if(data.session)redirect(destination);
   return {message:destination.startsWith("/invite/")
-    ? `If this is a new account, check your email for a secure ${invitationContext?.organisation_name??"organisation"} verification message. If the email is already registered, sign in or use Forgot password instead.`
-    : "If this work email is new to EngiCite, a verification message will arrive shortly. If it is already registered, no new registration email is sent—sign in or use Forgot password instead.",showResend:true};
+    ? `If this is a new account, check your email for a secure ${invitationContext?.organisation_name??"organisation"} verification message. If no email arrives shortly and you have used this address before, the account already exists.`
+    : "If this work email is new to EngiCite, a verification message will arrive shortly. If no email arrives and you have used this address before, the account already exists.",showResend:true,showLogin:true};
 }
 export async function resendVerification(_:AuthState,formData:FormData):Promise<AuthState>{
   const parsed=email.safeParse(formData.get("email"));
