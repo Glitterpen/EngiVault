@@ -16,7 +16,7 @@ export async function refreshSession(request: NextRequest, requestHeaders = new 
     },
   });
   const { data: { user } } = await supabase.auth.getUser();
-  const protectedRoute = request.nextUrl.pathname.startsWith("/app");
+  const protectedRoute = request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/founder");
   if (protectedRoute && !user) return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(request.nextUrl.pathname)}`, request.url));
   return response;
 }

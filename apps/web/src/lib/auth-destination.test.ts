@@ -5,6 +5,7 @@ describe("safeAuthDestination", () => {
   it("preserves workspace destinations", () => {
     expect(safeAuthDestination("/app/example/projects/123")).toBe("/app/example/projects/123");
     expect(safeAuthDestination("/organisation/setup")).toBe("/organisation/setup");
+    expect(safeAuthDestination("/founder")).toBe("/founder");
   });
 
   it("preserves a valid one-time invitation path", () => {

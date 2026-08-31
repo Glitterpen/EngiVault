@@ -4,6 +4,8 @@ function primaryDestination(candidate: string) {
   if (
     candidate === "/app" ||
     candidate === "/organisation/setup" ||
+    candidate === "/founder" ||
+    candidate === "/founder/security" ||
     candidate.startsWith("/app/") ||
     candidate.startsWith("/app?") ||
     invitationPath.test(candidate)

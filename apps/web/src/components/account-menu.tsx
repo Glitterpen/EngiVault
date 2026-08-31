@@ -1,13 +1,14 @@
 "use client";
 
-import {ChevronDown,LogOut} from "lucide-react";
+import Link from "next/link";
+import {ChevronDown,LogOut,ShieldCheck} from "lucide-react";
 import {usePathname} from "next/navigation";
 import {useEffect,useState} from "react";
 import {signOut} from "@/app/(auth)/actions";
 
 const projectPathPattern=new RegExp("^/app/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/projects/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})","i");
 
-export function AccountMenu({email,initialRoleLabel}:{email:string;initialRoleLabel:string}){
+export function AccountMenu({email,initialRoleLabel,founderAccess=false}:{email:string;initialRoleLabel:string;founderAccess?:boolean}){
   const pathname=usePathname();
   const match=pathname.match(projectPathPattern);
   const organisationId=match?.[1];
@@ -39,6 +40,7 @@ export function AccountMenu({email,initialRoleLabel}:{email:string;initialRoleLa
         <p className="mt-2 break-all text-sm font-semibold text-[#10243e]">{email}</p>
         <p className="mt-1 text-xs text-[#617083]">{currentRoleLabel}</p>
       </div>
+      {founderAccess&&<div className="border-b border-[#edf1f4] p-2"><Link href="/founder" className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#10243e] transition hover:bg-[#eef4f7]"><ShieldCheck size={16} className="text-[#e8733f]"/> Founder control centre</Link></div>}
       <form action={signOut} className="p-2">
         <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#58687b] transition hover:bg-[#fff3ed] hover:text-[#a5452f]">
           <LogOut size={16}/>
