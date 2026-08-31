@@ -8,10 +8,12 @@ export function FounderLoginForm({
   action,
   resetAction,
   next,
+  notice,
 }:{
   action:(state:AuthState,data:FormData)=>Promise<AuthState>;
   resetAction:(state:AuthState,data:FormData)=>Promise<AuthState>;
   next?:string;
+  notice?:string;
 }){
   const [state,formAction,pending]=useActionState(action,undefined);
   const [resetState,resetFormAction,resetPending]=useActionState(resetAction,undefined);
@@ -19,6 +21,7 @@ export function FounderLoginForm({
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Restricted platform access</p>
     <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Founder Control Centre</h2>
     <p className="mt-2 text-sm leading-6 text-[#617083]">Sign in with the approved founder identity. This route is separate from organisation workspaces and requires authenticator verification before account oversight is opened.</p>
+    {notice&&<div className="mt-5 rounded-xl border border-[#b9d9cb] bg-[#eff8f4] p-3 text-sm leading-6 text-[#0c5b45]" role="status">{notice}</div>}
     <form action={formAction} className="mt-8 space-y-5">
       <input type="hidden" name="next" value={next?.startsWith("/founder")?next:"/founder"}/>
       <Field label="Founder email" name="email" type="email" autoComplete="email" error={state?.errors?.email?.[0]??resetState?.errors?.email?.[0]}/>

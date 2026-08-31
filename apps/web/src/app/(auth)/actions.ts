@@ -210,13 +210,18 @@ export async function updatePassword(_:AuthState,formData:FormData):Promise<Auth
   const {error}=await supabase.auth.updateUser({password:parsed.data.password});
   if(error){
     const code=error.code??`http_${error.status}`;
-    const guidance=code==="same_password"?"Choose a password you have not used for this account.":"The new password could not be saved. Try again shortly.";
+    const guidance=code==="same_password"
+      ? "Choose a password you have not used for this account."
+      : code==="insufficient_aal"
+        ? "Authenticator verification is required before this protected account password can be changed. Refresh this page and enter the current 6-digit authenticator code."
+        : "The new password could not be saved. Try again shortly.";
     return {message:`${guidance} Reference: ${code}.`};
   }
   const destination=safeAuthDestination(String(formData.get("next")??""));
   await supabase.auth.signOut();
   const params=new URLSearchParams({password:"updated"});
   if(destination!=="/app")params.set("next",destination);
-  redirect(`/login?${params.toString()}`);
+  const signInPath=destination.startsWith("/founder")?"/founder-access":"/login";
+  redirect(`${signInPath}?${params.toString()}`);
 }
 export async function signOut(){ const supabase=await createClient(); await supabase.auth.signOut(); redirect("/login"); }
