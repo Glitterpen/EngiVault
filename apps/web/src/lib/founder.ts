@@ -1,17 +1,13 @@
 import "server-only";
-import {notFound, redirect} from "next/navigation";
+import {notFound,redirect} from "next/navigation";
 import {z} from "zod";
 import {requireAuthenticatedUser} from "@/lib/auth";
 
 const accessSchema=z.object({
-  is_founder:z.boolean(),
-  access_status:z.string(),
-  require_mfa:z.boolean(),
-  current_aal:z.string(),
-  authorised:z.boolean(),
+  is_founder:z.boolean(),access_status:z.string(),require_mfa:z.boolean(),current_aal:z.string(),authorised:z.boolean(),
 });
 
-const organisationSchema=z.object({
+export const founderOrganisationSchema=z.object({
   id:z.string().uuid(),name:z.string(),slug:z.string(),status:z.string(),created_at:z.string(),
   owner_name:z.string().nullable(),owner_email:z.string().nullable(),plan_code:z.string(),plan_name:z.string(),
   subscription_status:z.string(),provider_name:z.string().nullable(),licence_started_at:z.string().nullable(),
@@ -24,31 +20,33 @@ const organisationSchema=z.object({
   health_state:z.enum(["healthy","attention","critical"]),
 });
 
-const userOrganisationSchema=z.object({
-  organisation_id:z.string().uuid(),organisation_name:z.string(),role:z.string(),status:z.string(),
-});
-
-const userSchema=z.object({
+const founderUserSchema=z.object({
   id:z.string().uuid(),email:z.string().nullable(),display_name:z.string(),created_at:z.string(),
   email_confirmed_at:z.string().nullable(),last_sign_in_at:z.string().nullable(),banned_until:z.string().nullable(),
-  organisations:z.array(userOrganisationSchema),project_roles:z.array(z.string()),active_organisation_memberships:z.number().int(),
-  account_state:z.enum(["active","inactive","invited","pending_verification","orphaned","suspended"]),
+  organisation_role:z.string(),membership_status:z.string(),project_roles:z.array(z.string()),
+  account_state:z.enum(["active","inactive","invited","pending_verification","suspended"]),
 });
 
-const dashboardSchema=z.object({
+const portfolioSchema=z.object({
   authorised:z.literal(true),generated_at:z.string(),
   summary:z.object({
-    organisations:z.number().int(),new_organisations:z.number().int(),active_licences:z.number().int(),
-    users:z.number().int(),needs_attention:z.number().int(),orphaned_users:z.number().int(),
+    organisations:z.number().int(),deleted_organisations:z.number().int(),new_organisations:z.number().int(),
+    active_licences:z.number().int(),users:z.number().int(),needs_attention:z.number().int(),orphaned_users:z.number().int(),
   }),
-  organisations:z.array(organisationSchema),users:z.array(userSchema),
-  filters:z.object({search:z.string().nullable(),health:z.string(),limit:z.number().int(),offset:z.number().int()}),
+  organisations:z.array(founderOrganisationSchema),
+  filters:z.object({search:z.string().nullable(),health:z.string(),status:z.string(),limit:z.number().int(),offset:z.number().int()}),
 });
 
+const detailSchema=z.object({
+  authorised:z.literal(true),generated_at:z.string(),organisation:founderOrganisationSchema.nullable(),users:z.array(founderUserSchema),
+});
+const deniedSchema=z.object({authorised:z.literal(false),error:z.string().optional()});
+
 export type FounderAccess=z.infer<typeof accessSchema>;
-export type FounderDashboard=z.infer<typeof dashboardSchema>;
-export type FounderOrganisation=FounderDashboard["organisations"][number];
-export type FounderUser=FounderDashboard["users"][number];
+export type FounderPortfolio=z.infer<typeof portfolioSchema>;
+export type FounderOrganisation=z.infer<typeof founderOrganisationSchema>;
+export type FounderOrganisationDetail=z.infer<typeof detailSchema>;
+export type FounderUser=z.infer<typeof founderUserSchema>;
 
 export async function getFounderAccessStatus():Promise<FounderAccess>{
   const {supabase}=await requireAuthenticatedUser();
@@ -63,21 +61,31 @@ export async function requireFounderIdentity():Promise<FounderAccess>{
   return access;
 }
 
-export async function getFounderDashboard(filters:{search?:string;health?:string}):Promise<FounderDashboard>{
+async function requireFounderMfa(){
   const access=await requireFounderIdentity();
   if(!access.authorised)redirect("/founder/security");
-  const {supabase}=await requireAuthenticatedUser();
-  const {data,error}=await supabase.rpc("get_founder_dashboard",{
-    search_query:filters.search?.trim()||null,
-    health_filter:filters.health??"all",
-    result_limit:100,
-    result_offset:0,
+  return requireAuthenticatedUser();
+}
+
+export async function getFounderPortfolio(filters:{search?:string;health?:string;status?:"current"|"deleted"|"all"}):Promise<FounderPortfolio>{
+  const {supabase}=await requireFounderMfa();
+  const {data,error}=await supabase.rpc("get_founder_portfolio",{
+    search_query:filters.search?.trim()||null,health_filter:filters.health??"all",status_filter:filters.status??"current",result_limit:100,result_offset:0,
   });
-  if(error)throw new Error(`Founder dashboard failed: ${error.code}`);
-  const result=z.union([dashboardSchema,z.object({authorised:z.literal(false),error:z.string().optional()})]).parse(data);
-  if(!result.authorised){
-    if(result.error)throw new Error("Founder dashboard is temporarily unavailable.");
-    redirect("/founder/security");
-  }
+  if(error)throw new Error(`Founder portfolio failed: ${error.code}`);
+  const result=z.union([portfolioSchema,deniedSchema]).parse(data);
+  if(!result.authorised){if(result.error)throw new Error("Founder portfolio is temporarily unavailable.");redirect("/founder/security")}
+  return result;
+}
+
+export async function getFounderOrganisationDetail(organisationId:string):Promise<FounderOrganisationDetail>{
+  const parsed=z.string().uuid().safeParse(organisationId);
+  if(!parsed.success)notFound();
+  const {supabase}=await requireFounderMfa();
+  const {data,error}=await supabase.rpc("get_founder_organisation_detail",{target_organisation:parsed.data});
+  if(error)throw new Error(`Founder organisation failed: ${error.code}`);
+  const result=z.union([detailSchema,deniedSchema]).parse(data);
+  if(!result.authorised){if(result.error)throw new Error("Organisation oversight is temporarily unavailable.");redirect("/founder/security")}
+  if(!result.organisation)notFound();
   return result;
 }
