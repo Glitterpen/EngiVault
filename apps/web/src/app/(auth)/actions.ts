@@ -15,27 +15,32 @@ const organisationRegisterSchema=registerSchema.extend({organisationName:z.strin
 const passwordResetSchema=z.object({password,confirmPassword:z.string()}).refine(value=>value.password===value.confirmPassword,{message:"Passwords must match.",path:["confirmPassword"]});
 const invitationDestination=/^\/invite\/([a-f0-9]{64})$/i;
 const loginRoles=new Set(["organisation_admin","project_admin","document_controller","engineer"]);
+const founderAccessSchema=z.object({
+  is_founder:z.boolean(),access_status:z.string(),require_mfa:z.boolean(),current_aal:z.string(),authorised:z.boolean(),
+});
 type AccessError={code?:string;message?:string;details?:string;hint?:string};
 const accessErrorSummary=(error:AccessError|null)=>error?{code:error.code,message:error.message,details:error.details,hint:error.hint}:null;
+
+function signInErrorMessage(error:{code?:string;status?:number}){
+  const code=error.code??`http_${error.status}`;
+  const guidance=code==="email_not_confirmed"
+    ? "Your email has not been verified. Open the secure account-verification email, then try again."
+    : code==="invalid_credentials"
+      ? "The email or password is incorrect. Check both entries and try again."
+      : code==="user_banned"
+        ? "This account is currently disabled. Contact the authorised account administrator."
+        : code==="over_request_rate_limit"
+          ? "Too many sign-in attempts. Wait a few minutes and try again."
+          : "Sign-in could not be completed. Try again shortly.";
+  return {message:`${guidance} Reference: ${code}.`,showResend:code==="email_not_confirmed"};
+}
 
 export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
   const parsed=loginSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success) return {errors:parsed.error.flatten().fieldErrors};
   const supabase=await createClient();
   const {data:authentication,error}=await supabase.auth.signInWithPassword(parsed.data);
-  if(error){
-    const code=error.code??`http_${error.status}`;
-    const guidance=code==="email_not_confirmed"
-      ? "Your email has not been verified. Open the secure account-verification email sent for your organisation, then try again."
-      : code==="invalid_credentials"
-        ? "The email or password is incorrect. Check both entries and try again."
-        : code==="user_banned"
-          ? "This account is currently disabled. Contact an organisation administrator."
-          : code==="over_request_rate_limit"
-            ? "Too many sign-in attempts. Wait a few minutes and try again."
-            : "Sign-in could not be completed. Try again shortly.";
-    return {message:`${guidance} Reference: ${code}.`,showResend:code==="email_not_confirmed"};
-  }
+  if(error)return signInErrorMessage(error);
   const destination=safeAuthDestination(String(formData.get("next")??""));
   const invitation=destination.match(invitationDestination);
   if(invitation){
@@ -80,6 +85,28 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
     return {message:"This account has no active organisation or authorised project role. Ask your Organisation Administrator for an invitation."};
   }
   redirect(destination);
+}
+
+export async function founderLogin(_:AuthState,formData:FormData):Promise<AuthState>{
+  const parsed=loginSchema.safeParse(Object.fromEntries(formData));
+  if(!parsed.success)return {errors:parsed.error.flatten().fieldErrors};
+  const supabase=await createClient();
+  const {error}=await supabase.auth.signInWithPassword(parsed.data);
+  if(error)return signInErrorMessage(error);
+  const {data,error:accessError}=await supabase.rpc("get_founder_access_status");
+  const access=founderAccessSchema.safeParse(data);
+  if(accessError||!access.success){
+    console.error("[auth] Founder access verification failed",accessErrorSummary(accessError));
+    await supabase.auth.signOut();
+    return {message:"Founder access could not be verified. Try again shortly."};
+  }
+  if(!access.data.is_founder||access.data.access_status!=="active"){
+    await supabase.auth.signOut();
+    return {message:"This identity is not authorised for the EngiCite Founder Control Centre."};
+  }
+  const requested=safeAuthDestination(String(formData.get("next")??""));
+  const destination=requested.startsWith("/founder")?requested:"/founder";
+  redirect(access.data.authorised?destination:"/founder/security");
 }
 export async function register(_:AuthState, formData:FormData):Promise<AuthState> {
   const requestedDestination=safeAuthDestination(String(formData.get("next")??""));
@@ -161,7 +188,7 @@ export async function requestPasswordReset(_:AuthState,formData:FormData):Promis
       .maybeSingle();
     if(invitationError||!data)return {message:"Password recovery can only be requested for the exact work email on an active project invitation."};
   }
-  const returnDestination=invitation?requestedDestination:"/app";
+  const returnDestination=invitation?requestedDestination:requestedDestination.startsWith("/founder")?"/founder":"/app";
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
   const confirmationUrl=passwordRecoveryConfirmationUrl(appUrl,returnDestination);
   const {error}=await supabase.auth.resetPasswordForEmail(parsed.data,{redirectTo:confirmationUrl});

@@ -49,7 +49,7 @@ export type FounderOrganisationDetail=z.infer<typeof detailSchema>;
 export type FounderUser=z.infer<typeof founderUserSchema>;
 
 export async function getFounderAccessStatus():Promise<FounderAccess>{
-  const {supabase}=await requireAuthenticatedUser();
+  const {supabase}=await requireAuthenticatedUser("/founder-access?next=%2Ffounder");
   const {data,error}=await supabase.rpc("get_founder_access_status");
   if(error)throw new Error(`Founder access verification failed: ${error.code}`);
   return accessSchema.parse(data);

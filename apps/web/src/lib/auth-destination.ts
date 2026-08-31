@@ -6,6 +6,7 @@ function primaryDestination(candidate: string) {
     candidate === "/organisation/setup" ||
     candidate === "/founder" ||
     candidate === "/founder/security" ||
+    candidate.startsWith("/founder/") ||
     candidate.startsWith("/app/") ||
     candidate.startsWith("/app?") ||
     invitationPath.test(candidate)

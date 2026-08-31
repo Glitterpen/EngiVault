@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {readAdminPreview} from "@/lib/admin-preview";
 
-export const requireAuthenticatedUser=cache(async()=>{const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)redirect("/login");return {supabase,user};});
+export const requireAuthenticatedUser=cache(async(loginPath="/login")=>{const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)redirect(loginPath);return {supabase,user};});
 export const requireUser=cache(async()=>{
  const authenticated=await requireAuthenticatedUser();
  const {data:organisations,error}=await authenticated.supabase.rpc("get_my_organisations").limit(1);

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
+import {protectedSignInPath} from "@/lib/protected-route";
 
 export async function refreshSession(request: NextRequest, requestHeaders = new Headers(request.headers)) {
   let response = NextResponse.next({ request: { headers: requestHeaders } });
@@ -17,6 +18,9 @@ export async function refreshSession(request: NextRequest, requestHeaders = new 
   });
   const { data: { user } } = await supabase.auth.getUser();
   const protectedRoute = request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/founder");
-  if (protectedRoute && !user) return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(request.nextUrl.pathname)}`, request.url));
+  if (protectedRoute && !user) {
+    const signInPath=protectedSignInPath(request.nextUrl.pathname);
+    return NextResponse.redirect(new URL(`${signInPath}?next=${encodeURIComponent(request.nextUrl.pathname)}`, request.url));
+  }
   return response;
 }
