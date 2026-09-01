@@ -52,7 +52,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
     <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">{doc.title}</h1>
     {isEngineer&&<p className="mt-2 text-sm text-[#617083]">Submit revisions for your authorised {doc.discipline} discipline. Document Control will accept the revision or return it with feedback.</p>}
     <p className="mt-2 text-xs font-semibold text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow · 100% completion requires {projectTerminalIssueStatus(deliveryStage)}.</p>
-    {canWrite&&<details className="ev-card mt-5 p-5"><summary className="cursor-pointer font-semibold">Edit or archive document</summary><div className="mt-5 space-y-5"><DocumentAdminForm record={doc}/><DocumentPlanForm record={doc}/></div></details>}
+    {canWrite&&<details id="document-management" className="ev-card mt-5 scroll-mt-24 p-5" open={doc.lifecycle_status==="archived"||undefined}><summary className="cursor-pointer font-semibold text-[#0c5b45]">Manage MDR deliverable · edit, plan or remove</summary><p className="mt-2 text-xs leading-5 text-[#617083]">Correct the registered information or remove the deliverable from active MDR views. Controlled revisions and audit evidence are never discarded.</p><div className="mt-5 space-y-5"><DocumentAdminForm record={doc}/><DocumentPlanForm record={doc}/></div></details>}
 
     <div className={`mt-8 grid min-w-0 items-start gap-5 ${showAside?"lg:grid-cols-[minmax(0,1fr)_380px]":""}`}>
       <section className="min-w-0 space-y-5">

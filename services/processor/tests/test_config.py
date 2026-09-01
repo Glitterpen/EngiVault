@@ -22,7 +22,11 @@ def test_processor_accepts_strong_shared_secret():
     assert configured.processor_shared_secret == "a" * 32
 
 
-def test_malware_scan_mode_must_be_explicit():
+def test_malware_scan_mode_must_be_explicit(monkeypatch):
+    # CI provides an explicit default for integration tests. Remove it here so
+    # this negative test proves the application still fails closed when an
+    # operator omits the setting entirely.
+    monkeypatch.delenv("MALWARE_SCAN_MODE", raising=False)
     with pytest.raises(ValidationError):
         Settings(_env_file=None, processor_shared_secret="a" * 32)
 

@@ -1,5 +1,5 @@
 begin;
-select plan(37);
+select plan(38);
 select has_table('public','api_rate_limits','rate limit state exists');
 select has_function('public','consume_rate_limit',array['uuid','text','integer','integer'],'rate limiter exists');
 select has_table('public','organisation_deletion_requests','deletion requests exist');
@@ -69,5 +69,16 @@ select ok(
 select ok(not has_function_privilege('authenticated','public.claim_notification_email_deliveries(integer)','execute'),'members cannot claim notification emails');
 select ok(not has_function_privilege('authenticated','public.finish_notification_email_delivery(uuid,boolean,text,text)','execute'),'members cannot finish notification emails');
 select ok(not has_table_privilege('authenticated','public.notification_email_deliveries','select'),'members cannot inspect notification email delivery state');
+select is(
+  (
+    select count(*)
+    from information_schema.role_table_grants
+    where table_schema='public'
+      and grantee in ('anon','authenticated')
+      and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER')
+  ),
+  0::bigint,
+  'browser roles have no table privileges that bypass or alter the RLS security boundary'
+);
 select * from finish();
 rollback;

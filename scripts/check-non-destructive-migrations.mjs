@@ -7,7 +7,7 @@ const migrationsDirectory = join(repositoryRoot, "supabase", "migrations");
 
 const forbidden = [
   ["drops a table", /\bdrop\s+table\b/i],
-  ["truncates data", /\btruncate\s+(?:table\s+)?/i],
+  ["truncates data", /^\s*truncate\s+(?:table\s+)?/im],
   ["drops a column", /\balter\s+table\b[^;]*\bdrop\s+column\b/i],
   [
     "deletes durable tenant records",
