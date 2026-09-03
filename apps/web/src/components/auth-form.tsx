@@ -1,17 +1,28 @@
 "use client";
 import Link from "next/link";
-import {useActionState} from "react";
+import {useActionState,useEffect,useRef,useState} from "react";
 import type {AuthState} from "@/app/(auth)/actions";
+import {AuthTurnstile} from "@/components/auth-turnstile";
 
-export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied=false,notice}:{mode:"login"|"register";action:(s:AuthState,d:FormData)=>Promise<AuthState>;resendAction:(s:AuthState,d:FormData)=>Promise<AuthState>;resetAction:(s:AuthState,d:FormData)=>Promise<AuthState>;next?:string;accessDenied?:boolean;notice?:string}){
+export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied=false,notice,captchaSiteKey}:{mode:"login"|"register";action:(s:AuthState,d:FormData)=>Promise<AuthState>;resendAction:(s:AuthState,d:FormData)=>Promise<AuthState>;resetAction:(s:AuthState,d:FormData)=>Promise<AuthState>;next?:string;accessDenied?:boolean;notice?:string;captchaSiteKey?:string}){
   const [state,formAction,pending]=useActionState(action,undefined);
   const [resendState,resendFormAction,resendPending]=useActionState(resendAction,undefined);
   const [resetState,resetFormAction,resetPending]=useActionState(resetAction,undefined);
+  const [captchaToken,setCaptchaToken]=useState("");
+  const [captchaResetKey,setCaptchaResetKey]=useState(0);
+  const wasPending=useRef(false);
   const registering=mode==="register";
   const invitation=next?.startsWith("/invite/")??false;
   const organisationRegistration=registering&&!invitation;
   const alternateBase=registering?"/login":"/register";
   const alternateHref=next?`${alternateBase}?next=${encodeURIComponent(next)}`:alternateBase;
+  const busy=pending||resendPending||resetPending;
+  const captchaRequired=Boolean(captchaSiteKey?.trim());
+  const captchaIncomplete=captchaRequired&&!captchaToken;
+  useEffect(()=>{
+    if(wasPending.current&&!busy)setCaptchaResetKey(value=>value+1);
+    wasPending.current=busy;
+  },[busy]);
   return <div className="w-full max-w-md">
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">{organisationRegistration?"Organisation onboarding":invitation?"Project invitation":"Organisation-controlled access"}</p>
     <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Sign in to EngiCite"}</h2>
@@ -34,12 +45,14 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       </div>}
       {resendState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resendState.message}</div>}
       {resetState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resetState.message}</div>}
-      <button className="ev-button w-full" disabled={pending}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
+      <AuthTurnstile siteKey={captchaSiteKey} resetKey={captchaResetKey} onTokenChange={setCaptchaToken}/>
+      <input type="hidden" name="captchaToken" value={captchaToken}/>
+      <button className="ev-button w-full" disabled={busy||captchaIncomplete}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
       <div className="rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-3">
         <p className="text-xs font-bold uppercase tracking-[.12em] text-[#10243e]">Need help signing in?</p>
         <p className="mt-1 text-xs leading-5 text-[#617083]">Enter the exact work email above, then choose the help you need.</p>
-        <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={pending||resendPending||resetPending}>{resetPending?"Requesting password reset...":"Forgot password?"}</button>
-        <button className="mt-2 w-full rounded-lg px-3 py-2 text-xs font-bold text-[#0c5b45] hover:bg-[#eaf3ef] disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={pending||resendPending||resetPending}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
+        <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resetPending?"Requesting password reset...":"Forgot password?"}</button>
+        <button className="mt-2 w-full rounded-lg px-3 py-2 text-xs font-bold text-[#0c5b45] hover:bg-[#eaf3ef] disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
       </div>
     </form>
     <p className="mt-6 text-center text-sm text-[#617083]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="font-bold text-[#e8733f] hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>

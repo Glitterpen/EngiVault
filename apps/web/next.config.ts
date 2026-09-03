@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV === "development";
-const scriptSource = `'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`;
+const turnstileOrigin = "https://challenges.cloudflare.com";
+const scriptSource = `'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} ${turnstileOrigin}`;
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -27,7 +28,7 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
-          { key: "Content-Security-Policy", value: `default-src 'self'; base-uri 'self'; form-action 'self' https://formsubmit.co; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src ${scriptSource}; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self' blob:; worker-src 'self' blob:; upgrade-insecure-requests` },
+          { key: "Content-Security-Policy", value: `default-src 'self'; base-uri 'self'; form-action 'self' https://formsubmit.co; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src ${scriptSource}; connect-src 'self' https://*.supabase.co wss://*.supabase.co ${turnstileOrigin}; frame-src 'self' blob: ${turnstileOrigin}; worker-src 'self' blob:; upgrade-insecure-requests` },
         ],
       },
       {

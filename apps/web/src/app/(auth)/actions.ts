@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { safeAuthDestination } from "@/lib/auth-destination";
 import { sanitiseEmailHeaderText } from "@/lib/email-sender";
 import { passwordRecoveryConfirmationUrl } from "@/lib/auth-email-callback";
+import {captchaFailureMessage,isCaptchaFailure,readAuthCaptchaSubmission} from "@/lib/auth-captcha";
 
 export type AuthState = { message?: string; errors?: Record<string,string[]>; showResend?: boolean; showLogin?: boolean } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -23,7 +24,9 @@ const accessErrorSummary=(error:AccessError|null)=>error?{code:error.code,messag
 
 function signInErrorMessage(error:{code?:string;status?:number}){
   const code=error.code??`http_${error.status}`;
-  const guidance=code==="email_not_confirmed"
+  const guidance=isCaptchaFailure(error)
+    ? captchaFailureMessage
+    : code==="email_not_confirmed"
     ? "Your email has not been verified. Open the secure account-verification email, then try again."
     : code==="invalid_credentials"
       ? "The email or password is incorrect. Check both entries and try again."
@@ -38,8 +41,10 @@ function signInErrorMessage(error:{code?:string;status?:number}){
 export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
   const parsed=loginSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success) return {errors:parsed.error.flatten().fieldErrors};
+  const captcha=readAuthCaptchaSubmission(formData);
+  if(!captcha.ok)return {message:captcha.message};
   const supabase=await createClient();
-  const {data:authentication,error}=await supabase.auth.signInWithPassword(parsed.data);
+  const {data:authentication,error}=await supabase.auth.signInWithPassword({...parsed.data,options:{captchaToken:captcha.captchaToken}});
   if(error)return signInErrorMessage(error);
   const destination=safeAuthDestination(String(formData.get("next")??""));
   const invitation=destination.match(invitationDestination);
@@ -90,8 +95,10 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
 export async function founderLogin(_:AuthState,formData:FormData):Promise<AuthState>{
   const parsed=loginSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success)return {errors:parsed.error.flatten().fieldErrors};
+  const captcha=readAuthCaptchaSubmission(formData);
+  if(!captcha.ok)return {message:captcha.message};
   const supabase=await createClient();
-  const {error}=await supabase.auth.signInWithPassword(parsed.data);
+  const {error}=await supabase.auth.signInWithPassword({...parsed.data,options:{captchaToken:captcha.captchaToken}});
   if(error)return signInErrorMessage(error);
   const {data,error:accessError}=await supabase.rpc("get_founder_access_status");
   const access=founderAccessSchema.safeParse(data);
@@ -113,6 +120,8 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   const invitation=requestedDestination.match(invitationDestination);
   const parsed=(invitation?registerSchema:organisationRegisterSchema).safeParse(Object.fromEntries(formData));
   if(!parsed.success) return {errors:parsed.error.flatten().fieldErrors};
+  const captcha=readAuthCaptchaSubmission(formData);
+  if(!captcha.ok)return {message:captcha.message};
   const supabase=await createClient();
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
   let invitationContext:{organisation_name:string;project_name:string}|null=null;
@@ -137,10 +146,10 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
         inviting_project_name:invitationContext?.project_name,
       }
     : {onboarding_mode:"organisation",organisation_name:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationName,organisation_slug:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationSlug};
-  const {data,error}=await supabase.auth.signUp({email:parsed.data.email,password:parsed.data.password,options:{data:{display_name:parsed.data.name,...organisationData},emailRedirectTo:callbackUrl.toString()}});
+  const {data,error}=await supabase.auth.signUp({email:parsed.data.email,password:parsed.data.password,options:{data:{display_name:parsed.data.name,...organisationData},emailRedirectTo:callbackUrl.toString(),captchaToken:captcha.captchaToken}});
   if(error){
     const code=error.code??`http_${error.status}`;
-    const guidance=code==="user_already_exists"?"An account already exists for this email. Use Sign in instead.":code==="email_address_invalid"?"Enter a valid deliverable email address.":code==="over_email_send_rate_limit"?"Email delivery is temporarily rate-limited. Wait a minute and try again.":"Registration could not be completed.";
+    const guidance=isCaptchaFailure(error)?captchaFailureMessage:code==="user_already_exists"?"An account already exists for this email. Use Sign in instead.":code==="email_address_invalid"?"Enter a valid deliverable email address.":code==="over_email_send_rate_limit"?"Email delivery is temporarily rate-limited. Wait a minute and try again.":"Registration could not be completed.";
     return {message:`${guidance} Reference: ${code}.`,showLogin:code==="user_already_exists"};
   }
   if(data.session)redirect(destination);
@@ -151,6 +160,8 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
 export async function resendVerification(_:AuthState,formData:FormData):Promise<AuthState>{
   const parsed=email.safeParse(formData.get("email"));
   if(!parsed.success)return {errors:{email:[parsed.error.issues[0]?.message??"Enter a valid email address."]},showResend:true};
+  const captcha=readAuthCaptchaSubmission(formData);
+  if(!captcha.ok)return {message:captcha.message,showResend:true};
   const requestedDestination=safeAuthDestination(String(formData.get("next")??""));
   const invitation=requestedDestination.match(invitationDestination);
   const supabase=await createClient();
@@ -164,10 +175,12 @@ export async function resendVerification(_:AuthState,formData:FormData):Promise<
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
   const callbackUrl=new URL("/auth/callback",appUrl);
   callbackUrl.searchParams.set("next",destination);
-  const {error}=await supabase.auth.resend({type:"signup",email:parsed.data,options:{emailRedirectTo:callbackUrl.toString()}});
+  const {error}=await supabase.auth.resend({type:"signup",email:parsed.data,options:{emailRedirectTo:callbackUrl.toString(),captchaToken:captcha.captchaToken}});
   if(error){
     const code=error.code??`http_${error.status}`;
-    const guidance=code==="over_email_send_rate_limit"
+    const guidance=isCaptchaFailure(error)
+      ? captchaFailureMessage
+      : code==="over_email_send_rate_limit"
       ? "A verification email was requested recently. Wait at least 60 seconds before trying again."
       : code==="email_address_invalid"
         ? "Enter the exact work email used to create the account."
@@ -179,6 +192,8 @@ export async function resendVerification(_:AuthState,formData:FormData):Promise<
 export async function requestPasswordReset(_:AuthState,formData:FormData):Promise<AuthState>{
   const parsed=email.safeParse(formData.get("email"));
   if(!parsed.success)return {errors:{email:[parsed.error.issues[0]?.message??"Enter a valid email address."]}};
+  const captcha=readAuthCaptchaSubmission(formData);
+  if(!captcha.ok)return {message:captcha.message};
   const requestedDestination=safeAuthDestination(String(formData.get("next")??""));
   const invitation=requestedDestination.match(invitationDestination);
   const supabase=await createClient();
@@ -191,10 +206,12 @@ export async function requestPasswordReset(_:AuthState,formData:FormData):Promis
   const returnDestination=invitation?requestedDestination:requestedDestination.startsWith("/founder")?"/founder":"/app";
   const appUrl=process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
   const confirmationUrl=passwordRecoveryConfirmationUrl(appUrl,returnDestination);
-  const {error}=await supabase.auth.resetPasswordForEmail(parsed.data,{redirectTo:confirmationUrl});
+  const {error}=await supabase.auth.resetPasswordForEmail(parsed.data,{redirectTo:confirmationUrl,captchaToken:captcha.captchaToken});
   if(error){
     const code=error.code??`http_${error.status}`;
-    const guidance=code==="over_email_send_rate_limit"
+    const guidance=isCaptchaFailure(error)
+      ? captchaFailureMessage
+      : code==="over_email_send_rate_limit"
       ? "A recovery email was requested recently. Wait at least 60 seconds before trying again."
       : "A password-recovery email could not be requested. Try again shortly.";
     return {message:`${guidance} Reference: ${code}.`};
