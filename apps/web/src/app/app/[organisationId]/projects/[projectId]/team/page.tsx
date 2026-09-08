@@ -51,7 +51,7 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
     </div>
     <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">{workspaceKicker}</p>
     <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Users/> {workspaceTitle}</h1>
-    <p className="mt-2 max-w-4xl text-sm leading-6 text-[#617083]">{isDcc?"View discipline engineers already appointed by the Project Manager, then allocate their discipline deliverables from the Master Document Register. Document Control cannot create project invitations.":isOrganisationAdmin?"Appoint only the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Use this single workspace to plan discipline requirements, invite engineers, follow pending invitations and manage active project resources."}</p>
+    <p className="mt-2 max-w-4xl text-sm leading-6 text-[#617083]">{isDcc?"View discipline engineers already appointed by the Project Manager, then allocate their discipline deliverables from the Master Document Register. Document Control cannot create project invitations.":isOrganisationAdmin?"Appoint only the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Plan discipline requirements, invite one work email for one or more disciplines, follow pending invitations and manage active project resources. For existing engineers, add authorised disciplines below without creating another account."}</p>
 
     <section className={`mt-6 grid gap-3 sm:grid-cols-2 ${role==="project_admin"?"xl:grid-cols-4":"xl:grid-cols-2"}`}>
       <TeamMetric label="Active members" value={members.length} icon={<UserCheck size={18}/>}/>

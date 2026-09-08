@@ -12,6 +12,7 @@ type InvitationEmailInput={
   plannedEnd?:string|null;
   role:string;
   discipline?:string;
+  disciplines?:string[];
   reminder?:boolean;
 };
 
@@ -24,8 +25,9 @@ export async function sendInvitationEmail(input:InvitationEmailInput){
   if(!organisationName)return {sent:false,reason:"identity_unavailable" as const};
   const projectName=sanitiseEmailHeaderText(input.projectName,"your project");
   const from=formatOrganisationSender(configuredFrom,organisationName);
-  const discipline=input.discipline?` for the ${input.discipline} discipline`:"";
-  const accessNote=input.discipline?`<p>Your upload access is limited to <strong>${escapeHtml(input.discipline)}</strong> documents in the Master Document Register.</p>`:"";
+  const scope=input.disciplines?.length?input.disciplines.join(", "):input.discipline;
+  const discipline=scope?` for these authorised disciplines: ${scope}`:"";
+  const accessNote=scope?`<p><strong>Authorised disciplines:</strong> ${escapeHtml(scope)}.</p><p>Use this work email and one account to see all your assigned deliverables on one dashboard. Your upload access is limited to DCC-assigned Master Document Register documents in these disciplines.</p>`:"";
   const introduction=input.projectIntroduction?`<p style="margin:8px 0 0;line-height:1.6">${escapeHtml(input.projectIntroduction)}</p>`:`<p style="margin:8px 0 0;color:#617083">The project introduction will be confirmed in EngiCite.</p>`;
   const objectives=input.keyObjectives?.length?`<div style="margin-top:14px"><strong>Key objectives</strong><ol style="padding-left:20px;line-height:1.6">${input.keyObjectives.map(objective=>`<li>${escapeHtml(objective)}</li>`).join("")}</ol></div>`:"";
   const brief=`<div style="margin:20px 0;padding:16px;background:#f4f7f6;border-left:4px solid #0c5b45"><strong>Project introduction</strong>${introduction}${objectives}</div>`;
