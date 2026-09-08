@@ -3,6 +3,8 @@ import { requireProject } from "@/lib/auth";
 import { after } from "next/server";
 import { processNextDocumentRevision } from "@/lib/processor";
 
+export const maxDuration = 300;
+
 export async function POST(_:Request,ctx:{params:Promise<{organisationId:string;projectId:string;documentId:string;revisionId:string}>}){
   const {organisationId,projectId,documentId,revisionId}=await ctx.params;
   const {supabase,access}=await requireProject(organisationId,projectId);
@@ -13,6 +15,6 @@ export async function POST(_:Request,ctx:{params:Promise<{organisationId:string;
   if(!revision)return Response.json({error:{code:"NOT_FOUND",message:"Revision is unavailable."}},{status:404});
   const {error}=await supabase.rpc("complete_revision_upload",{target_revision:revisionId});
   if(error)return Response.json({error:{code:"UPLOAD_INCOMPLETE",message:error.code==="23514"?"The controlled PDF and its required editable native source must both finish uploading before submission.":`The uploaded files could not enter secure processing. Reference: ${supportReference(error.code)}.`}},{status:409});
-  after(async()=>{try{await processNextDocumentRevision()}catch{/* The queue remains available for the transmittal preparation worker. */}});
+  after(async()=>{try{await processNextDocumentRevision()}catch{console.error("[document-processing] Upload queued; scheduled processing will retry.");}});
   return Response.json({revisionId,state:"queued"});
 }

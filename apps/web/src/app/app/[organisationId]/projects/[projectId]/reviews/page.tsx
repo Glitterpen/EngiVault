@@ -2,16 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  CheckCircle2,
   ClipboardCheck,
   Clock3,
   Download,
   Eye,
   FileCog,
-  RotateCcw,
-  ShieldCheck,
 } from "lucide-react";
-import { reviewRevision } from "@/app/app/workflow-actions";
+import { RevisionReviewForm } from "@/components/revision-review-form";
+import { RevisionProcessingStatus } from "@/components/revision-processing-status";
 import { requireProject } from "@/lib/auth";
 
 type Revision = {
@@ -36,11 +34,11 @@ export default async function ReviewsPage({
   params: Promise<{ organisationId: string; projectId: string }>;
 }) {
   const { organisationId, projectId } = await params;
-  const { supabase, access } = await requireProject(organisationId, projectId);
+  const { supabase, access, preview } = await requireProject(organisationId, projectId);
 
   if (String(access.role) !== "document_controller") notFound();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("document_revisions")
     .select(
       "id,document_id,revision_code,issue_status,original_filename,native_original_filename,created_at,state,documents!inner(document_number,title,discipline)",
@@ -75,7 +73,7 @@ export default async function ReviewsPage({
       </p>
 
       <div className="mt-6 space-y-5">
-        {rows.length ? (
+        {error ? <div className="ev-card p-6" role="alert">Submissions could not be loaded. Refresh the page and try again.</div> : rows.length ? (
           rows.map((row) => {
             const enhancedPreviewAvailable = row.state === "ready";
             const canReview = row.state === "ready";
@@ -147,64 +145,16 @@ export default async function ReviewsPage({
                   {row.native_original_filename&&<ConformanceItem label="Editable native source" value={row.native_original_filename}/>}
                 </div>
 
-                <form action={reviewRevision} className="p-5">
-                  <Hidden
-                    organisationId={organisationId}
-                    projectId={projectId}
-                    revisionId={row.id}
+                <div className="px-5 pt-3">
+                  <RevisionProcessingStatus
+                    endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/processing`}
+                    initialRevisionState={row.state}
+                    initialRun={null}
+                    canRetry={!preview}
                   />
-
-                  <div className="rounded-xl border border-[#dce6e1] bg-white p-4">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-[#102842]">
-                      <ShieldCheck size={17} className="text-[#0c5b45]" /> Conformance confirmation
-                    </p>
-                    <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm leading-5 text-[#4f625d]">
-                      <input
-                        type="checkbox"
-                        name="conformanceConfirmed"
-                        value="yes"
-                        required
-                        disabled={!canReview}
-                        className="mt-0.5 size-4 accent-[#0c5b45]"
-                      />
-                      <span>
-                        I opened the secure preview and, where attached, the editable native source,
-                        and confirmed that the files, document number, revision and issue status conform to the MDR.
-                      </span>
-                    </label>
-                    {!canReview && (
-                      <p className="mt-2 text-xs font-medium text-[#7a5a00]">
-                        Preview, download and approval remain unavailable until antivirus scanning,
-                        file validation and secure processing finish successfully.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto]">
-                    <input
-                      className="ev-input"
-                      name="comment"
-                      placeholder="Review comment or return instructions"
-                    />
-                    <button
-                      name="decision"
-                      value="returned"
-                      formNoValidate
-                      disabled={!canReview}
-                      className="ev-button-secondary text-[#a5452f] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <RotateCcw size={16} /> Return
-                    </button>
-                    <button
-                      name="decision"
-                      value="accepted"
-                      disabled={!canReview}
-                      className="ev-button disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <CheckCircle2 size={16} /> Approve submission
-                    </button>
-                  </div>
-                </form>
+                  <Link href={`/app/${organisationId}/projects/${projectId}/documents/${row.document_id}`} className="mt-2 inline-block text-xs font-semibold text-[#0c5b45]">Open document record and processing details</Link>
+                </div>
+                <RevisionReviewForm organisationId={organisationId} projectId={projectId} revisionId={row.id} ready={canReview} readOnly={Boolean(preview)} />
               </article>
             );
           })
@@ -226,23 +176,5 @@ function ConformanceItem({ label, value }: { label: string; value: string }) {
         {value}
       </p>
     </div>
-  );
-}
-
-function Hidden({
-  organisationId,
-  projectId,
-  revisionId,
-}: {
-  organisationId: string;
-  projectId: string;
-  revisionId: string;
-}) {
-  return (
-    <>
-      <input type="hidden" name="organisationId" value={organisationId} />
-      <input type="hidden" name="projectId" value={projectId} />
-      <input type="hidden" name="revisionId" value={revisionId} />
-    </>
   );
 }

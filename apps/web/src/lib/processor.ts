@@ -193,7 +193,7 @@ export async function processNextDocumentRevision(): Promise<string> {
     method: "POST",
     headers: processorHeaders(secret),
     cache: "no-store",
-    signal: AbortSignal.timeout(300000),
+    signal: AbortSignal.timeout(280000),
   });
   if (!response.ok) throw new Error("DOCUMENT_PROCESSOR_UNAVAILABLE");
   const body = (await response.json()) as { state?: string };

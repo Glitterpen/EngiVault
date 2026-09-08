@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/internal/cron/document-processing",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/internal/cron/notification-emails",
       "schedule": "*/5 * * * *"
     },

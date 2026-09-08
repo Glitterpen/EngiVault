@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from docx import Document
 from openpyxl import load_workbook
@@ -69,7 +69,14 @@ def _extract_docx(path: Path, max_units: int) -> ExtractionResult:
 
 
 def _extract_xlsx(path: Path, max_units: int) -> ExtractionResult:
-    workbook = load_workbook(path, read_only=True, data_only=True, keep_links=False)
+    # Quarantine uses source.bin; the file signature/MIME has already been
+    # validated and scanned. Parse the bytes, not the temporary filename suffix.
+    with path.open("rb") as source:
+        return _extract_xlsx_stream(source, max_units)
+
+
+def _extract_xlsx_stream(source: BinaryIO, max_units: int) -> ExtractionResult:
+    workbook = load_workbook(source, read_only=True, data_only=True, keep_links=False)
     units: list[ExtractedUnit] = []
     visited_cells = 0
     try:

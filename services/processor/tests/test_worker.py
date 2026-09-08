@@ -2,11 +2,12 @@ import hashlib
 from dataclasses import replace
 from pathlib import Path
 
+from openpyxl import Workbook
 from pypdf import PdfWriter
 
 from app.extraction import ExtractionResult
 from app.malware import MalwareDetected, MalwareScannerUnavailable, MalwareScanResult
-from app.validation import MIME_PDF
+from app.validation import MIME_PDF, MIME_XLSX
 from app.worker import ProcessingJob, process_next
 
 
@@ -38,6 +39,29 @@ class FakeGateway:
 
     def finish(self, job: ProcessingJob, **result: object) -> None:
         self.finished = result
+
+
+def test_xlsx_submission_processes_from_extensionless_quarantine_file(tmp_path: Path) -> None:
+    workbook = Workbook()
+    workbook.active.append(["Document number", "Revision"])
+    workbook.active.append(["ELE-001", "IFR"])
+    path = tmp_path / "deliverable.xlsx"
+    workbook.save(path)
+    workbook.close()
+    content = path.read_bytes()
+    job = replace(job_for(content), declared_mime=MIME_XLSX)
+    gateway = FakeGateway(content, job)
+
+    class CleanScanner:
+        def scan(self, _: Path) -> MalwareScanResult:
+            return MalwareScanResult(status="clean", engine="test")
+
+    assert process_next(gateway, malware_scanner=CleanScanner()) == "processed"
+    assert gateway.finished is not None and gateway.finished["succeeded"] is True
+    assert gateway.finished["metrics"]["malware_scan"] == "clean"
+    assert gateway.result is not None
+    assert gateway.result.units[1].locator_type == "sheet_range"
+    assert "ELE-001" in gateway.result.units[1].content
 
 
 def job_for(content: bytes) -> ProcessingJob:
