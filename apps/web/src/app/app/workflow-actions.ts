@@ -26,6 +26,7 @@ export async function setDocumentAssignment(_:WorkflowState,form:FormData):Promi
   }
   const base=`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}`;
   revalidatePath(`${base}/documents/${parsed.data.documentId}`);
+  revalidatePath(`${base}/documents`);
   revalidatePath(`${base}/assignments`);
   if(!enabled)return {message:"MDR assignment removed.",ok:true};
   if(previousAssignment?.status==="active")return {message:"This MDR deliverable is already assigned.",ok:true};

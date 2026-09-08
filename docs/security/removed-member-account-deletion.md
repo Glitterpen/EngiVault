@@ -9,7 +9,17 @@ Implementation date: 2026-09-08. Production release authorised by the owner. The
 3. Administrator selects **Delete account**, types the current account email and acknowledges that the old account cannot be restored.
 4. Server and database recheck administrator permission and eligibility; the database does not trust UI flags.
 5. Access, sessions and refresh tokens are revoked in the transaction. The service finishes identity deletion immediately where possible, or retries via the existing identity-purge cron queue.
-6. Wait for **Account deleted** before issuing a new invitation. Reinvitation uses the normal controlled account-creation flow, with a new identity and explicitly granted disciplines/MDR assignments. The old identity cannot regain membership.
+6. Wait for successful deletion before issuing a new invitation. With migration 096, the account disappears from this list once the identity service acknowledges completion; pending/failed cleanup stays visible. Reinvitation uses the normal controlled account-creation flow, with a new identity and explicitly granted disciplines/MDR assignments. The old identity cannot regain membership.
+
+## Completed-account list cleanup (migration 096)
+
+The owner reported applying `supabase/migrations/202609080096_hide_completed_account_deletions.sql` to production after migration 095 on 2026-09-08. This changes only the existing administrator list RPC, so the currently deployed web interface is compatible and needs no web deployment for the filter to take effect. Refresh the page after applying it. This migration is also retained in source control with the subsequent DCC list-housekeeping release; the deployment does not rerun SQL or delete accounts.
+
+Both existing and future completed deletions are excluded from the list, search results and pagination totals. Queued, processing, failed or missing queue records remain visible so incomplete cleanup cannot be mistaken for success. No user can dismiss an unfinished deletion. The same active-administrator/tenant checks and authenticated-only RPC grants remain in force.
+
+The security retirement marker, anonymised historical identity and engineering/audit references remain intact; this is list housekeeping, not additional destruction of customer history. No accounts are deleted by this migration.
+
+Local verification for this follow-up: 61 account-deletion pgTAP assertions passed, together with the existing MDR, discipline, invitation and live-preview regression suites. Migration 096 was applied twice in the isolated database to verify rerun safety. The non-destructive migration guard passed across 96 migrations. No hosted accounts were changed during these checks.
 
 ## Eligibility and security
 
