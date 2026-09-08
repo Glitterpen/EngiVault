@@ -1,4 +1,6 @@
 "use client";
+import { customerErrorMessage } from "@/lib/customer-messages";
+
 
 import {Download,LoaderCircle} from "lucide-react";
 import {useState,type MouseEvent} from "react";
@@ -26,7 +28,7 @@ export function PrintReportButton({href}:{href:string}){
       anchor.href=objectUrl;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();
       window.setTimeout(()=>URL.revokeObjectURL(objectUrl),1_000);
     }catch(cause){
-      setError(cause instanceof Error?cause.message:"The project report could not be downloaded.");
+      setError(customerErrorMessage(cause,"The project report could not be downloaded."));
     }finally{setPreparing(false)}
   }
 

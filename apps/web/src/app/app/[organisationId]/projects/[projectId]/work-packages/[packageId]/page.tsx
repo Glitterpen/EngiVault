@@ -82,7 +82,7 @@ export default async function PackagePage({
           <div className={`sm:col-span-2 xl:col-span-4 flex gap-2 rounded-xl p-4 text-xs leading-5 ${isQualifiedSeal ? "bg-[#f1f7f4] text-[#0c5b45]" : "bg-[#fff6ed] text-[#8a4425]"}`}>
             <BadgeCheck className="mt-0.5 shrink-0" size={16} />
             {isQualifiedSeal ? (
-              <p><strong>Qualified organisation seal:</strong> the transmittal PDF was sealed through {seal?.platform} using an {seal?.trust_service_provider} qualified certificate in {seal?.signature_format ?? "PAdES"} format. The embedded certificate can be inspected in a trusted PDF reader.</p>
+              <p><strong>Qualified organisation seal:</strong> the transmittal PDF contains a provider-verified qualified certificate. The embedded certificate, its issuer and signature format can be inspected in a trusted PDF reader.</p>
             ) : hasElectronicSeal ? (
               <p><strong>Electronic organisation seal:</strong> an electronic seal is embedded, but EngiCite has not asserted qualified status for the configured certificate.</p>
             ) : (

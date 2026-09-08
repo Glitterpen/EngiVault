@@ -1,4 +1,6 @@
 "use client";
+import { customerErrorMessage } from "@/lib/customer-messages";
+
 
 import {useState} from "react";
 import {useRouter} from "next/navigation";
@@ -36,7 +38,7 @@ export function PendingProjectInvitations({organisationId,projectId,invitations}
       setFeedback(current=>({...current,[invitationId]:{message:body.message,failed:false,acceptUrl:body.delivery?.emailSent?undefined:body.delivery?.acceptUrl}}));
       router.refresh();
     }catch(error){
-      setFeedback(current=>({...current,[invitationId]:{message:error instanceof Error?error.message:"Invitation could not be resent.",failed:true}}));
+      setFeedback(current=>({...current,[invitationId]:{message:customerErrorMessage(error,"Invitation could not be resent."),failed:true}}));
     }finally{setBusyId(undefined)}
   }
 
@@ -48,7 +50,7 @@ export function PendingProjectInvitations({organisationId,projectId,invitations}
       if(!response.ok)throw new Error(body.error?.message??"Invitation could not be deleted.");
       setRemovedIds(current=>[...current,invitationId]);setDeleteId(undefined);router.refresh();
     }catch(error){
-      setFeedback(current=>({...current,[invitationId]:{message:error instanceof Error?error.message:"Invitation could not be deleted.",failed:true}}));
+      setFeedback(current=>({...current,[invitationId]:{message:customerErrorMessage(error,"Invitation could not be deleted."),failed:true}}));
     }finally{setBusyId(undefined)}
   }
 

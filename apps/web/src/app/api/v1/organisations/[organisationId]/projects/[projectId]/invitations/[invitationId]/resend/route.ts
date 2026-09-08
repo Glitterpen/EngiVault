@@ -1,3 +1,4 @@
+import { supportReference } from "@/lib/customer-messages";
 import {z} from "zod";
 import {requireProject} from "@/lib/auth";
 import {canInviteProjectRole} from "@/lib/permissions";
@@ -38,7 +39,7 @@ export async function POST(request:Request,ctx:{params:Promise<{organisationId:s
   }).single();
   if(error){
     const status=error.code==="42501"?403:error.code==="P0002"?404:500;
-    return Response.json({error:{code:"RESEND_FAILED",message:`Invitation could not be resent. Reference: ${error.code}.`}},{status});
+    return Response.json({error:{code:"RESEND_FAILED",message:`Invitation could not be resent. Reference: ${supportReference(error.code)}.`}},{status});
   }
 
   const invitation=data as RenewedInvitation;

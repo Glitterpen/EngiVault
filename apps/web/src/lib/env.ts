@@ -10,6 +10,6 @@ export function publicEnv() {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   });
-  if (!result.success) throw new Error("Supabase public environment variables are not configured.");
+  if (!result.success) throw new Error("EngiCite is temporarily unavailable. Please try again shortly.");
   return result.data;
 }

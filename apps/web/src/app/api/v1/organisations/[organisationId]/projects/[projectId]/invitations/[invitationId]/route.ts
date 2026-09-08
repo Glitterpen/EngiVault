@@ -1,3 +1,4 @@
+import { supportReference } from "@/lib/customer-messages";
 import {z} from "zod";
 import {requireProject} from "@/lib/auth";
 import {canInviteProjectRole} from "@/lib/permissions";
@@ -22,7 +23,7 @@ export async function DELETE(_request:Request,ctx:{params:Promise<{organisationI
   });
   if(error){
     const status=error.code==="42501"?403:error.code==="P0002"?404:500;
-    return Response.json({error:{code:"DELETE_FAILED",message:`Invitation could not be deleted. Reference: ${error.code}.`}},{status});
+    return Response.json({error:{code:"DELETE_FAILED",message:`Invitation could not be deleted. Reference: ${supportReference(error.code)}.`}},{status});
   }
   return Response.json({message:"Invitation deleted. Its acceptance link can no longer be used."});
 }

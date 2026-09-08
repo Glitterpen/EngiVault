@@ -1,4 +1,6 @@
 "use server";
+import { supportReference } from "@/lib/customer-messages";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -35,7 +37,7 @@ function signInErrorMessage(error:{code?:string;status?:number}){
         : code==="over_request_rate_limit"
           ? "Too many sign-in attempts. Wait a few minutes and try again."
           : "Sign-in could not be completed. Try again shortly.";
-  return {message:`${guidance} Reference: ${code}.`,showResend:code==="email_not_confirmed"};
+  return {message:`${guidance} Reference: ${supportReference(code)}.`,showResend:code==="email_not_confirmed"};
 }
 
 export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
@@ -62,7 +64,7 @@ export async function login(_:AuthState, formData:FormData):Promise<AuthState> {
     const reference=[organisationError?`org_${organisationError.code??"unknown"}`:null,projectError?`project_${projectError.code??"unknown"}`:null].filter(Boolean).join("_");
     console.error("[auth] Organisation access verification failed",{organisation:accessErrorSummary(organisationError),project:accessErrorSummary(projectError)});
     await supabase.auth.signOut();
-    return {message:`Organisation access could not be verified. Try again shortly. Reference: ${reference}.`};
+    return {message:`Organisation access could not be verified. Try again shortly. Reference: ${supportReference(reference)}.`};
   }
   if(!organisations?.length){
     const canResumeOwnerOnboarding=recoverableOwner===true;
@@ -150,7 +152,7 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   if(error){
     const code=error.code??`http_${error.status}`;
     const guidance=isCaptchaFailure(error)?captchaFailureMessage:code==="user_already_exists"?"An account already exists for this email. Use Sign in instead.":code==="email_address_invalid"?"Enter a valid deliverable email address.":code==="over_email_send_rate_limit"?"Email delivery is temporarily rate-limited. Wait a minute and try again.":"Registration could not be completed.";
-    return {message:`${guidance} Reference: ${code}.`,showLogin:code==="user_already_exists"};
+    return {message:`${guidance} Reference: ${supportReference(code)}.`,showLogin:code==="user_already_exists"};
   }
   if(data.session)redirect(destination);
   return {message:destination.startsWith("/invite/")
@@ -185,7 +187,7 @@ export async function resendVerification(_:AuthState,formData:FormData):Promise<
       : code==="email_address_invalid"
         ? "Enter the exact work email used to create the account."
         : "A fresh verification email could not be requested. Try again shortly.";
-    return {message:`${guidance} Reference: ${code}.`,showResend:true};
+    return {message:`${guidance} Reference: ${supportReference(code)}.`,showResend:true};
   }
   return {message:"If this email belongs to an unconfirmed account, a fresh verification message will arrive shortly. If the account is already confirmed, use Sign in or request a password reset instead.",showResend:true};
 }
@@ -214,7 +216,7 @@ export async function requestPasswordReset(_:AuthState,formData:FormData):Promis
       : code==="over_email_send_rate_limit"
       ? "A recovery email was requested recently. Wait at least 60 seconds before trying again."
       : "A password-recovery email could not be requested. Try again shortly.";
-    return {message:`${guidance} Reference: ${code}.`};
+    return {message:`${guidance} Reference: ${supportReference(code)}.`};
   }
   return {message:"If this email belongs to an EngiCite account, a secure password-reset link will arrive shortly. Check the inbox and spam folder."};
 }
@@ -232,7 +234,7 @@ export async function updatePassword(_:AuthState,formData:FormData):Promise<Auth
       : code==="insufficient_aal"
         ? "Authenticator verification is required before this protected account password can be changed. Refresh this page and enter the current 6-digit authenticator code."
         : "The new password could not be saved. Try again shortly.";
-    return {message:`${guidance} Reference: ${code}.`};
+    return {message:`${guidance} Reference: ${supportReference(code)}.`};
   }
   const destination=safeAuthDestination(String(formData.get("next")??""));
   await supabase.auth.signOut();

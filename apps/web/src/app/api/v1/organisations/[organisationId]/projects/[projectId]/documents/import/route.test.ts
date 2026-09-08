@@ -63,6 +63,21 @@ beforeEach(() => {
 });
 
 describe("MDR import lifecycle and custom types", () => {
+  it("does not expose upstream platform errors in the workbook preview", async () => {
+    vi.mocked(parseMdrWorkbook).mockRejectedValue(new Error("Supabase on Railway: PROCESSOR_SHARED_SECRET_REQUIRED"));
+    const response = await POST(previewRequest(), context);
+    const body = await response.json();
+    expect(response.status).toBe(422);
+    expect(body.error.message).toContain("EngiCite support");
+    expect(body.error.message).not.toMatch(/supabase|railway|processor|secret/i);
+  });
+
+  it("retains an actionable workbook validation message", async () => {
+    vi.mocked(parseMdrWorkbook).mockRejectedValue(new Error("The workbook contains headings but no document rows."));
+    const response = await POST(previewRequest(), context);
+    expect((await response.json()).error.message).toBe("The workbook contains headings but no document rows.");
+  });
+
   it("previews and imports a removed number with an unlisted type", async () => {
     const preview = await POST(previewRequest(), context);
     expect(preview.status).toBe(200);

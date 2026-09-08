@@ -21,5 +21,6 @@ export default async function OrganisationSettings({params}:{params:Promise<{org
   <h1 className="mt-2 text-3xl font-semibold">Manage organisation</h1>
   <p className="mb-6 mt-2 text-sm text-[#617083]">Edit company identity, pause the workspace or remove it securely.</p>
   <OrganisationAdminForm record={org}/>
+  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">User account management</h2><p className="mb-4 mt-2 text-sm text-[#617083]">Delete login accounts after their project-team appointments have been removed, while preserving project documents and audit history.</p><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/removed-accounts`}>Manage removed team accounts</Link></section>
  </div>
 }

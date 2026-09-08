@@ -1,3 +1,4 @@
+import { customerErrorMessage } from "@/lib/customer-messages";
 import { revalidatePath } from "next/cache";
 import { can } from "@/lib/permissions";
 import { requireProject } from "@/lib/auth";
@@ -48,7 +49,7 @@ export async function POST(
       rows,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return Response.json({ error: { code: "WORKBOOK_INVALID", message: error instanceof Error ? error.message : "The workbook could not be read." } }, { status: 422 });
+    return Response.json({ error: { code: "WORKBOOK_INVALID", message: customerErrorMessage(error, "The workbook could not be read. Please try again or contact EngiCite support.") } }, { status: 422 });
   }
 }
 
@@ -95,7 +96,7 @@ export async function PUT(
       : error.code === "42501"
         ? "Only the appointed Document Controller can import the MDR."
         : error.code === "PGRST202"
-          ? "The MDR bulk-import database update has not been applied yet."
+          ? "MDR import is temporarily unavailable. Please contact EngiCite support."
           : error.code === "22023"
             ? "One or more rows failed the final MDR validation."
             : "The MDR could not be imported.";

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { customerErrorMessage } from "@/lib/customer-messages";
 
 export function WorkPackageGenerate({
   endpoint,
@@ -21,13 +22,17 @@ export function WorkPackageGenerate({
         disabled={state === "loading"}
         onClick={async () => {
           setState("loading");
-          const response = await fetch(endpoint, { method: "POST" });
-          if (response.ok) {
-            setState("ready");
-            router.refresh();
-          } else {
-            const body = await response.json().catch(() => null);
-            setState(body?.error?.message ?? "Package generation failed.");
+          try {
+            const response = await fetch(endpoint, { method: "POST" });
+            if (response.ok) {
+              setState("ready");
+              router.refresh();
+            } else {
+              const body = await response.json().catch(() => null);
+              setState(customerErrorMessage(body?.error?.message, "Package generation failed. Please try again."));
+            }
+          } catch {
+            setState("Package generation could not be completed. Check your connection and try again.");
           }
         }}
       >

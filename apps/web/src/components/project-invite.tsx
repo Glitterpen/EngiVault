@@ -1,4 +1,6 @@
 "use client";
+import { customerErrorMessage } from "@/lib/customer-messages";
+
 import {disciplineLabel} from "@/lib/project-disciplines";
 
 import { useState } from "react";
@@ -41,7 +43,7 @@ export function ProjectInvite({organisationId,projectId,disciplines,bare=false,a
       setUrl(body.delivery.acceptUrl);
       setMessage(body.delivery.emailSent?"Invitation emailed successfully. The acceptance link is also available below.":body.delivery.reason==="identity_unavailable"?"Invitation created, but the organisation identity could not be verified, so no email was sent. Copy the one-time link below.":body.delivery.reason==="provider_error"?"Invitation created, but email delivery failed. Copy and send the one-time link below, or use Resend invite.":"Secure invitation created. Email delivery is not configured, so copy and send the one-time link below.");
     }catch(error){
-      setFailed(true);setMessage(error instanceof Error?error.message:"Invitation failed.");
+      setFailed(true);setMessage(customerErrorMessage(error,"Invitation failed."));
     }finally{setBusy(false)}
   }
 

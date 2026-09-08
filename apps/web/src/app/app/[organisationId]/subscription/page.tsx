@@ -183,7 +183,7 @@ export default async function SubscriptionPage({
             <ul className="mt-5 space-y-3 text-sm text-[#24384f]">
               <Benefit>No card or payment details are required during the pilot</Benefit>
               <Benefit>Card details never pass through EngiCite</Benefit>
-              <Benefit>Only a verified payment webhook activates access</Benefit>
+              <Benefit>Access is activated only after payment is securely verified</Benefit>
             </ul>
           )}
 
@@ -340,7 +340,7 @@ function pageMessage(query: SearchParams) {
   }
   if (query.checkout === "paystack-success") {
     return {
-      text: "Payment verified. Paystack is confirming the recurring subscription; this page will reflect the signed webhook shortly.",
+      text: "Payment verified. Your recurring subscription is being confirmed; this page will update shortly.",
       tone: "border-[#bcd8cc] bg-[#f0f8f4] text-[#0c5b45]",
     };
   }

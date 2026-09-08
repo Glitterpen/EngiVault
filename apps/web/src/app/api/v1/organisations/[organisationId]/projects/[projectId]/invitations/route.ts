@@ -1,3 +1,4 @@
+import { supportReference } from "@/lib/customer-messages";
 import { z } from "zod";
 import { requireProject } from "@/lib/auth";
 import {canInviteProjectRole} from "@/lib/permissions";
@@ -35,7 +36,7 @@ export async function POST(request:Request,ctx:{params:Promise<{organisationId:s
   const {raw,tokenHash,expiresAt}=await createInvitationToken();
   const {data,error}=await supabase.rpc("create_project_invitation_with_disciplines",{target_organisation:organisationId,target_project:projectId,target_email:parsed.data.email,target_role:parsed.data.role,target_token_hash:tokenHash,target_expires_at:expiresAt,target_disciplines:disciplines}).single();
   if(error?.code==="23505")return Response.json({error:{code:"INVITATION_CONFLICT",message:"A pending invitation already exists for this address."}},{status:409});
-  if(error)return Response.json({error:{code:"INVITATION_FAILED",message:`Invitation could not be created. Reference: ${error.code}.`}},{status:error.code==="42501"?403:500});
+  if(error)return Response.json({error:{code:"INVITATION_FAILED",message:`Invitation could not be created. Reference: ${supportReference(error.code)}.`}},{status:error.code==="42501"?403:500});
   const base=process.env.NEXT_PUBLIC_APP_URL??new URL(request.url).origin;
   // The raw token is returned exactly once for delivery by the transactional email adapter.
   const invitation=data as {invitation_id:string;email:string;project_role:string;expires_at:string};

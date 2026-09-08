@@ -1,4 +1,6 @@
 "use client";
+import { customerErrorMessage, supportReference } from "@/lib/customer-messages";
+
 
 import { useId, useRef, useState } from "react";
 import { Download, FileCheck2, FileSpreadsheet, Upload, X } from "lucide-react";
@@ -47,7 +49,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
       setPreview(body);
       setMessage(body.canImport ? "All rows passed validation and are ready to import." : "Correct the highlighted rows in Excel, save the file and preview it again.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "The workbook could not be previewed.");
+      setMessage(customerErrorMessage(error,"The workbook could not be previewed."));
     } finally {
       setBusy(false);
     }
@@ -64,11 +66,11 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
         body: JSON.stringify({ rows: preview.rows }),
       });
       const body = await response.json() as { created_count?: number; error?: { message?: string; reference?: string } };
-      if (!response.ok) throw new Error(`${body.error?.message ?? "The MDR could not be imported."}${body.error?.reference ? ` Reference: ${body.error.reference}.` : ""}`);
+      if (!response.ok) throw new Error(`${body.error?.message ?? "The MDR could not be imported."}${body.error?.reference ? ` Reference: ${supportReference(body.error.reference)}.` : ""}`);
       setMessage(`${body.created_count ?? preview.rowCount} documents were added to the MDR.`);
       window.setTimeout(() => window.location.reload(), 700);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "The MDR could not be imported.");
+      setMessage(customerErrorMessage(error,"The MDR could not be imported."));
       setBusy(false);
     }
   }

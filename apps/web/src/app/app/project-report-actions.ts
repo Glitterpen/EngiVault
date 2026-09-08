@@ -1,4 +1,6 @@
 "use server";
+import { supportReference } from "@/lib/customer-messages";
+
 
 import {revalidatePath} from "next/cache";
 import {z} from "zod";
@@ -15,7 +17,7 @@ export async function saveProjectReportSchedule(_:ProjectReportActionState,form:
   const {supabase,access}=await requireProject(parsed.data.organisationId,parsed.data.projectId);
   if(!can(String(access.role),"project:manage"))return {message:"Project management permission is required."};
   const {error}=await supabase.rpc("set_project_report_schedule",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,new_weekday:parsed.data.weekday,new_enabled:parsed.data.enabled});
-  if(error)return {message:error.code==="PGRST202"?"Apply the configurable report-columns database update, then save again.":`The report schedule could not be saved. Reference: ${error.code}.`};
+  if(error)return {message:error.code==="PGRST202"?"Report settings are temporarily unavailable. Please contact EngiCite support.":`The report schedule could not be saved. Reference: ${supportReference(error.code)}.`};
   revalidatePath(`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}/reports`);
   return {ok:true,message:parsed.data.enabled?"Weekly report generation is active.":"Automatic weekly report generation is paused."};
 }
@@ -27,7 +29,7 @@ export async function generateProjectReport(_:ProjectReportActionState,form:Form
   if(!can(String(access.role),"project:manage"))return {message:"Project management permission is required."};
   const today=reportDateInTimezone();
   const {data,error}=await supabase.rpc("generate_project_weekly_report",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,target_period_end:today});
-  if(error||typeof data!=="string")return {message:`The project report could not be generated. Reference: ${error?.code??"report_0"}.`};
+  if(error||typeof data!=="string")return {message:`The project report could not be generated. Reference: ${supportReference(error?.code??"report_0")}.`};
   const base=`/app/${parsed.data.organisationId}/projects/${parsed.data.projectId}`;
   revalidatePath(`${base}/reports`);
   revalidatePath(`${base}/reports/${data}`);

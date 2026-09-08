@@ -1,4 +1,6 @@
 "use server";
+import { supportReference } from "@/lib/customer-messages";
+
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -22,8 +24,8 @@ export async function createProjectDiscipline(_: DisciplineState, form: FormData
   });
   if (error) return { message: error.code === "23505" ? "That short code is already used by another discipline. Choose a different code."
     : error.code === "42501" ? "Only the appointed Project Manager can add project disciplines."
-    : error.code === "PGRST202" ? "The project-discipline database update has not been applied yet."
-    : `The discipline could not be added. Reference: ${error.code}.` };
+    : error.code === "PGRST202" ? "Adding a project discipline is temporarily unavailable. Please contact EngiCite support."
+    : `The discipline could not be added. Reference: ${supportReference(error.code)}.` };
   const base = `/app/${organisationId}/projects/${projectId}`;
   revalidatePath(`${base}/team`);
   revalidatePath(`${base}/documents`);

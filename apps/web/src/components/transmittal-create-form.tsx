@@ -234,7 +234,7 @@ export function TransmittalCreateForm({
             </p>
           )}
           <p className="mt-3 text-xs leading-5 text-[#617083]">
-            EngiCite will identify the authenticated DCC issuer and add an audit-backed attestation. When a verified qualified seal is configured, the processor embeds it in the PDF. The client acknowledgement block remains for the recipient to sign and return.
+            EngiCite will identify the authenticated DCC issuer and add an audit-backed attestation. When a verified qualified seal is configured, EngiCite embeds it in the PDF. The client acknowledgement block remains for the recipient to sign and return.
           </p>
         </div>
       </section>

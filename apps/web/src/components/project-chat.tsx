@@ -1,4 +1,6 @@
 "use client";
+import { customerErrorMessage } from "@/lib/customer-messages";
+
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
@@ -147,7 +149,7 @@ export function ProjectChat({
       );
       event.currentTarget.reset();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Question failed.");
+      setNotice(customerErrorMessage(error,"Question failed."));
     } finally {
       setBusy(false);
     }

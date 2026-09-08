@@ -1,4 +1,6 @@
 "use client";
+import { customerErrorMessage } from "@/lib/customer-messages";
+
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -151,7 +153,7 @@ export function RevisionUpload({
     } catch (error) {
       setFailed(true);
       setProgress(0);
-      setStatus(error instanceof Error ? error.message : "Upload failed.");
+      setStatus(customerErrorMessage(error,"Upload failed."));
     } finally {
       setBusy(false);
     }

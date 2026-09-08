@@ -1,3 +1,4 @@
+import { supportReference } from "@/lib/customer-messages";
 import { z } from "zod";
 import { requireProject } from "@/lib/auth";
 import {
@@ -171,7 +172,7 @@ export async function POST(
         ? "The previous controlled issue stage must complete secure submission before this revision can be registered."
         : error.code === "23514"
         ? "The final FEED or construction issue PDF requires its editable native source."
-        : `The revision could not be registered. Reference: ${error.code}.`;
+        : `The revision could not be registered. Reference: ${supportReference(error.code)}.`;
     return Response.json(
       { error: { code: "REVISION_REGISTRATION_FAILED", message } },
       { status: error.code === "23505" ? 409 : error.code === "23514" ? 422 : 500 },
@@ -193,7 +194,7 @@ export async function POST(
   });
   if (sessionError) {
     return Response.json(
-      { error: { code: "SESSION_ERROR", message: `The secure upload session could not be recorded. Reference: ${sessionError.code}.` } },
+      { error: { code: "SESSION_ERROR", message: `The secure upload session could not be recorded. Reference: ${supportReference(sessionError.code)}.` } },
       { status: 503 },
     );
   }
@@ -203,7 +204,7 @@ export async function POST(
     .createSignedUploadUrl(storageKey, { upsert: false });
   if (signError) {
     return Response.json(
-      { error: { code: "STORAGE_ERROR", message: `A secure storage link could not be created. Reference: ${signError.name}.` } },
+      { error: { code: "STORAGE_ERROR", message: `A secure storage link could not be created. Reference: ${supportReference(signError.name)}.` } },
       { status: 503 },
     );
   }
@@ -215,7 +216,7 @@ export async function POST(
       .createSignedUploadUrl(nativeStorageKey, { upsert: false });
     if (nativeSignError) {
       return Response.json(
-        { error: { code: "STORAGE_ERROR", message: `The native-source storage link could not be created. Reference: ${nativeSignError.name}.` } },
+        { error: { code: "STORAGE_ERROR", message: `The native-source storage link could not be created. Reference: ${supportReference(nativeSignError.name)}.` } },
         { status: 503 },
       );
     }

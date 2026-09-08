@@ -46,8 +46,8 @@ export function FounderMfaGate({
     for(const stale of (factors.data?.all??[]) as Factor[]){
       if(stale.factor_type==="totp"&&stale.status!=="verified")await supabase.auth.mfa.unenroll({factorId:stale.id});
     }
-    const {data,error}=await supabase.auth.mfa.enroll({factorType:"totp",friendlyName:"EngiCite Founder Control Centre"});
-    if(error){setMessage(error.message);setSubmitting(false);return}
+    const {data,error}=await supabase.auth.mfa.enroll({factorType:"totp",friendlyName:"EngiCite Founder Control Centre",issuer:"EngiCite"});
+    if(error){setMessage("Authenticator setup could not be completed. Please try again or contact EngiCite support.");setSubmitting(false);return}
     setEnrollment({id:data.id,qrCode:data.totp.qr_code,secret:data.totp.secret});
     setSubmitting(false);
   }
@@ -57,7 +57,7 @@ export function FounderMfaGate({
     if(!factorId||!/^\d{6}$/.test(code)){setMessage("Enter the current 6-digit code from your authenticator app.");return}
     setSubmitting(true);setMessage(null);
     const challenge=await supabase.auth.mfa.challenge({factorId});
-    if(challenge.error){setMessage(challenge.error.message);setSubmitting(false);return}
+    if(challenge.error){setMessage("Security verification could not be started. Please try again shortly.");setSubmitting(false);return}
     const verification=await supabase.auth.mfa.verify({factorId,challengeId:challenge.data.id,code});
     if(verification.error){setMessage("That code was not accepted. Wait for a new code and try again.");setSubmitting(false);return}
     router.replace(continueTo);

@@ -1,4 +1,6 @@
 "use server";
+import { supportReference } from "@/lib/customer-messages";
+
 
 import {redirect} from "next/navigation";
 import {z} from "zod";
@@ -15,7 +17,7 @@ export async function enterAdminRolePreview(_previous:{message:string}|undefined
   const {data:project}=await supabase.from("projects").select("id").eq("organisation_id",parsed.data.organisationId).eq("id",parsed.data.projectId).maybeSingle();
   if(!project)return {message:"Project unavailable."};
   const {data,error}=await supabase.rpc("start_project_member_preview",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,target_member:parsed.data.memberId,preview_reason:parsed.data.reason});
-  if(error||!data)return {message:`Preview could not be started. Check the member is active and the preview migration is installed. Reference: ${error?.code??"PREVIEW_UNAVAILABLE"}.`};
+  if(error||!data)return {message:`Preview could not be started. Check that the member is active. If this continues, contact EngiCite support. Reference: ${supportReference(error?.code??"PREVIEW_UNAVAILABLE")}.`};
   const preview=data as AdminPreview;
   await writeAdminPreview(preview);
   redirect(projectHomePath(preview.organisationId,preview.projectId,preview.role));
