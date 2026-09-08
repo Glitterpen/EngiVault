@@ -29,7 +29,7 @@ export async function POST(
   try {
     const parsed = await parseMdrWorkbook(file);
     const [{ data: categories, error: categoryError }, { data: documents, error: documentError }] = await Promise.all([
-      supabase.from("document_categories").select("code,name,kind").eq("organisation_id", organisationId).eq("is_active", true),
+      supabase.rpc("get_project_document_categories", { target_organisation: organisationId, target_project: projectId }),
       supabase.from("documents").select("document_number").eq("organisation_id", organisationId).eq("project_id", projectId).eq("lifecycle_status", "active").limit(10_000),
     ]);
     if (categoryError || documentError) throw new Error("MDR validation data is unavailable.");
@@ -66,7 +66,7 @@ export async function PUT(
     return Response.json({ error: { code: "INVALID_ROWS", message: "Review the workbook preview before importing." } }, { status: 422 });
   }
   const [{ data: categories, error: categoryError }, { data: documents, error: documentError }] = await Promise.all([
-    supabase.from("document_categories").select("code,name,kind").eq("organisation_id", organisationId).eq("is_active", true),
+    supabase.rpc("get_project_document_categories", { target_organisation: organisationId, target_project: projectId }),
     supabase.from("documents").select("document_number").eq("organisation_id", organisationId).eq("project_id", projectId).eq("lifecycle_status", "active").limit(10_000),
   ]);
   if (categoryError || documentError) {
@@ -102,6 +102,7 @@ export async function PUT(
     return Response.json({ error: { code: "IMPORT_FAILED", message, reference: error.code } }, { status: 409 });
   }
   revalidatePath(`/app/${organisationId}/projects/${projectId}/documents`);
+  revalidatePath(`/app/${organisationId}/projects/${projectId}/team`);
   return Response.json(data, { status: 201, headers: { "Cache-Control": "no-store" } });
 }
 

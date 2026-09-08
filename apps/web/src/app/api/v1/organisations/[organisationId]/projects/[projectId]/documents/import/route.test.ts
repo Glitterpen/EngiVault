@@ -20,6 +20,7 @@ const categories = [{ code: "PRO", name: "Process", kind: "discipline" }];
 let lifecycle = "archived";
 let queries: { table: string; filters: Record<string, unknown> }[];
 const rpc = vi.fn();
+const bulkResult = vi.fn();
 
 function projectAccess(role = "document_controller") {
   const from = vi.fn((table: string) => {
@@ -55,7 +56,9 @@ beforeEach(() => {
   queries = [];
   lifecycle = "archived";
   projectAccess();
-  rpc.mockResolvedValue({ data: { created_count: 1 }, error: null });
+  bulkResult.mockResolvedValue({ data: { created_count: 1 }, error: null });
+  rpc.mockImplementation((name: string) => name === "get_project_document_categories"
+    ? Promise.resolve({ data: categories, error: null }) : bulkResult());
   vi.mocked(parseMdrWorkbook).mockResolvedValue({ rows: [row], sheet_name: "MDR Import", row_count: 1 } as never);
 });
 
@@ -82,22 +85,22 @@ describe("MDR import lifecycle and custom types", () => {
     const preview = await POST(previewRequest(), context);
     expect((await preview.json()).canImport).toBe(false);
     expect((await PUT(commitRequest(), context)).status).toBe(409);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(bulkResult).not.toHaveBeenCalled();
   });
 
   it("rechecks numbers claimed after the preview", async () => {
     expect((await (await POST(previewRequest(), context)).json()).canImport).toBe(true);
     lifecycle = "active";
     expect((await PUT(commitRequest(), context)).status).toBe(409);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(bulkResult).not.toHaveBeenCalled();
   });
 
   it("reports a concurrent database uniqueness conflict without retrying or overwriting", async () => {
-    rpc.mockResolvedValue({ data: null, error: { code: "23505" } });
+    bulkResult.mockResolvedValue({ data: null, error: { code: "23505" } });
     const response = await PUT(commitRequest(), context);
     expect(response.status).toBe(409);
     expect((await response.json()).error.message).toContain("active MDR");
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(bulkResult).toHaveBeenCalledTimes(1);
   });
 
   it.each(["engineer", "project_admin", "organisation_admin", "viewer"])("denies %s registration", async role => {
@@ -106,5 +109,21 @@ describe("MDR import lifecycle and custom types", () => {
     expect((await PUT(commitRequest(), context)).status).toBe(403);
     expect(parseMdrWorkbook).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("previews and imports a new discipline without changing invitations", async () => {
+    const custom = { ...row, discipline: "HVAC / Building Services" };
+    vi.mocked(parseMdrWorkbook).mockResolvedValue({ rows: [custom], sheet_name: "MDR", row_count: 1 } as never);
+    expect((await (await POST(previewRequest(), context)).json()).canImport).toBe(true);
+    expect((await PUT(commitRequest([custom]), context)).status).toBe(201);
+    expect(rpc).toHaveBeenCalledWith("bulk_create_mdr_documents", expect.objectContaining({ import_rows: [expect.objectContaining({ discipline: custom.discipline })] }));
+    expect(rpc).toHaveBeenCalledWith("get_project_document_categories", { target_organisation: organisationId, target_project: projectId });
+    expect(rpc.mock.calls.some(([name]) => name.includes("invitation"))).toBe(false);
+  });
+
+  it("fails closed if project discipline data cannot be loaded", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501" } });
+    expect((await PUT(commitRequest(), context)).status).toBe(503);
+    expect(bulkResult).not.toHaveBeenCalled();
   });
 });

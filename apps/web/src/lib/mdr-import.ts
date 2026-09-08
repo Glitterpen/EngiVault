@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DOCUMENT_ISSUE_STATUS_VALUES } from "@/lib/document-issue-status";
+import { matchDiscipline, normaliseDiscipline } from "@/lib/project-disciplines";
 
 export const mdrImportRowSchema = z.object({
   row_number: z.number().int().min(1).max(1_000_000),
@@ -41,7 +42,9 @@ export function validateMdrPreview(
   categories: Category[],
   existingDocumentNumbers: string[],
 ): MdrPreviewRow[] {
-  const disciplines = categoryMap(categories.filter((category) => category.kind === "discipline"));
+  // Unknown names are valid project disciplines, not a reason to reject a workbook.
+  // Reuse the first spelling within a batch; the database repeats this atomically.
+  const projectDisciplines = [...categories];
   const documentTypes = categoryMap(
     categories.filter((category) => category.kind === "document_type"),
     { list: "Register / List", register: "Register / List" },
@@ -57,12 +60,15 @@ export function validateMdrPreview(
 
   return rows.map((source) => {
     const errors = [...(source.errors ?? [])];
-    const discipline = disciplines.get(normalise(String(source.discipline ?? "")));
+    const rawDiscipline = String(source.discipline ?? "").trim().replace(/\s+/g, " ");
+    const discipline = matchDiscipline(projectDisciplines, rawDiscipline) ?? rawDiscipline;
+    if (normaliseDiscipline(discipline) && discipline.length <= 80 && !matchDiscipline(projectDisciplines, discipline)) {
+      projectDisciplines.push({ kind: "discipline", code: "", name: discipline });
+    }
     const documentType = documentTypes.get(normalise(String(source.document_type ?? "")));
     const documentNumber = String(source.document_number ?? "").trim().toUpperCase();
     const issueStatusInput = String(source.required_issue_status ?? "").trim();
     const issueStatus = issueStatusInput ? issueStatuses.get(issueStatusInput.toLowerCase()) : null;
-    if (!discipline) errors.push("Discipline does not match an active organisation category or code.");
     if (documentNumber && existing.has(normaliseDocumentNumber(documentNumber))) errors.push("Document Number already exists in this project.");
     if (documentNumber && (counts.get(normaliseDocumentNumber(documentNumber)) ?? 0) > 1) errors.push("Document Number appears more than once in this workbook.");
     if (issueStatusInput && !issueStatus) errors.push("Required Issue Status is not an EngiCite issue status.");
@@ -71,7 +77,7 @@ export function validateMdrPreview(
       row_number: source.row_number,
       document_number: documentNumber,
       title: String(source.title ?? "").trim(),
-      discipline: discipline ?? String(source.discipline ?? "").trim(),
+      discipline,
       document_type: documentType ?? String(source.document_type ?? "").trim(),
       planned_submission_date: source.planned_submission_date,
       planned_final_date: source.planned_final_date ?? null,

@@ -105,6 +105,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
 
         <p className="mt-4 text-xs leading-5 text-[#617083]">
           Document type is flexible: use a suggested name/code or enter your own type (up to 80 characters).
+          New discipline names are accepted and added to this project when the import succeeds. Check spellings in the preview; the Project Manager can also add disciplines in Project team &amp; resources.
           Numbers from Removed deliverables can be reused; active MDR numbers must remain unique.
         </p>
 

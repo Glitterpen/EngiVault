@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { disciplineLabel } from "@/lib/project-disciplines";
 import { DocumentTypeInput } from "@/components/document-type-input";
 import { FilePlus2 } from "lucide-react";
 import { createDocument, type MutationState } from "@/app/app/actions";
@@ -13,5 +14,5 @@ export function DocumentCreateForm({organisationId,projectId,disciplines,documen
 }
 
 function Field({n,l,p,optional=false}:{n:string;l:string;p?:string;optional?:boolean}){return <label className="mt-4 block"><span className="ev-label">{l}</span><input className="ev-input" name={n} placeholder={p} required={!optional}/></label>}
-function Select({n,l,items}:{n:string;l:string;items:Category[]}){return <label className="mt-4 block"><span className="ev-label">{l}</span><select className="ev-input" name={n} required defaultValue=""><option value="" disabled>Select {l.toLowerCase()}</option>{items.map(item=><option key={item.code} value={item.name}>{item.code} — {item.name}</option>)}</select></label>}
+function Select({n,l,items}:{n:string;l:string;items:Category[]}){return <label className="mt-4 block"><span className="ev-label">{l}</span><select className="ev-input" name={n} required defaultValue=""><option value="" disabled>Select {l.toLowerCase()}</option>{items.map(item=><option key={item.name} value={item.name}>{disciplineLabel(item)}</option>)}</select></label>}
 function DateField(){return <label className="mt-4 block"><span className="ev-label">Agreed submission date</span><input className="ev-input" type="date" name="plannedSubmissionDate" required/><span className="mt-1 block text-xs leading-5 text-[#617083]">Date communicated by the originating engineer for first submission.</span></label>}

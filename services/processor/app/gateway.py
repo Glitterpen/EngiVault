@@ -134,6 +134,7 @@ class SupabaseGateway:
             "revisions":("document_revisions","*","created_at.asc"),
             "memberships":("project_memberships","id,user_id,role,status,created_at,updated_at","created_at.asc"),
             "disciplines":("project_member_disciplines","*","discipline.asc"),
+            "project_disciplines":("project_disciplines","*","name.asc"),
             "resource_plans":("project_resource_plans","*","discipline.asc"),
             "issues":("project_issues","*","created_at.asc"),
             "invitations":("invitations","id,email,project_role,discipline,status,expires_at,created_at,accepted_at","created_at.asc"),

@@ -20,7 +20,7 @@ const clean=(value:string)=>value.replaceAll(/[,%()]/g,"").slice(0,100);
 export default async function DocumentsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<Params>}){
  const {organisationId,projectId}=await params;const filters=await searchParams;const q=clean(filters.q??"");const discipline=clean(filters.discipline??"");const documentType=clean(filters.documentType??"");const status=clean(filters.status??"");const area=clean(filters.area??"");const view=filters.view==="flat"?"flat":"grouped";const page=Math.max(1,Number.parseInt(filters.page??"1",10)||1);const {supabase,access}=await requireProject(organisationId,projectId);const role=String(access.role);const lifecycle=role==="document_controller"&&filters.records==="removed"?"archived":"active";const persona=workspacePersona(role);if(persona==="management"||persona==="engineering")redirect(projectHomePath(organisationId,projectId,role));
  const [{data:categories},{data:metadata},{data:registrationAllowed},{data:teamData}]=await Promise.all([
-  supabase.from("document_categories").select("code,name,kind").eq("organisation_id",organisationId).eq("is_active",true).order("sort_order"),
+  supabase.rpc("get_project_document_categories",{target_organisation:organisationId,target_project:projectId}),
   supabase.from("documents").select("discipline,document_type,status,area").eq("organisation_id",organisationId).eq("project_id",projectId).eq("lifecycle_status",lifecycle).limit(5000),
   supabase.rpc("can_register_documents",{org:organisationId,project:projectId}),
   supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId})

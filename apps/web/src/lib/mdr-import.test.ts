@@ -91,7 +91,7 @@ describe("MDR spreadsheet validation", () => {
     expect(rows.every(row => row.is_valid)).toBe(true);
   });
 
-  it("blocks unknown disciplines and uncontrolled issue statuses even with a custom type", () => {
+  it("accepts unknown disciplines but still rejects uncontrolled issue statuses", () => {
     const [row] = validateMdrPreview(
       [{ ...validRow, document_type: "Special Study", discipline: "Civil Magic", required_issue_status: "Send immediately" }],
       categories,
@@ -99,7 +99,27 @@ describe("MDR spreadsheet validation", () => {
     );
 
     expect(row.is_valid).toBe(false);
-    expect(row.errors).toContain("Discipline does not match an active organisation category or code.");
+    expect(row.discipline).toBe("Civil Magic");
+    expect(row.errors).not.toContain("Discipline does not match an active organisation category or code.");
     expect(row.errors).toContain("Required Issue Status is not an EngiCite issue status.");
+  });
+
+  it("accepts all non-empty spreadsheet disciplines and reuses case/whitespace variants", () => {
+    const names = ["Rotating Equipment", "  rotating   equipment ", "Pipeline", "HVAC", "I&C", "IC", "Électricité", "X"];
+    const rows = validateMdrPreview(names.map((discipline, index) => ({ ...validRow, discipline, row_number: index + 1, document_number: `DISC-${index}` })), categories, []);
+    expect(rows.every(row => row.is_valid)).toBe(true);
+    expect(rows.map(row => row.discipline)).toEqual(["Rotating Equipment", "Rotating Equipment", "Pipeline", "HVAC", "I&C", "IC", "Électricité", "X"]);
+  });
+
+  it("resolves a project manager's custom discipline code", () => {
+    const [row] = validateMdrPreview([{ ...validRow, discipline: "rot" }], [...categories, { kind: "discipline", code: "ROT", name: "Rotating Equipment" }], []);
+    expect(row.is_valid).toBe(true);
+    expect(row.discipline).toBe("Rotating Equipment");
+  });
+
+  it.each(["", "   ", "x".repeat(81)])("rejects blank or overlong disciplines", discipline => {
+    const [row] = validateMdrPreview([{ ...validRow, discipline }], categories, []);
+    expect(row.is_valid).toBe(false);
+    expect(row.errors.some(error => error.startsWith("Discipline:"))).toBe(true);
   });
 });
