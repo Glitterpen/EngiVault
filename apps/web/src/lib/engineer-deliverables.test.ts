@@ -4,6 +4,14 @@ import { engineerDeliverableState, requiresEngineerAction } from "./engineer-del
 const today = new Date("2026-08-08T12:00:00Z");
 
 describe("engineer deliverable status", () => {
+  it("shows a subsequent revision gap even if the previous issue was accepted or is with DCC",()=>{
+    for(const controlStatus of ["accepted","submitted","returned"]){
+      expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-07",controlStatus,progressCredit:33,submissionOverdue:true},today)).toBe("overdue");
+    }
+  });
+  it("does not declare a revision overdue during the weekend before the next working day",()=>{
+    expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-07",controlStatus:null,submissionOverdue:false},today)).toBe("due_soon");
+  });
   it("prioritises the latest DCC control decision", () => {
     expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-01",controlStatus:"accepted"},today)).toBe("accepted");
     expect(engineerDeliverableState({plannedSubmissionDate:"2026-08-01",controlStatus:"accepted",progressCredit:33},today)).toBe("next_revision");

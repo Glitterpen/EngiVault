@@ -11,12 +11,16 @@ type StatusInput = {
   plannedSubmissionDate: string | null;
   controlStatus: string | null;
   progressCredit?: number;
+  submissionOverdue?: boolean;
 };
 
 export function engineerDeliverableState(
   input: StatusInput,
   today = new Date(),
 ): EngineerDeliverableState {
+  // The database accounts for working days and every received revision, including
+  // a next issue that becomes overdue while the previous issue is with the DCC.
+  if (input.submissionOverdue) return "overdue";
   if (input.controlStatus === "accepted") {
     return input.progressCredit !== undefined && input.progressCredit < 100
       ? "next_revision"
@@ -30,7 +34,7 @@ export function engineerDeliverableState(
   const current = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const days = Math.ceil((due - current) / 86_400_000);
 
-  if (days < 0) return "overdue";
+  if (days < 0 && input.submissionOverdue === undefined) return "overdue";
   if (days <= 7) return "due_soon";
   return "not_submitted";
 }
@@ -62,7 +66,7 @@ export function engineerActionInstruction(state: EngineerDeliverableState) {
     case "next_revision":
       return "Prepare the next controlled issue stage so this deliverable can reach 100%.";
     case "due_soon":
-      return "Complete and upload the first revision before its planned submission date.";
+      return "Complete and upload the required revision before its submission deadline.";
     case "not_submitted":
       return "Plan and prepare the first revision ahead of its scheduled submission.";
     case "in_review":

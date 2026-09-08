@@ -1,10 +1,12 @@
 import Link from "next/link";
+import type {DocumentSchedule} from "@/lib/document-schedule";
+import {DocumentIssueSchedule} from "@/components/document-issue-schedule";
 import {AlertTriangle,ArrowLeft,CheckCircle2,Clock3,FileUp} from "lucide-react";
 import {requireProject} from "@/lib/auth";
 import {projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
 import {projectHomePath} from "@/lib/role-experience";
 
-type Row={
+type Row=DocumentSchedule&{
   document_id:string;
   document_number:string;
   title:string;
@@ -67,8 +69,8 @@ export default async function ProgressPage({params}:{params:Promise<{organisatio
 
     <div className="ev-card mt-6 overflow-x-auto">
       <table className="w-full min-w-[800px] text-left text-sm">
-        <thead className="border-b bg-[#f8faf8] text-xs uppercase text-[#617083]"><tr><th className="p-4">Document</th><th>Discipline</th><th>DCC-accepted issue</th><th>Final milestone date</th><th>Earned progress</th></tr></thead>
-        <tbody>{rows.map(row=><tr className="border-b last:border-0" key={row.document_id}><td className="p-4"><p className="font-bold text-[#0c5b45]">{row.document_number}</p><p className="mt-1">{row.title}</p></td><td>{row.discipline}</td><td>{row.issue_status??"No accepted revision"}</td><td className={row.overdue?"font-semibold text-[#a5452f]":""}>{row.planned_submission_date??"Not planned"}</td><td><b>{row.progress_credit}%</b></td></tr>)}</tbody>
+        <thead className="border-b bg-[#f8faf8] text-xs uppercase text-[#617083]"><tr><th className="p-4">Document</th><th>Discipline</th><th>DCC-accepted issue</th><th>Issue schedule</th><th>Earned progress</th></tr></thead>
+        <tbody>{rows.map(row=><tr className="border-b last:border-0" key={row.document_id}><td className="p-4"><p className="font-bold text-[#0c5b45]">{row.document_number}</p><p className="mt-1">{row.title}</p></td><td>{row.discipline}</td><td>{row.issue_status??"No accepted revision"}</td><td className={row.overdue?"font-semibold text-[#a5452f]":""}><DocumentIssueSchedule schedule={row}/></td><td><b>{row.progress_credit}%</b></td></tr>)}</tbody>
       </table>
     </div>
   </div>;

@@ -13,6 +13,7 @@ describe("Multi-discipline engineer dashboard",()=>{
       document_assignments:[{document_id:"ELE-01"},{document_id:"INS-01"},{document_id:"MECH-01"}],
       documents:[document("ELE-01","Electrical"),document("INS-01","Instrumentation"),document("MECH-01","Mechanical"),document("ELE-02","Electrical")],
       document_revisions:[],notifications:[],
+      project_document_progress:["ELE-01","INS-01"].map(document_id=>({document_id,planned_submission_date:null,next_submission_date:null,last_issue_date:null,revision_cycle_days:3,deadline_kind:"first_issue",overdue:false})),
     };
     const from=vi.fn((table:string)=>{
       const result={data:table==="projects"?{name:"Multi-discipline project",code:"MULTI",delivery_stage:"feed",key_objectives:[]}:rows[table]??[]};

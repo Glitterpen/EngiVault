@@ -1,5 +1,7 @@
 import { processingFailureMessage } from "@/lib/customer-messages";
 import Link from "next/link";
+import {loadDocumentSchedules} from "@/lib/document-schedule";
+import {DocumentIssueSchedule} from "@/components/document-issue-schedule";
 import { notFound,redirect } from "next/navigation";
 import { ArrowLeft,Bell,ClipboardCheck,Download,Eye,FileCog,FileText,History } from "lucide-react";
 import { requireProject } from "@/lib/auth";
@@ -23,6 +25,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
 
   const {data:doc}=await supabase.from("documents").select("*").eq("id",documentId).eq("organisation_id",organisationId).eq("project_id",projectId).maybeSingle();
   if(!doc)notFound();
+  const schedules=await loadDocumentSchedules(supabase,organisationId,projectId,[documentId]);
   const {data:project}=await supabase.from("projects").select("delivery_stage").eq("organisation_id",organisationId).eq("id",projectId).maybeSingle();
   const deliveryStage=((project?.delivery_stage as ProjectDeliveryStage|null)??"feed");
   const {data:disciplineAccess}=role==="engineer"?await supabase.rpc("can_upload_document",{org:organisationId,project:projectId,document:documentId}):{data:false};
@@ -57,7 +60,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
 
     <div className={`mt-8 grid min-w-0 items-start gap-5 ${showAside?"lg:grid-cols-[minmax(0,1fr)_380px]":""}`}>
       <section className="min-w-0 space-y-5">
-        <div className="ev-card grid min-w-0 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-6"><Meta l="Type" v={doc.document_type}/><Meta l="Discipline" v={doc.discipline}/><Meta l="Status" v={doc.status}/><Meta l="Submission due" v={formatDate(doc.planned_submission_date)}/><Meta l="Required issue" v={doc.required_issue_status||"To be confirmed"}/><Meta l="100% milestone" v={projectTerminalIssueStatus(deliveryStage)}/></div>
+        <div className="ev-card grid min-w-0 gap-6 p-6 sm:grid-cols-2 xl:grid-cols-6"><Meta l="Type" v={doc.document_type}/><Meta l="Discipline" v={doc.discipline}/><Meta l="Status" v={doc.status}/><DocumentIssueSchedule schedule={schedules.get(documentId)!}/><Meta l="Required issue" v={doc.required_issue_status||"To be confirmed"}/><Meta l="100% milestone" v={projectTerminalIssueStatus(deliveryStage)}/></div>
         <div className="ev-card min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 border-b border-[#dfe7e3] p-5"><History size={18} className="text-[#0c5b45]"/><h2 className="font-semibold">Revision history</h2></div>
           {revisions?.length?revisions.map(revision=>{
@@ -86,5 +89,4 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
 
 function Meta({l,v}:{l:string;v:string}){return <div><p className="ev-label">{l}</p><p className="font-semibold">{v}</p></div>;}
 function formatBytes(value:number){if(value<1024)return `${value} B`;if(value<1024*1024)return `${(value/1024).toFixed(1)} KB`;return `${(value/(1024*1024)).toFixed(1)} MB`;}
-function formatDate(value:string|null){if(!value)return "Not scheduled";return new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));}
 function processingSummary(value:unknown){if(!value||typeof value!=="object")return "";const metrics=value as Record<string,unknown>;if(typeof metrics.page_count==="number")return `${metrics.page_count} page${metrics.page_count===1?"":"s"} extracted`;if(typeof metrics.sheet_count==="number")return `${metrics.sheet_count} sheet${metrics.sheet_count===1?"":"s"} extracted`;if(metrics.mode==="validation_only")return "Validated original · CAD extraction pending";return "";}

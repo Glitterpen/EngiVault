@@ -1,4 +1,6 @@
 import Link from "next/link";
+import {loadDocumentSchedules,type DocumentSchedule} from "@/lib/document-schedule";
+import {DocumentIssueSchedule} from "@/components/document-issue-schedule";
 import {redirect} from "next/navigation";
 import {
   Activity,
@@ -6,7 +8,6 @@ import {
   ArrowLeft,
   BarChart3,
   Bell,
-  CalendarClock,
   CheckCircle2,
   CircleDot,
   Clock3,
@@ -29,7 +30,7 @@ type DocumentRow={id:string;document_number:string;title:string;discipline:strin
 type RevisionRow={id:string;document_id:string;revision_code:string;issue_status:string;state:string;control_status:string;review_comment:string|null;created_at:string};
 type ProjectRow={code:string;name:string;project_introduction:string|null;key_objectives:string[];planned_start_date:string|null;planned_end_date:string|null;delivery_stage:ProjectDeliveryStage};
 type NoticeRow={id:string;title:string;body:string;href:string|null;created_at:string;read_at:string|null};
-type DeliverableItem={document:DocumentRow;latest:RevisionRow|null;credit:number;status:EngineerDeliverableState};
+type DeliverableItem={schedule:DocumentSchedule;document:DocumentRow;latest:RevisionRow|null;credit:number;status:EngineerDeliverableState};
 type ProjectImpactRow={project_actual_percent:number;project_planned_percent:number;project_variance_points:number;project_total_documents:number;project_total_weight:number;engineer_actual_percent:number;engineer_planned_percent:number;engineer_variance_points:number;engineer_share_percent:number;engineer_project_contribution_percent:number;engineer_project_expected_contribution_percent:number;engineer_project_delay_impact_points:number;engineer_total_documents:number;engineer_completed_documents:number;engineer_overdue_documents:number};
 type View="all"|"action"|"review"|"accepted";
 
@@ -51,11 +52,12 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const assignedDocumentIds=new Set((assignmentRows??[]).map(assignment=>assignment.document_id));
   const documents=((documentRows??[]) as DocumentRow[]).filter(document=>assignedDocumentIds.has(document.id)&&disciplines.some(discipline=>disciplineMatches(discipline,document.discipline)));
   const documentIds=documents.map(document=>document.id);
+  const schedules=await loadDocumentSchedules(supabase,organisationId,projectId,documentIds);
   const {data:revisionData}=documentIds.length
     ? await supabase.from("document_revisions").select("id,document_id,revision_code,issue_status,state,control_status,review_comment,created_at").in("document_id",documentIds).order("created_at",{ascending:false})
     : {data:[]};
   const latestByDocument=new Map<string,RevisionRow>();
-  for(const revision of (revisionData??[]) as RevisionRow[])if(!latestByDocument.has(revision.document_id))latestByDocument.set(revision.document_id,revision);
+  for(const revision of (revisionData??[]) as RevisionRow[])if(revision.state!=="pending_upload"&&!latestByDocument.has(revision.document_id))latestByDocument.set(revision.document_id,revision);
   const latestAcceptedByDocument=new Map<string,RevisionRow>();
   for(const revision of (revisionData??[]) as RevisionRow[])if(revision.control_status==="accepted"&&!latestAcceptedByDocument.has(revision.document_id))latestAcceptedByDocument.set(revision.document_id,revision);
   const project=projectData as ProjectRow|null;
@@ -64,7 +66,8 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     const latest=latestByDocument.get(document.id)??null;
     const accepted=latestAcceptedByDocument.get(document.id)??null;
     const credit=projectIssueProgressCredit(accepted?.issue_status,deliveryStage);
-    return {document,latest,credit,status:engineerDeliverableState({plannedSubmissionDate:document.planned_submission_date,controlStatus:latest?.control_status??null,progressCredit:credit})};
+    const schedule=schedules.get(document.id)!;
+    return {document,latest,credit,schedule,status:engineerDeliverableState({plannedSubmissionDate:schedule.next_submission_date,submissionOverdue:schedule.overdue,controlStatus:latest?.control_status??null,progressCredit:credit})};
   });
   const view:View=requestedView==="action"||requestedView==="review"||requestedView==="accepted"?requestedView:"all";
   const filtered=deliverables.filter(item=>view==="all"||(view==="action"&&requiresEngineerAction(item.status))||(view==="review"&&item.status==="in_review")||(view==="accepted"&&item.status==="accepted"));
@@ -181,7 +184,7 @@ function compareEngineerActions(left:DeliverableItem,right:DeliverableItem){
   return dateValue(actionDueDate(left))-dateValue(actionDueDate(right));
 }
 
-function actionDueDate(item:DeliverableItem){return item.status==="next_revision"?(item.document.planned_final_date??item.document.planned_submission_date):item.document.planned_submission_date;}
+function actionDueDate(item:DeliverableItem){return item.schedule.next_submission_date;}
 function dateValue(value:string|null){return value?new Date(`${value}T00:00:00Z`).getTime():Number.MAX_SAFE_INTEGER;}
 function isDue(value:string|null){return value!==null&&dateValue(value)<=Date.now();}
 function numberValue(value:unknown,fallback:number){const parsed=Number(value);return Number.isFinite(parsed)?parsed:fallback;}
@@ -194,7 +197,7 @@ function DeliverableCard({item,organisationId,projectId}:{item:DeliverableItem;o
   const action=status==="returned"?"Upload corrected revision":status==="next_revision"?"Upload next revision":latest?"Open deliverable":"Submit first revision";
   return <article className={`ev-card overflow-hidden border-l-4 ${config.border}`}><div className="p-4 sm:p-6"><div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-extrabold text-[#e8733f]">{document.document_number}</p><span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[.06em] ${config.tone}`}>{config.label}</span></div><h2 className="mt-2 break-words text-lg font-semibold">{document.title}</h2><p className="mt-2 text-xs leading-5 text-[#617083]">{document.discipline} · {document.document_type}{document.responsible_party?` · ${document.responsible_party}`:""}</p></div><Link href={href} className="ev-button w-full shrink-0 sm:w-auto"><FileUp size={16}/>{action}</Link></div>
     {latest?.review_comment&&<div className="mt-4 flex gap-3 rounded-xl border border-[#f1c9b8] bg-[#fff6f2] p-3.5"><MessageSquareWarning size={17} className="mt-0.5 shrink-0 text-[#a5452f]"/><div><p className="text-xs font-bold text-[#a5452f]">Document Controller feedback</p><p className="mt-1 text-sm leading-6 text-[#754333]">{latest.review_comment}</p></div></div>}
-    <div className="mt-4 grid gap-3 border-t border-[#edf1ef] pt-4 text-xs text-[#617083] sm:grid-cols-2 xl:grid-cols-4"><span className={`inline-flex items-center gap-1.5 ${status==="overdue"?"font-bold text-[#a5452f]":""}`}><CalendarClock size={14}/> Due {formatDate(document.planned_submission_date)}</span><span className="inline-flex items-center gap-1.5"><ShieldCheck size={14}/> Required: {document.required_issue_status||"To be confirmed"}</span><span className="inline-flex items-center gap-1.5"><FileCheck2 size={14}/>{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</span><span className="inline-flex items-center gap-1.5 font-bold text-[#0c5b45]"><CheckCircle2 size={14}/> Progress credit: {item.credit}%</span></div>
+    <div className="mt-4 grid gap-3 border-t border-[#edf1ef] pt-4 text-xs text-[#617083] sm:grid-cols-2 xl:grid-cols-4"><DocumentIssueSchedule schedule={item.schedule}/><span className="inline-flex items-center gap-1.5"><ShieldCheck size={14}/> Required: {document.required_issue_status||"To be confirmed"}</span><span className="inline-flex items-center gap-1.5"><FileCheck2 size={14}/>{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</span><span className="inline-flex items-center gap-1.5 font-bold text-[#0c5b45]"><CheckCircle2 size={14}/> Progress credit: {item.credit}%</span></div>
   </div></article>;
 }
 
