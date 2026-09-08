@@ -18,6 +18,12 @@ def _safe_filename(value: object) -> str:
     return re.sub(r"[^A-Za-z0-9_. -]", "_", str(value))
 
 
+def _safe_folder(value: object) -> str:
+    # MDR types are free text, not archive paths. Keep each field in one folder
+    # and prevent dot-only components from escaping the intended hierarchy.
+    return _safe_filename(value or "").strip(" .") or "Unclassified"
+
+
 def _verified_source(
     gateway: SupabaseGateway,
     storage_key: str,
@@ -75,7 +81,10 @@ def build_package(
                 if not revision:
                     raise GatewayError("Frozen revision unavailable.")
 
-                folder = f"{item['discipline']}/{item['document_type']}/{item['issue_status'] or 'Unclassified'}"
+                folder = "/".join(
+                    _safe_folder(item.get(field))
+                    for field in ("discipline", "document_type", "issue_status")
+                )
                 source = root / f"source-{included}"
                 digest = _verified_source(
                     gateway,

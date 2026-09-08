@@ -66,9 +66,34 @@ describe("MDR spreadsheet validation", () => {
     expect(rows[0].errors).toContain("Document Number appears more than once in this workbook.");
   });
 
-  it("blocks unknown categories and uncontrolled issue statuses", () => {
+  it("accepts a trimmed custom document type without creating a category", () => {
     const [row] = validateMdrPreview(
-      [{ ...validRow, discipline: "Civil Magic", required_issue_status: "Send immediately" }],
+      [{ ...validRow, document_type: "  Equipment Layout / Special Study  " }],
+      categories.filter(category => category.kind === "discipline"),
+      [],
+    );
+    expect(row.is_valid).toBe(true);
+    expect(row.document_type).toBe("Equipment Layout / Special Study");
+  });
+
+  it.each(["", "   ", "x".repeat(81)])("rejects an empty or overlong type: %s", documentType => {
+    const [row] = validateMdrPreview([{ ...validRow, document_type: documentType }], categories, []);
+    expect(row.is_valid).toBe(false);
+    expect(row.errors.some(error => error.startsWith("Document type:"))).toBe(true);
+  });
+
+  it("keeps punctuation significant in document numbers, like the database", () => {
+    const rows = validateMdrPreview(
+      [validRow, { ...validRow, row_number: 6, document_number: "PRJ/PRO/001" }],
+      categories,
+      ["PRJPRO001"],
+    );
+    expect(rows.every(row => row.is_valid)).toBe(true);
+  });
+
+  it("blocks unknown disciplines and uncontrolled issue statuses even with a custom type", () => {
+    const [row] = validateMdrPreview(
+      [{ ...validRow, document_type: "Special Study", discipline: "Civil Magic", required_issue_status: "Send immediately" }],
       categories,
       [],
     );

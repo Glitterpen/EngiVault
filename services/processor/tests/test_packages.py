@@ -2,6 +2,8 @@ import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 
+import pytest
+
 from app.packages import build_package
 from app.transmittals import build_transmittal_pdf
 
@@ -39,6 +41,32 @@ def test_package_contains_control_files_and_frozen_revision():
     assert any("/Native Source/" in name and name.endswith("drawing.dwg") for name in gateway.names)
     assert result["native_source_files"]==1
     assert gateway.finished[0]=="package-id"
+
+
+@pytest.mark.parametrize("document_type", [
+    "Equipment Layout Study", "Register / List", "../../outside", "..", "/tmp/export",
+    "C:\\outside\\files",
+])
+def test_custom_document_types_stay_in_one_safe_archive_folder(document_type):
+    gateway = FakeGateway()
+    original = gateway.package_data
+
+    def custom_type_data(package_id):
+        package, items, revisions = original(package_id)
+        items[0]["document_type"] = document_type
+        return package, items, revisions
+
+    gateway.package_data = custom_type_data
+    build_package(gateway, "package-id")
+    documents = [name for name in gateway.names if "_REV-" in name]
+    assert len(documents) == 2
+    for name in documents:
+        parts = name.split("/")
+        assert parts[0] == "Process"
+        assert parts[1] not in ("", ".", "..")
+        assert parts[2] == "Issued for Construction"
+        assert len(parts) == (5 if "/Native Source/" in name else 4)
+        assert "\\" not in name
 
 
 def test_transmittal_contains_signed_cover_and_acknowledgement():

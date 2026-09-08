@@ -47,11 +47,11 @@ export function validateMdrPreview(
     { list: "Register / List", register: "Register / List" },
   );
   const issueStatuses = new Map(DOCUMENT_ISSUE_STATUS_VALUES.map((value) => [value.toLowerCase(), value]));
-  const existing = new Set(existingDocumentNumbers.map(normalise));
+  const existing = new Set(existingDocumentNumbers.map(normaliseDocumentNumber));
   const counts = new Map<string, number>();
 
   for (const row of rows) {
-    const number = normalise(String(row.document_number ?? ""));
+    const number = normaliseDocumentNumber(String(row.document_number ?? ""));
     if (number) counts.set(number, (counts.get(number) ?? 0) + 1);
   }
 
@@ -63,9 +63,8 @@ export function validateMdrPreview(
     const issueStatusInput = String(source.required_issue_status ?? "").trim();
     const issueStatus = issueStatusInput ? issueStatuses.get(issueStatusInput.toLowerCase()) : null;
     if (!discipline) errors.push("Discipline does not match an active organisation category or code.");
-    if (!documentType) errors.push("Document Type does not match an active organisation category or code.");
-    if (documentNumber && existing.has(normalise(documentNumber))) errors.push("Document Number already exists in this project.");
-    if (documentNumber && (counts.get(normalise(documentNumber)) ?? 0) > 1) errors.push("Document Number appears more than once in this workbook.");
+    if (documentNumber && existing.has(normaliseDocumentNumber(documentNumber))) errors.push("Document Number already exists in this project.");
+    if (documentNumber && (counts.get(normaliseDocumentNumber(documentNumber)) ?? 0) > 1) errors.push("Document Number appears more than once in this workbook.");
     if (issueStatusInput && !issueStatus) errors.push("Required Issue Status is not an EngiCite issue status.");
 
     const candidate = {
@@ -107,6 +106,11 @@ function categoryMap(categories: Category[], aliases: Record<string, string> = {
     if (controlledValue) result.set(normalise(alias), controlledValue);
   }
   return result;
+}
+
+// Match PostgreSQL citext uniqueness: punctuation is part of a document number.
+function normaliseDocumentNumber(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function normalise(value: string) {

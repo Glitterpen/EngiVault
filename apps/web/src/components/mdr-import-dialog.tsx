@@ -103,6 +103,11 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
           </Step>
         </section>
 
+        <p className="mt-4 text-xs leading-5 text-[#617083]">
+          Document type is flexible: use a suggested name/code or enter your own type (up to 80 characters).
+          Numbers from Removed deliverables can be reused; active MDR numbers must remain unique.
+        </p>
+
         {preview && <section className="mt-5">
           <div className="grid gap-3 sm:grid-cols-3">
             <Summary label="Rows found" value={preview.rowCount} />

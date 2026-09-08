@@ -22,7 +22,7 @@ export function MdrDocumentActions({
   const detailPath=`/app/${organisationId}/projects/${projectId}/documents/${documentId}#document-management`;
   const prompt=archived
     ?`Restore ${documentNumber} to the active Master Document Register?`
-    :`Remove ${documentNumber} from the active Master Document Register? Its revisions and audit history will be preserved and the DCC can restore it later.`;
+    :`Remove ${documentNumber} from the active Master Document Register? Its revisions and audit history will be preserved. Its document number can be reused. Restoring it later requires an available document number.`;
 
   return <div className="flex flex-col items-end gap-1.5">
     <div className="flex flex-col items-stretch justify-end gap-1.5 sm:flex-row sm:items-center">

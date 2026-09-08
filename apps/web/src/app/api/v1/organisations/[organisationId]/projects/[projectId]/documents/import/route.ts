@@ -30,7 +30,7 @@ export async function POST(
     const parsed = await parseMdrWorkbook(file);
     const [{ data: categories, error: categoryError }, { data: documents, error: documentError }] = await Promise.all([
       supabase.from("document_categories").select("code,name,kind").eq("organisation_id", organisationId).eq("is_active", true),
-      supabase.from("documents").select("document_number").eq("organisation_id", organisationId).eq("project_id", projectId).limit(10_000),
+      supabase.from("documents").select("document_number").eq("organisation_id", organisationId).eq("project_id", projectId).eq("lifecycle_status", "active").limit(10_000),
     ]);
     if (categoryError || documentError) throw new Error("MDR validation data is unavailable.");
     const rows = validateMdrPreview(
@@ -67,7 +67,7 @@ export async function PUT(
   }
   const [{ data: categories, error: categoryError }, { data: documents, error: documentError }] = await Promise.all([
     supabase.from("document_categories").select("code,name,kind").eq("organisation_id", organisationId).eq("is_active", true),
-    supabase.from("documents").select("document_number").eq("organisation_id", organisationId).eq("project_id", projectId).limit(10_000),
+    supabase.from("documents").select("document_number").eq("organisation_id", organisationId).eq("project_id", projectId).eq("lifecycle_status", "active").limit(10_000),
   ]);
   if (categoryError || documentError) {
     return Response.json({ error: { code: "VALIDATION_UNAVAILABLE", message: "MDR validation data is unavailable." } }, { status: 503 });
@@ -91,7 +91,7 @@ export async function PUT(
   });
   if (error) {
     const message = error.code === "23505"
-      ? "A document number already exists. Refresh the preview and try again."
+      ? "A document number already exists in the active MDR. Refresh the preview and try again."
       : error.code === "42501"
         ? "Only the appointed Document Controller can import the MDR."
         : error.code === "PGRST202"
