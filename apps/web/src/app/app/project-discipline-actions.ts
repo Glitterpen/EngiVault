@@ -9,7 +9,7 @@ import type { DisciplineRemovalImpact } from "@/lib/project-disciplines";
 
 export type DisciplineState = { message: string; ok?: boolean; impact?: DisciplineRemovalImpact } | undefined;
 const scopeSchema = z.object({ organisationId: z.uuid(), projectId: z.uuid(), name: z.string().trim().min(1).max(80) });
-const impactSchema = z.object({name:z.string(),engineerCount:z.number().int().nonnegative(),documentCount:z.number().int().nonnegative(),invitationCount:z.number().int().nonnegative(),plannedPositions:z.number().int().nonnegative()});
+const impactSchema = z.object({name:z.string(),engineerCount:z.number().int().nonnegative(),documentCount:z.number().int().nonnegative(),invitationCount:z.number().int().nonnegative(),plannedPositions:z.number().int().nonnegative(),canDeletePermanently:z.boolean().optional()});
 const schema = z.object({
   organisationId: z.uuid(), projectId: z.uuid(),
   name: z.string().trim().min(1).max(80),
@@ -55,21 +55,24 @@ export async function inspectProjectDisciplineRemoval(form:FormData):Promise<Dis
 }
 
 export async function removeProjectDiscipline(_:DisciplineState,form:FormData):Promise<DisciplineState>{
-  const parsed=scopeSchema.extend({confirmed:z.literal("true"),expectedEngineerCount:z.coerce.number().int().nonnegative(),confirmedAssigned:z.enum(["true","false"]).optional()}).safeParse(Object.fromEntries(form));
+  const parsed=scopeSchema.extend({confirmed:z.literal("true"),expectedEngineerCount:z.coerce.number().int().nonnegative(),confirmedAssigned:z.enum(["true","false"]).optional(),mode:z.enum(["archive","permanent"]).default("archive"),confirmedPermanent:z.enum(["true","false"]).optional()}).safeParse(Object.fromEntries(form));
   if(!parsed.success)return {message:"Confirm that you want to remove this discipline from new selections."};
-  const {organisationId,projectId,name,expectedEngineerCount,confirmedAssigned}=parsed.data;
+  const {organisationId,projectId,name,expectedEngineerCount,confirmedAssigned,mode,confirmedPermanent}=parsed.data;
+  if(mode==="permanent"&&(confirmedPermanent!=="true"||expectedEngineerCount!==0))return {message:"Confirm permanent deletion of this unused discipline. Assigned disciplines cannot be permanently deleted."};
   if(expectedEngineerCount>0&&confirmedAssigned!=="true")return {message:"Acknowledge the assigned-engineer warning before removing this discipline."};
   const {supabase,access,preview}=await requireProject(organisationId,projectId);
   if(preview)return {message:"Member preview is read-only."};
   if(String(access.role)!=="project_admin")return removalError("42501");
-  const {error}=await supabase.rpc("remove_project_discipline",{target_organisation:organisationId,target_project:projectId,target_discipline:name,confirmed:true,expected_engineer_count:expectedEngineerCount,confirmed_assigned:confirmedAssigned==="true"});
+  const {error}=mode==="permanent"
+    ?await supabase.rpc("delete_unused_project_discipline",{target_organisation:organisationId,target_project:projectId,target_discipline:name,confirmed_permanent:true})
+    :await supabase.rpc("remove_project_discipline",{target_organisation:organisationId,target_project:projectId,target_discipline:name,confirmed:true,expected_engineer_count:expectedEngineerCount,confirmed_assigned:confirmedAssigned==="true"});
   if(error?.code==="40001"){
     const latest=await inspectProjectDisciplineRemoval(form);
-    return {...latest,message:latest?.impact?"The assigned engineers changed. Review the updated warning and confirm again.":latest?.message||"Refresh the page and review the assignment warning again."};
+    return {...latest,message:latest?.impact?"The discipline's assignments or linked work changed. Nothing was removed. Review the updated warning and confirm again.":latest?.message||"Refresh the page and review the assignment warning again."};
   }
   if(error)return removalError(error.code);
   refresh(organisationId,projectId);
-  return {ok:true,message:`${name} removed from new selections. Existing engineer access and deliverables are unchanged.`};
+  return {ok:true,message:mode==="permanent"?`${name} permanently removed from this project, including its unused resource plan. It will not appear in Removed disciplines.`:`${name} removed from new selections. Existing engineer access and deliverables are unchanged.`};
 }
 
 export async function restoreProjectDiscipline(_:DisciplineState,form:FormData):Promise<DisciplineState>{

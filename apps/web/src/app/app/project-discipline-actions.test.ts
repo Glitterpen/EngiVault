@@ -46,6 +46,23 @@ describe("Project Manager discipline creation", () => {
 const impact={name:"Rotating Equipment",engineerCount:2,documentCount:12,invitationCount:1,plannedPositions:3};
 function removal(count=2,ack=true){const form=payload();form.set("confirmed","true");form.set("expectedEngineerCount",String(count));if(ack)form.set("confirmedAssigned","true");return form;}
 describe("controlled discipline removal and restoration",()=>{
+  it("requires separate permanent acknowledgement and rejects assigned deletion",async()=>{
+    const form=removal(0,false);form.set("mode","permanent");
+    expect((await removeProjectDiscipline(undefined,form))?.ok).not.toBe(true);
+    form.set("confirmedPermanent","true");form.set("expectedEngineerCount","1");
+    expect((await removeProjectDiscipline(undefined,form))?.ok).not.toBe(true);expect(rpc).not.toHaveBeenCalled();
+  });
+  it("uses the server-checked permanent deletion RPC only after confirmation",async()=>{
+    const form=removal(0,false);form.set("mode","permanent");form.set("confirmedPermanent","true");
+    const result=await removeProjectDiscipline(undefined,form);expect(result?.ok).toBe(true);expect(result?.message).toContain("permanently");
+    expect(rpc).toHaveBeenCalledWith("delete_unused_project_discipline",{target_organisation:organisationId,target_project:projectId,target_discipline:"Rotating Equipment",confirmed_permanent:true});
+  });
+  it("rechecks changed linked work without falling back to archive automatically",async()=>{
+    const form=removal(0,false);form.set("mode","permanent");form.set("confirmedPermanent","true");
+    rpc.mockResolvedValueOnce({error:{code:"40001"}}).mockResolvedValueOnce({data:{...impact,canDeletePermanently:false},error:null});
+    const result=await removeProjectDiscipline(undefined,form);expect(result?.ok).not.toBe(true);expect(result?.impact?.canDeletePermanently).toBe(false);
+    expect(result?.message).toContain("Nothing was removed");expect(rpc).toHaveBeenCalledTimes(2);expect(revalidatePath).not.toHaveBeenCalled();
+  });
   it.each(["document_controller","engineer","organisation_admin","viewer"])("blocks all management actions for %s",async role=>{
     access(role);
     for(const result of [await inspectProjectDisciplineRemoval(payload()),await removeProjectDiscipline(undefined,removal()),await restoreProjectDiscipline(undefined,payload())])expect(result?.ok).not.toBe(true);

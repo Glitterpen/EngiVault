@@ -11,6 +11,24 @@ beforeEach(()=>{
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 function open(){render(<ProjectDisciplineRemove organisationId="org" projectId="project" name="Mechanical"/>);fireEvent.click(screen.getByRole("button",{name:"Remove Mechanical"}));}
 describe("discipline removal confirmation",()=>{
+  it("offers permanent deletion for unused disciplines with explicit acknowledgement",async()=>{
+    vi.mocked(inspectProjectDisciplineRemoval).mockResolvedValue({message:"",impact:{...impact,engineerCount:0,documentCount:0,invitationCount:0,canDeletePermanently:true}});
+    open();await screen.findByRole("heading",{name:"Permanently delete Mechanical?"});
+    expect(screen.getByText(/no entry in Removed disciplines/)).toBeTruthy();
+    const checkbox=screen.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox.name).toBe("confirmedPermanent");expect(checkbox.required).toBe(true);expect(checkbox.checked).toBe(false);
+    expect(screen.getByRole("button",{name:"Delete permanently"})).toBeTruthy();expect(screen.queryByText("You can restore it later.")).toBeNull();
+  });
+  it("can clean up an already removed unused discipline",async()=>{
+    vi.mocked(inspectProjectDisciplineRemoval).mockResolvedValue({message:"",impact:{...impact,engineerCount:0,canDeletePermanently:true}});
+    render(<ProjectDisciplineRemove organisationId="org" projectId="project" name="Mechanical" permanentOnly/>);
+    fireEvent.click(screen.getByRole("button",{name:"Delete unused Mechanical"}));await screen.findByRole("button",{name:"Delete permanently"});
+  });
+  it("will not offer archive or permanent mutation when cleaning up a linked removed discipline",async()=>{
+    render(<ProjectDisciplineRemove organisationId="org" projectId="project" name="Mechanical" permanentOnly/>);
+    fireEvent.click(screen.getByRole("button",{name:"Delete unused Mechanical"}));await screen.findByText(/Permanent deletion is unavailable/);
+    expect(screen.queryByRole("button",{name:"Delete permanently"})).toBeNull();expect(screen.queryByRole("button",{name:"Confirm removal"})).toBeNull();
+  });
   it("loads live impact and requires acknowledgement when engineers are assigned",async()=>{
     open();expect(screen.queryByRole("button",{name:"Confirm removal"})).toBeNull();
     await screen.findByText(/2 engineers are already assigned/);

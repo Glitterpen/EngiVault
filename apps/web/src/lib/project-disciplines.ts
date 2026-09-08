@@ -11,6 +11,7 @@ export type DisciplineRemovalImpact = {
   documentCount: number;
   invitationCount: number;
   plannedPositions: number;
+  canDeletePermanently?: boolean;
 };
 
 export function matchDiscipline(categories: ProjectCategory[], value: string) {
