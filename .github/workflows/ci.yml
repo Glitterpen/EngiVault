@@ -13,7 +13,7 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         # Use the exact pnpm version declared by the repository.
         with: { package_json_file: package.json }
       - uses: actions/setup-node@v4
