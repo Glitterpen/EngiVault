@@ -5,6 +5,11 @@ import type {DocumentSchedule} from "@/lib/document-schedule";
 afterEach(cleanup);
 const schedule:DocumentSchedule={document_id:"doc",planned_submission_date:"2026-09-01",last_issue_date:"2026-09-04",next_submission_date:"2026-09-09",revision_cycle_days:3,deadline_kind:"next_revision",overdue:true};
 describe("MDR issue schedule",()=>{
+  it("shows the approved date alongside the unchanged first-issue baseline",()=>{
+    render(<DocumentIssueSchedule schedule={{...schedule,deadline_kind:"approved_change",overdue:false}}/>);
+    expect(screen.getByText("Approved submission date: 09 Sept 2026")).toBeTruthy();
+    expect(screen.getByText("First issue: 01 Sept 2026")).toBeTruthy();
+  });
   it("distinguishes the unchanged first issue from the next working-day deadline",()=>{
     render(<DocumentIssueSchedule schedule={schedule}/>);
     expect(screen.getByText("First issue: 01 Sept 2026")).toBeTruthy();

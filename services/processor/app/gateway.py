@@ -140,10 +140,23 @@ class SupabaseGateway:
             "invitations":("invitations","id,email,project_role,discipline,status,expires_at,created_at,accepted_at","created_at.asc"),
             "audit_events":("audit_events","id,actor_user_id,action,target_type,target_id,outcome,changes,created_at","created_at.asc"),
             "weekly_reports":("project_weekly_reports","*","period_end.asc"),
+            "deliverable_requests":("deliverable_requests","*","created_at.asc,id.asc"),
         }
         datasets:dict[str,list[dict[str,object]]]={}
         for name,(table,selection,order) in sources.items():
-            response=self.client.get(f"/rest/v1/{table}",params={"project_id":f"eq.{project_id}","select":selection,"order":order});self._raise(response,f"Backup {name} unavailable.");datasets[name]=response.json()
+            datasets[name] = []
+            offset = 0
+            while True:
+                response = self.client.get(f"/rest/v1/{table}", params={
+                    "project_id": f"eq.{project_id}", "select": selection, "order": order,
+                    "limit": "500", "offset": str(offset),
+                })
+                self._raise(response, f"Backup {name} unavailable.")
+                rows = response.json()
+                if not rows:
+                    break
+                datasets[name].extend(rows)
+                offset += len(rows)
         return job,project.json()[0],datasets
 
     def mark_backup_building(self, backup_id: str) -> None:

@@ -1,6 +1,6 @@
 import type {SupabaseClient} from "@supabase/supabase-js";
 
-export type DocumentSchedule={document_id:string;planned_submission_date:string|null;next_submission_date:string|null;last_issue_date:string|null;revision_cycle_days:number|null;deadline_kind:"first_issue"|"next_revision"|"terminal_received"|"cycle_not_set";overdue:boolean};
+export type DocumentSchedule={document_id:string;planned_submission_date:string|null;next_submission_date:string|null;last_issue_date:string|null;revision_cycle_days:number|null;deadline_kind:"first_issue"|"next_revision"|"terminal_received"|"cycle_not_set"|"approved_change";overdue:boolean};
 
 export async function loadDocumentSchedules(client:SupabaseClient,organisationId:string,projectId:string,documentIds:string[]){
   if(!documentIds.length)return new Map<string,DocumentSchedule>();

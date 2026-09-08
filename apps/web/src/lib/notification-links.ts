@@ -19,7 +19,7 @@ export function notificationDestination({
 
   const relativePath = href.slice(base.length).split(/[?#]/, 1)[0];
   const allowed = new RegExp(
-    `^/(?:overview|control|reviews|assignments|progress|team|search|chat|settings|reports(?:/${UUID})?|documents(?:/${UUID})?(?:/.*)?|work-packages(?:/${UUID})?(?:/.*)?)$`,
+    `^/(?:overview|control|reviews|assignments|requests|progress|team|search|chat|settings|reports(?:/${UUID})?|documents(?:/${UUID})?(?:/.*)?|work-packages(?:/${UUID})?(?:/.*)?)$`,
     "i",
   );
   return allowed.test(relativePath) ? href : null;

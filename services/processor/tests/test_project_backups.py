@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -26,6 +27,7 @@ class FakeGateway:
                 "documents": [{"id": "doc-1", "document_number": "EPC-PRO-001", "title": "Design Basis", "discipline": "Process", "document_type": "Report", "planned_submission_date": "2026-08-20", "lifecycle_status": "active"}],
                 "revisions": [{"id": "rev-1", "document_id": "doc-1", "revision_code": "R01", "storage_key": "source.pdf", "original_filename": "basis.pdf", "state": "ready", "sha256": hashlib.sha256(content).hexdigest(), "native_storage_key": "source.dwg", "native_original_filename": "basis.dwg", "native_sha256": hashlib.sha256(self.sources["source.dwg"]).hexdigest()}],
                 "memberships": [], "disciplines": [], "resource_plans": [], "issues": [], "invitations": [], "audit_events": [], "weekly_reports": [],
+                "deliverable_requests": [{"id": "request-1", "kind": "date_change", "status": "accepted", "document_id": "doc-1", "requested_date": "2026-09-10"}],
             },
         )
 
@@ -50,6 +52,9 @@ def test_project_backup_contains_metadata_mdr_and_revision(tmp_path):
         names = archive.namelist()
         assert "00 - Backup Control/project.json" in names
         assert "00 - Backup Control/Master Document Register.csv" in names
+        requests = json.loads(archive.read("00 - Backup Control/deliverable_requests.json"))
+        assert requests[0]["requested_date"] == "2026-09-10"
+        assert requests[0]["status"] == "accepted"
         assert "Documents/Process/EPC-PRO-001/Revision R01/basis.pdf" in names
         assert archive.read("Documents/Process/EPC-PRO-001/Revision R01/basis.pdf") == b"controlled engineering evidence"
         assert archive.read("Documents/Process/EPC-PRO-001/Revision R01/Native Source/basis.dwg") == b"AC1032 editable drawing evidence"

@@ -13,6 +13,8 @@ def test_project_backup_includes_scoped_discipline_catalogue() -> None:
         if request.url.path == "/rest/v1/projects":
             return httpx.Response(200, json=[{"id": "project-a"}])
         if request.url.path == "/rest/v1/project_disciplines":
+            if request.url.params.get("offset") != "0":
+                return httpx.Response(200, json=[])
             return httpx.Response(200, json=[{"name": "HVAC", "code": None, "source": "mdr"}])
         return httpx.Response(200, json=[])
 

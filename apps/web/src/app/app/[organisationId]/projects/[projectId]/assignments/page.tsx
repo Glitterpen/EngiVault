@@ -116,6 +116,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
       delayImpact={numberValue(impact.engineer_project_delay_impact_points,Math.max(0,plannedCompletion-completion))}
     />
 
+    <div className="mt-5"><Link className="ev-button-secondary" href={`/app/${organisationId}/projects/${projectId}/requests`}>Request a date change or additional deliverable</Link></div>
     <CloseOutActions actions={closeOutActions} organisationId={organisationId} projectId={projectId} projectTotalWeight={projectTotalWeight}/>
 
     <div className="mt-6 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -196,6 +197,7 @@ function DeliverableCard({item,organisationId,projectId}:{item:DeliverableItem;o
   const href=`/app/${organisationId}/projects/${projectId}/documents/${document.id}#submit-revision`;
   const action=status==="returned"?"Upload corrected revision":status==="next_revision"?"Upload next revision":latest?"Open deliverable":"Submit first revision";
   return <article className={`ev-card overflow-hidden border-l-4 ${config.border}`}><div className="p-4 sm:p-6"><div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-extrabold text-[#e8733f]">{document.document_number}</p><span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[.06em] ${config.tone}`}>{config.label}</span></div><h2 className="mt-2 break-words text-lg font-semibold">{document.title}</h2><p className="mt-2 text-xs leading-5 text-[#617083]">{document.discipline} · {document.document_type}{document.responsible_party?` · ${document.responsible_party}`:""}</p></div><Link href={href} className="ev-button w-full shrink-0 sm:w-auto"><FileUp size={16}/>{action}</Link></div>
+    {item.schedule.next_submission_date&&<Link className="mt-3 inline-block text-xs font-semibold text-[#0c5b45]" href={`/app/${organisationId}/projects/${projectId}/requests?document=${document.id}#new-request`}>Request submission date change</Link>}
     {latest?.review_comment&&<div className="mt-4 flex gap-3 rounded-xl border border-[#f1c9b8] bg-[#fff6f2] p-3.5"><MessageSquareWarning size={17} className="mt-0.5 shrink-0 text-[#a5452f]"/><div><p className="text-xs font-bold text-[#a5452f]">Document Controller feedback</p><p className="mt-1 text-sm leading-6 text-[#754333]">{latest.review_comment}</p></div></div>}
     <div className="mt-4 grid gap-3 border-t border-[#edf1ef] pt-4 text-xs text-[#617083] sm:grid-cols-2 xl:grid-cols-4"><DocumentIssueSchedule schedule={item.schedule}/><span className="inline-flex items-center gap-1.5"><ShieldCheck size={14}/> Required: {document.required_issue_status||"To be confirmed"}</span><span className="inline-flex items-center gap-1.5"><FileCheck2 size={14}/>{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</span><span className="inline-flex items-center gap-1.5 font-bold text-[#0c5b45]"><CheckCircle2 size={14}/> Progress credit: {item.credit}%</span></div>
   </div></article>;
