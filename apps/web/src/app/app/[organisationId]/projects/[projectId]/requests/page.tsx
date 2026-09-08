@@ -5,6 +5,7 @@ import {requireProject} from "@/lib/auth";
 import {projectHomePath} from "@/lib/role-experience";
 import {loadDocumentSchedules} from "@/lib/document-schedule";
 import {canReviewDeliverableRequest,requestStatusLabel,type DeliverableRequest} from "@/lib/deliverable-requests";
+import {normaliseDiscipline} from "@/lib/project-disciplines";
 import {NewDeliverableRequestForm,DeliverableRequestReviewForm,CancelDeliverableRequestForm,type RequestDocument} from "@/components/deliverable-request-forms";
 
 export default async function DeliverableRequestsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{document?:string;request?:string;page?:string;view?:string}>}){
@@ -37,7 +38,9 @@ export default async function DeliverableRequestsPage({params,searchParams}:{par
       supabase.rpc("get_project_document_categories",{target_organisation:organisationId,target_project:projectId}),
     ]);
     if(scopeError||categoryError)throw new Error("Your request options could not be loaded. Please refresh.");
-    disciplines=(scopes??[]).map(item=>item.discipline);
+    const authorisedDisciplines=(scopes??[]).map(item=>item.discipline);
+    const selectable=((categories??[]) as {kind:string;name:string}[]).filter(item=>item.kind==="discipline").map(item=>normaliseDiscipline(item.name));
+    disciplines=authorisedDisciplines.filter(name=>selectable.includes(normaliseDiscipline(name)));
     documentTypes=((categories??[]) as {kind:string;code:string;name:string}[]).filter(item=>item.kind==="document_type");
     // Page the assignments and bound IN clauses for large MDRs.
     for(let offset=0;;offset+=500){
@@ -47,7 +50,7 @@ export default async function DeliverableRequestsPage({params,searchParams}:{par
       for(let start=0;start<ids.length;start+=100){
         const {data:docs,error:docError}=await supabase.from("documents").select("id,document_number,title,discipline").eq("organisation_id",organisationId).eq("project_id",projectId).eq("lifecycle_status","active").in("id",ids.slice(start,start+100));
         if(docError)throw new Error("Your deliverables could not be loaded.");
-        const eligible=(docs??[]).filter(doc=>disciplines.some(scope=>scope.trim().toLowerCase()===doc.discipline.trim().toLowerCase()));
+        const eligible=(docs??[]).filter(doc=>authorisedDisciplines.some(scope=>normaliseDiscipline(scope)===normaliseDiscipline(doc.discipline)));
         const schedules=await loadDocumentSchedules(supabase,organisationId,projectId,eligible.map(doc=>doc.id));
         for(const doc of eligible){const schedule=schedules.get(doc.id);if(schedule?.next_submission_date)documents.push({...doc,due_date:schedule.next_submission_date});}
       }

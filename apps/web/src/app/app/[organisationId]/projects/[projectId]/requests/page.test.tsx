@@ -1,7 +1,9 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
-import {cleanup,render,screen} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen} from "@testing-library/react";
 import DeliverableRequestsPage from "./page";
 import {requireProject} from "@/lib/auth";
+import {loadDocumentSchedules} from "@/lib/document-schedule";
+vi.mock("@/lib/document-schedule",()=>({loadDocumentSchedules:vi.fn()}));
 vi.mock("@/lib/auth",()=>({requireProject:vi.fn()}));
 vi.mock("next/navigation",()=>({redirect:vi.fn(()=>{throw new Error("redirect")})}));
 vi.mock("@/app/app/deliverable-request-actions",()=>({submitDeliverableRequest:vi.fn(),decideDeliverableRequest:vi.fn(),cancelDeliverableRequest:vi.fn()}));
@@ -17,6 +19,17 @@ function setup(role="project_admin",preview=false,overrides:Record<string,unknow
 const params=Promise.resolve({organisationId:org,projectId:project});
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 describe("deliverable request queues",()=>{
+  it("retains date requests for removed disciplines but hides them from new deliverable selections",async()=>{
+    function query(data:unknown[]){const chain:Record<string,unknown>={then:(resolve:(value:unknown)=>unknown)=>Promise.resolve({data,error:null,count:0}).then(resolve)};for(const method of ["select","eq","in","order","range"])chain[method]=()=>chain;return chain;}
+    const tables:Record<string,unknown[]>={deliverable_requests:[],project_member_disciplines:[{discipline:"Mechanical"},{discipline:"Process"}],document_assignments:[{document_id:"doc"}],documents:[{id:"doc",document_number:"MEC-001",title:"Retained drawing",discipline:"Mechanical"}]};
+    vi.mocked(requireProject).mockResolvedValue({access:{role:"engineer"},user:{id:"engineer"},preview:null,supabase:{from:(table:string)=>query(tables[table]??[]),rpc:vi.fn().mockResolvedValue({data:[{kind:"discipline",code:"PRO",name:"Process"}],error:null})}} as never);
+    vi.mocked(loadDocumentSchedules).mockResolvedValue(new Map([["doc",{next_submission_date:"2026-10-05"}]] ) as never);
+    render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({})}));
+    expect(screen.getByRole("option",{name:/MEC-001 · Retained drawing/})).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Request type"),{target:{value:"additional_deliverable"}});
+    expect(screen.queryByRole("option",{name:"Mechanical"})).toBeNull();
+    expect(screen.getByRole("option",{name:"Process"})).toBeTruthy();
+  });
   it("shows PM the requesting engineer and approval form",async()=>{
     setup();render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({})}));
     expect(screen.getByRole("heading",{name:"Pump plan"})).toBeTruthy();

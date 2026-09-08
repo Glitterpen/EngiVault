@@ -18,7 +18,7 @@ type Resource={id:string;discipline:string;required_count:number;notes:string|nu
 
 export default async function TeamPage({params}:{params:Promise<{organisationId:string;projectId:string}>}){
   const {organisationId,projectId}=await params;
-  const {supabase,user,access}=await requireProject(organisationId,projectId);
+  const {supabase,user,access,preview}=await requireProject(organisationId,projectId);
   const role=String(access.role);
   const persona=workspacePersona(role);
   if(persona!=="management"&&persona!=="document_control")redirect(projectHomePath(organisationId,projectId,role));
@@ -36,6 +36,9 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
   const allMembers=(team??[]) as Member[];
   const members=isDcc?allMembers.filter(member=>member.role==="engineer"):isOrganisationAdmin?allMembers.filter(member=>member.role==="project_admin"||member.role==="document_controller"):allMembers;
   const disciplines=((categoryRows??[]) as Discipline[]).filter(item=>item.kind==="discipline");
+  const {data:removedRows,error:removedError}=role==="project_admin"?await supabase.from("project_disciplines").select("name,code").eq("organisation_id",organisationId).eq("project_id",projectId).eq("is_active",false).order("name"): {data:[],error:null};
+  if(removedError)throw new Error("Project discipline settings could not be loaded. Please contact EngiCite support.");
+  const removedDisciplines=(removedRows??[]).map(item=>({name:item.name,code:item.code??""}));
   const resources=(resourceRows??[]) as Resource[];
   const pending=((pendingRows??[]) as PendingProjectInvitation[]).filter(invitation=>allowedRoles.some(allowedRole=>allowedRole===invitation.project_role));
   const workspaceTitle=isDcc?"Discipline engineers":isOrganisationAdmin?"Project leadership appointments":"Project team & resources";
@@ -59,7 +62,7 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
       {role==="project_admin"&&<><TeamMetric label="Planned positions" value={requiredPositions} icon={<Target size={18}/>}/><TeamMetric label="Unfilled positions" value={vacancies} icon={<AlertTriangle size={18}/>} warn={vacancies>0}/></>}
     </section>
 
-    {role==="project_admin"&&<ProjectDisciplineManager organisationId={organisationId} projectId={projectId} disciplines={disciplines}/>}
+    {role==="project_admin"&&<ProjectDisciplineManager organisationId={organisationId} projectId={projectId} disciplines={disciplines} removedDisciplines={removedDisciplines} readOnly={Boolean(preview)}/>}
     {role==="project_admin"&&<section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
       <article className="ev-card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#edf1ef] px-5 py-4 sm:px-6"><div><h2 className="font-semibold">Discipline resource readiness</h2><p className="mt-1 text-xs leading-5 text-[#617083]">Planned positions compared with engineers who have accepted their invitation.</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${vacancies?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{vacancies?`${vacancies} position${vacancies===1?"":"s"} open`:"Fully resourced"}</span></div><div className="grid gap-px bg-[#edf1ef] md:grid-cols-2">{resources.length?resources.map(resource=>{const assigned=activeEngineers.filter(member=>member.disciplines.some(discipline=>sameDiscipline(discipline,resource.discipline))).length;const gap=Math.max(0,resource.required_count-assigned);return <div className="bg-white p-5" key={resource.id}><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{resource.discipline}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${gap?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{gap?`${gap} open`:"Ready"}</span></div><p className="mt-3 text-2xl font-semibold">{assigned}<span className="text-sm font-normal text-[#617083]"> / {resource.required_count} active</span></p>{resource.notes&&<p className="mt-2 text-xs leading-5 text-[#617083]">{resource.notes}</p>}</div>}):<p className="bg-white p-8 text-center text-sm text-[#617083] md:col-span-2">No discipline requirements have been planned yet. Add the first requirement using the form.</p>}</div></article>
       <ResourcePlanForm organisationId={organisationId} projectId={projectId} disciplines={disciplines}/>

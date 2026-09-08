@@ -1,0 +1,120 @@
+-- Disposable migrated database only. All fixtures and helpers roll back.
+begin;
+select no_plan();
+create function pg_temp.org(n integer default 1) returns uuid language sql as $$select ('b9000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid$$;
+create function pg_temp.project(n integer default 1) returns uuid language sql as $$select ('c9000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid$$;
+create function pg_temp.person(n integer) returns uuid language sql as $$select ('a9000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid$$;
+create function pg_temp.doc() returns uuid language sql as $$select 'd9000000-0000-4000-8000-000000000001'::uuid$$;
+create function pg_temp.remove(scope text default 'Mechanical',count integer default 1,ack boolean default true) returns void language sql as $$select public.remove_project_discipline(pg_temp.org(),pg_temp.project(),scope,true,count,ack)$$;
+create function pg_temp.add_request() returns uuid language sql as $$select public.request_additional_deliverable(pg_temp.org(),pg_temp.project(),'New assessment','Custom type','Mechanical',current_date+10,'Additional scope identified during design')$$;
+insert into auth.users(id,email,email_confirmed_at) select pg_temp.person(n),'remove-'||n||'@example.test',now() from generate_series(1,7)n;
+select set_config('request.jwt.claim.sub',pg_temp.person(1)::text,true);
+insert into public.organisations(id,slug,name,created_by) values(pg_temp.org(),'remove-a','Remove A',pg_temp.person(1)),(pg_temp.org(2),'remove-b','Remove B',pg_temp.person(5));
+insert into public.organisation_memberships(organisation_id,user_id,role)
+ select pg_temp.org(case when n=5 then 2 else 1 end),pg_temp.person(n),case when n=4 then 'organisation_admin' else 'member' end::public.organisation_role from generate_series(1,6)n;
+insert into public.projects(id,organisation_id,code,name,created_by,revision_cycle_days)
+ values(pg_temp.project(),pg_temp.org(),'REMOVE-A','Remove A',pg_temp.person(1),3),(pg_temp.project(2),pg_temp.org(2),'REMOVE-B','Remove B',pg_temp.person(5),3),(pg_temp.project(3),pg_temp.org(),'REMOVE-C','Same organisation other project',pg_temp.person(1),3);
+insert into public.project_memberships(organisation_id,project_id,user_id,role)
+ select pg_temp.org(case when n=5 then 2 else 1 end),pg_temp.project(case when n=5 then 2 else 1 end),pg_temp.person(n),
+ case when n in (1,5) then 'project_admin' when n=2 then 'document_controller' else 'engineer' end::public.project_role from generate_series(1,6)n;
+insert into public.project_memberships(organisation_id,project_id,user_id,role) values(pg_temp.org(),pg_temp.project(3),pg_temp.person(1),'project_admin');
+insert into public.document_categories(organisation_id,kind,code,name) values(pg_temp.org(),'discipline','MEC','Mechanical'),(pg_temp.org(),'discipline','PRO','Process'),(pg_temp.org(),'document_type','REP','Report');
+insert into public.project_member_disciplines(organisation_id,project_id,user_id,discipline) values(pg_temp.org(),pg_temp.project(),pg_temp.person(3),'Mechanical');
+insert into public.documents(id,organisation_id,project_id,document_number,title,document_type,discipline,planned_submission_date)
+ values(pg_temp.doc(),pg_temp.org(),pg_temp.project(),'MEC-001','Existing pump drawing','Drawing','Mechanical',current_date-2);
+insert into public.document_assignments(organisation_id,project_id,document_id,user_id) values(pg_temp.org(),pg_temp.project(),pg_temp.doc(),pg_temp.person(3));
+insert into public.document_revisions(organisation_id,project_id,document_id,revision_code,issue_status,original_filename,declared_mime,byte_size,sha256,storage_key,uploaded_by)
+ values(pg_temp.org(),pg_temp.project(),pg_temp.doc(),'R01','Issued for Review (IFR)','history.pdf','application/pdf',32,repeat('a',64),'removal-test/unchanged/history.pdf',pg_temp.person(3));
+insert into public.project_resource_plans(organisation_id,project_id,discipline,required_count) values(pg_temp.org(),pg_temp.project(),'Mechanical',2);
+
+select set_config('request.jwt.claim.sub',pg_temp.person(1)::text,true);
+set local role authenticated;
+select lives_ok($$select public.create_project_discipline(pg_temp.org(),pg_temp.project(),'HVAC','HVC')$$,'PM adds a custom discipline');
+select lives_ok($$select public.create_project_invitation_with_disciplines(pg_temp.org(),pg_temp.project(),'remove-7@example.test','engineer',encode(extensions.digest(repeat('i',48),'sha256'),'hex'),now()+interval '1 day',array['Mechanical','Process'])$$,'existing multi-discipline invitation created');
+select is(public.get_project_discipline_removal_impact(pg_temp.org(),pg_temp.project(),'mec'),'{"name":"Mechanical","engineerCount":1,"documentCount":1,"invitationCount":1,"plannedPositions":2}'::jsonb,'impact counts scope, work, invitations and planned positions');
+select throws_ok($$select public.remove_project_discipline(pg_temp.org(),pg_temp.project(),'Mechanical')$$,'22023',null,'explicit removal confirmation is required');
+select throws_ok($$select pg_temp.remove('Mechanical',1,false)$$,'22023',null,'assigned engineer acknowledgement is required');
+select throws_ok($$select pg_temp.remove('Mechanical',0,true)$$,'40001',null,'stale or forged engineer count requires refreshed warning');
+select throws_ok($$select public.remove_project_discipline(pg_temp.org(2),pg_temp.project(2),'Mechanical',true,0,false)$$,'42501',null,'PM cannot remove another tenant discipline');
+select throws_ok($$update public.project_disciplines set is_active=false$$,'42501',null,'browser cannot directly change catalogue activity');
+reset role;
+select set_config('request.jwt.claim.sub',pg_temp.person(3)::text,true);
+set local role authenticated;
+select set_config('test.existing_addition',pg_temp.add_request()::text,true);
+reset role;
+-- Test all non-PM roles using the real permission helper, including org admin.
+select set_config('request.jwt.claim.sub',pg_temp.person(2)::text,true);
+set local role authenticated;
+select throws_ok($$select pg_temp.remove()$$,'42501',null,'DCC cannot remove project discipline');
+select throws_ok($$select public.get_project_discipline_removal_impact(pg_temp.org(),pg_temp.project(),'Mechanical')$$,'42501',null,'DCC cannot inspect management impact');
+reset role;
+select set_config('request.jwt.claim.sub',pg_temp.person(3)::text,true);
+set local role authenticated;
+select throws_ok($$select pg_temp.remove()$$,'42501',null,'engineer cannot remove discipline');
+reset role;
+select set_config('request.jwt.claim.sub',pg_temp.person(4)::text,true);
+set local role authenticated;
+select throws_ok($$select pg_temp.remove()$$,'42501',null,'organisation admin cannot replace PM');
+reset role;
+
+select set_config('request.jwt.claim.sub',pg_temp.person(1)::text,true);
+set local role authenticated;
+select lives_ok($$select pg_temp.remove('  mechanical ',1,true)$$,'PM removes inherited discipline after warning acknowledgement');
+select lives_ok($$select pg_temp.remove('HVC',0,false)$$,'PM removes unused custom discipline by code');
+select throws_ok($$select pg_temp.remove()$$,'22023',null,'repeated removal does not duplicate audit or catalogue entry');
+select is((select count(*)::integer from public.get_project_document_categories(pg_temp.org(),pg_temp.project()) where name in ('Mechanical','HVAC')),0,'removed disciplines disappear from new selectors');
+select is((select count(*)::integer from public.get_project_document_categories(pg_temp.org(),pg_temp.project()) where name='Report'),1,'document types are unaffected');
+select is((select count(*)::integer from public.get_project_document_categories(pg_temp.org(),pg_temp.project(3)) where name='Mechanical'),1,'same organisation other project keeps inherited discipline');
+select throws_ok($$select public.create_project_invitation_with_disciplines(pg_temp.org(),pg_temp.project(),'new@example.test','engineer',repeat('a',64),now()+interval '1 day',array['MEC'])$$,'22023',null,'new invitation cannot use removed scope or alias');
+select throws_ok($$select public.set_member_discipline(pg_temp.org(),pg_temp.project(),pg_temp.person(6),'Mechanical',true)$$,'22023',null,'new member discipline allocation denied');
+select throws_ok($$select public.upsert_project_resource_plan(pg_temp.org(),pg_temp.project(),'Mechanical',3,'New plan')$$,'22023',null,'new resource selection denied');
+reset role;
+select is((select count(*)::integer from public.project_member_disciplines where user_id=pg_temp.person(3)),1,'existing discipline access row preserved');
+select is((select count(*)::integer from public.document_assignments where user_id=pg_temp.person(3) and status='active'),1,'existing document assignment preserved');
+select is((select required_count from public.project_resource_plans where project_id=pg_temp.project()),2,'existing resource plan retained');
+select is((select storage_key from public.document_revisions where document_id=pg_temp.doc()),'removal-test/unchanged/history.pdf','revision and storage identity preserved');
+select is((select count(*)::integer from public.document_categories where name='Mechanical' and is_active),1,'organisation catalogue unchanged');
+select is((select count(*)::integer from public.audit_events where action='project.discipline_removed'),2,'successful removals audited exactly once');
+select ok((select bool_and((changes->>'existing_access_preserved')::boolean) from public.audit_events where action='project.discipline_removed'),'audit records preservation decision');
+select is(public.resolve_project_discipline(pg_temp.org(),pg_temp.project(),'MEC'),'Mechanical','historical resolver remains valid');
+select is(public.resolve_selectable_project_discipline(pg_temp.org(),pg_temp.project(),'MEC'),null::text,'new-selection resolver excludes removed scope');
+
+select set_config('request.jwt.claim.sub',pg_temp.person(3)::text,true);
+set local role authenticated;
+select ok(public.can_read_document(pg_temp.org(),pg_temp.project(),pg_temp.doc()),'engineer can still read existing deliverable');
+select ok(public.can_upload_document(pg_temp.org(),pg_temp.project(),pg_temp.doc()),'engineer can still upload existing deliverable');
+select lives_ok($$select public.request_submission_date_change(pg_temp.org(),pg_temp.project(),pg_temp.doc(),current_date+5,'Awaiting vendor information')$$,'existing assigned deliverable can still request date change');
+select throws_ok($$select pg_temp.add_request()$$,'42501',null,'new additional deliverable request cannot select removed scope');
+select throws_ok($$select public.restore_project_discipline(pg_temp.org(),pg_temp.project(),'Mechanical')$$,'42501',null,'engineer cannot restore removed scope');
+reset role;
+select set_config('request.jwt.claim.sub',pg_temp.person(2)::text,true);
+set local role authenticated;
+select lives_ok($$select public.review_deliverable_request(pg_temp.org(),pg_temp.project(),current_setting('test.existing_addition')::uuid,'approve','Approved existing request','MEC-002')$$,'DCC can complete request made before removal');
+select lives_ok($$select public.create_mdr_document(pg_temp.org(),pg_temp.project(),'MEC-003','MDR imported document','Custom type','Mechanical',current_date+20,'','','')$$,'existing MDR import can still resolve historical discipline');
+select is((select count(*)::integer from public.get_project_document_categories(pg_temp.org(),pg_temp.project()) where name='Mechanical'),0,'DCC import does not reactivate discipline selection');
+reset role;
+select set_config('request.jwt.claim.sub',pg_temp.person(7)::text,true);
+set local role authenticated;
+select lives_ok($$select public.accept_project_invitation(repeat('i',48))$$,'pre-existing multi-discipline invitation is still honoured');
+reset role;
+select is((select count(*)::integer from public.project_member_disciplines where user_id=pg_temp.person(7)),2,'existing invitation retains both scopes');
+select set_config('request.jwt.claim.sub',pg_temp.person(5)::text,true);
+set local role authenticated;
+select is((select count(*)::integer from public.project_disciplines where project_id=pg_temp.project()),0,'removed list is tenant-isolated by RLS');
+reset role;
+
+select set_config('request.jwt.claim.sub',pg_temp.person(1)::text,true);
+set local role authenticated;
+select lives_ok($$select public.restore_project_discipline(pg_temp.org(),pg_temp.project(),'Mechanical')$$,'PM restores inherited discipline');
+select lives_ok($$select public.create_project_discipline(pg_temp.org(),pg_temp.project(),'HVAC','HVC')$$,'PM Add restores existing custom discipline');
+select is((select count(*)::integer from public.get_project_document_categories(pg_temp.org(),pg_temp.project()) where name in ('Mechanical','HVAC')),2,'restored disciplines available without duplicates');
+reset role;
+select is((select count(*)::integer from public.project_disciplines where not is_active or removed_at is not null or removed_by is not null),0,'restore clears removal metadata');
+select is((select count(*)::integer from public.audit_events where action='project.discipline_restored'),2,'restores audited');
+select ok(not has_function_privilege('anon','public.remove_project_discipline(uuid,uuid,text,boolean,integer,boolean)','execute'),'anonymous removal denied');
+select ok(not has_function_privilege('anon','public.get_project_discipline_removal_impact(uuid,uuid,text)','execute'),'anonymous impact denied');
+select ok(not has_function_privilege('anon','public.restore_project_discipline(uuid,uuid,text)','execute'),'anonymous restore denied');
+select ok(not has_function_privilege('authenticated','public.resolve_selectable_project_discipline(uuid,uuid,text)','execute'),'new internal resolver is not publicly executable');
+select ok(position('''project_disciplines''' in pg_get_functiondef('public.read_project_member_preview(uuid,text,jsonb)'::regprocedure))>0,'read-only preview includes project catalogue');
+select * from finish();
+rollback;

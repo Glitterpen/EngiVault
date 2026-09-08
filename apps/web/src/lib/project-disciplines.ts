@@ -5,6 +5,14 @@ export function normaliseDiscipline(value: string) {
 
 export type ProjectCategory = { kind: string; code: string; name: string };
 
+export type DisciplineRemovalImpact = {
+  name: string;
+  engineerCount: number;
+  documentCount: number;
+  invitationCount: number;
+  plannedPositions: number;
+};
+
 export function matchDiscipline(categories: ProjectCategory[], value: string) {
   const key = normaliseDiscipline(value);
   if (!key) return undefined;
