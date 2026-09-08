@@ -3,20 +3,20 @@
 import {redirect} from "next/navigation";
 import {z} from "zod";
 import {requireUser} from "@/lib/auth";
-import {canPreviewProjectRole} from "@/lib/permissions";
 import {projectHomePath} from "@/lib/role-experience";
-import {writeAdminPreview} from "@/lib/admin-preview";
+import {writeAdminPreview,type AdminPreview} from "@/lib/admin-preview";
 
-export async function enterAdminRolePreview(form:FormData){
-  const parsed=z.object({organisationId:z.uuid(),projectId:z.uuid(),role:z.enum(["project_admin","document_controller","engineer"])}).safeParse(Object.fromEntries(form));
-  if(!parsed.success)return;
+export async function enterAdminRolePreview(_previous:{message:string}|undefined,form:FormData):Promise<{message:string}|undefined>{
+  const parsed=z.object({organisationId:z.uuid(),projectId:z.uuid(),memberId:z.uuid(),reason:z.string().trim().min(5).max(500)}).safeParse(Object.fromEntries(form));
+  if(!parsed.success)return {message:"Select a team member and enter a support reason (5–500 characters)."};
   const {supabase}=await requireUser();
   const {data:organisation}=await supabase.rpc("get_my_organisations").eq("organisation_id",parsed.data.organisationId).eq("role","organisation_admin").maybeSingle();
-  if(!organisation||!canPreviewProjectRole("organisation_admin",parsed.data.role))return;
+  if(!organisation)return {message:"Organisation administrator permission is required."};
   const {data:project}=await supabase.from("projects").select("id").eq("organisation_id",parsed.data.organisationId).eq("id",parsed.data.projectId).maybeSingle();
-  if(!project)return;
-  const {error}=await supabase.rpc("record_project_role_preview",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,preview_role:parsed.data.role,preview_event:"entered"});
-  if(error)return;
-  await writeAdminPreview(parsed.data);
-  redirect(projectHomePath(parsed.data.organisationId,parsed.data.projectId,parsed.data.role));
+  if(!project)return {message:"Project unavailable."};
+  const {data,error}=await supabase.rpc("start_project_member_preview",{target_organisation:parsed.data.organisationId,target_project:parsed.data.projectId,target_member:parsed.data.memberId,preview_reason:parsed.data.reason});
+  if(error||!data)return {message:`Preview could not be started. Check the member is active and the preview migration is installed. Reference: ${error?.code??"PREVIEW_UNAVAILABLE"}.`};
+  const preview=data as AdminPreview;
+  await writeAdminPreview(preview);
+  redirect(projectHomePath(preview.organisationId,preview.projectId,preview.role));
 }

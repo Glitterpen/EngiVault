@@ -1,12 +1,13 @@
 import {NextResponse} from "next/server";
-import {requireUser} from "@/lib/auth";
-import {readAdminPreview,writeAdminPreview} from "@/lib/admin-preview";
+import {requireAuthenticatedUser} from "@/lib/auth";
+import {cookies} from "next/headers";
+import {ADMIN_PREVIEW_COOKIE,parseAdminPreview,writeAdminPreview} from "@/lib/admin-preview";
 
 export async function POST(request:Request){
-  const preview=await readAdminPreview();
+  const preview=parseAdminPreview((await cookies()).get(ADMIN_PREVIEW_COOKIE)?.value);
   if(preview){
-    const {supabase}=await requireUser();
-    await supabase.rpc("record_project_role_preview",{target_organisation:preview.organisationId,target_project:preview.projectId,preview_role:preview.role,preview_event:"exited"});
+    const {supabase}=await requireAuthenticatedUser();
+    await supabase.rpc("end_project_member_preview",{target_preview:preview.sessionId});
     await writeAdminPreview(null);
     return NextResponse.redirect(new URL(`/app/${preview.organisationId}/projects/${preview.projectId}/overview`,request.url),303);
   }

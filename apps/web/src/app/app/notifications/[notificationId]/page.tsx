@@ -4,7 +4,7 @@ import { ArrowLeft, Bell, CheckCheck, ExternalLink, Info } from "lucide-react";
 import { z } from "zod";
 import { clearNotification } from "@/app/app/workflow-actions";
 import { NotificationReadReceipt } from "@/components/notification-read-receipt";
-import { requireUser } from "@/lib/auth";
+import { requireNotificationUser } from "@/lib/auth";
 import { notificationDestination } from "@/lib/notification-links";
 
 type NotificationRow = {
@@ -29,7 +29,7 @@ export default async function NotificationPreviewPage({
   const [{ notificationId }, query] = await Promise.all([params, searchParams]);
   if (!z.uuid().safeParse(notificationId).success) notFound();
 
-  const { supabase, user } = await requireUser();
+  const { supabase, user, preview } = await requireNotificationUser();
   const { data } = await supabase
     .from("notifications")
     .select("id,organisation_id,project_id,kind,title,body,href,read_at,created_at")
@@ -57,7 +57,7 @@ export default async function NotificationPreviewPage({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <NotificationReadReceipt notificationId={notification.id} unread={!notification.read_at} />
+      {!preview&&<NotificationReadReceipt notificationId={notification.id} unread={!notification.read_at} />}
       <Link href="/app/notifications" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]">
         <ArrowLeft size={16} /> Return to notifications
       </Link>
@@ -93,7 +93,7 @@ export default async function NotificationPreviewPage({
           <div className="mt-8 border-t border-[#e4e9ee] pt-6">
             <p className="text-xs font-extrabold uppercase tracking-[.12em] text-[#617083]">Choose what happens next</p>
             <div className="mt-4 flex flex-wrap gap-3">
-              {!notification.read_at && (
+              {!preview&&!notification.read_at && (
                 <form action={clearNotification}>
                   <input type="hidden" name="notificationId" value={notification.id} />
                   <button className="ev-button"><CheckCheck size={16} /> Mark as read now</button>
@@ -104,7 +104,7 @@ export default async function NotificationPreviewPage({
                 <Link href={destination} className="ev-button-secondary">Open related project page <ExternalLink size={15} /></Link>
               )}
             </div>
-            <p className="mt-3 text-xs leading-5 text-[#617083]">Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain.</p>
+            <p className="mt-3 text-xs leading-5 text-[#617083]">{preview?'Read-only preview: this message remains unchanged. Opening it does not mark it as read for the team member.':'Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain.'}</p>
           </div>
         </div>
       </article>

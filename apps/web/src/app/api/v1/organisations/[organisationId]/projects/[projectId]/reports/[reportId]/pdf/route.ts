@@ -11,7 +11,7 @@ type LogoAsset={bytes:Uint8Array;mimeType:string};
 
 export async function GET(request:Request,{params}:{params:Promise<{organisationId:string;projectId:string;reportId:string}>}){
   const {organisationId,projectId,reportId}=await params;
-  const {supabase}=await requireProject(organisationId,projectId);
+  const {supabase,preview}=await requireProject(organisationId,projectId);
   const [{data:report},{data:project}]=await Promise.all([
     supabase.from("project_weekly_reports").select("id,report_number,period_start,period_end,generation_source,generated_at,snapshot").eq("organisation_id",organisationId).eq("project_id",projectId).eq("id",reportId).maybeSingle(),
     supabase.from("projects").select("client_logo_paths").eq("organisation_id",organisationId).eq("id",projectId).maybeSingle(),
@@ -32,7 +32,7 @@ export async function GET(request:Request,{params}:{params:Promise<{organisation
     organisationLogo,
     clientLogos,
   });
-  await supabase.rpc("record_project_report_download",{target_organisation:organisationId,target_project:projectId,target_report:reportId});
+  if(!preview)await supabase.rpc("record_project_report_download",{target_organisation:organisationId,target_project:projectId,target_report:reportId});
   const filename=projectReportPdfFilename(parsed.data.identity.project_code,controlled.report_number);
   return new Response(Uint8Array.from(bytes).buffer,{status:200,headers:{
     "content-type":"application/pdf",

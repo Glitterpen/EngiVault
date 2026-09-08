@@ -4,26 +4,34 @@ import {useActionState,useState} from "react";
 import {Archive,DatabaseBackup,Eye,HardDriveDownload,RotateCcw,Trash2} from "lucide-react";
 import {enterAdminRolePreview} from "@/app/app/governance-actions";
 import {requestProjectBackup,restoreTrashedProject,setProjectArchived,trashProject,updateProjectBackupPolicy,type MutationState} from "@/app/app/actions";
+import {scopedRoleLabel} from "@/lib/role-experience";
 
 type Connection={id:string;provider:string;display_name:string};
 type Policy={enabled:boolean;provider:string;connection_id:string|null;schedule_frequency:string;weekday:number;run_time:string;destination_path:string;next_run_at:string|null}|null;
 type Backup={id:string;provider:string;trigger_kind:string;state:string;byte_size:number|null;external_location:string|null;error_code:string|null;created_at:string;completed_at:string|null};
+export type PreviewMember={user_id:string;display_name:string;email:string;role:string;disciplines:string[]};
 
-export function ProjectGovernanceControls({project,policy,backups,connections}:{project:{id:string;organisationId:string;code:string;name:string;status:string;purgeAfter:string|null};policy:Policy;backups:Backup[];connections:Connection[]}){
+export function ProjectGovernanceControls({project,policy,backups,connections,members=[]}:{project:{id:string;organisationId:string;code:string;name:string;status:string;purgeAfter:string|null};policy:Policy;backups:Backup[];connections:Connection[];members?:PreviewMember[]}){
  return <div className="space-y-6">
-  <RolePreview project={project}/>
+  <RolePreview project={project} members={members}/>
   <BackupControls project={project} policy={policy} backups={backups} connections={connections}/>
   <Lifecycle project={project}/>
  </div>;
 }
 
-function RolePreview({project}:{project:{id:string;organisationId:string}}){
- const roles=[
-  {value:"project_admin",label:"View as Project Manager",detail:"Inspect project planning, resources, issues and reporting."},
-  {value:"document_controller",label:"View as DCC",detail:"Inspect the MDR, submissions, reviews and document-control workflow."},
-  {value:"engineer",label:"View as Discipline Engineer",detail:"Inspect the assigned-deliverables and evidence interface."},
- ] as const;
- return <section className="ev-card p-6"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff1e9] text-[#e8733f]"><Eye size={19}/></span><div><h2 className="font-semibold">Audited role preview</h2><p className="mt-1 text-sm leading-6 text-[#617083]">Open another role’s interface to diagnose user-experience problems. Preview mode is read-only and never grants you that role’s operational permissions.</p></div></div><div className="mt-5 grid gap-3 lg:grid-cols-3">{roles.map(role=><form action={enterAdminRolePreview} className="rounded-xl border border-[#dfe7e3] p-4" key={role.value}><input type="hidden" name="organisationId" value={project.organisationId}/><input type="hidden" name="projectId" value={project.id}/><input type="hidden" name="role" value={role.value}/><p className="font-semibold">{role.label}</p><p className="mt-2 min-h-10 text-xs leading-5 text-[#617083]">{role.detail}</p><button className="ev-button-secondary mt-4 w-full"><Eye size={15}/> Open read-only preview</button></form>)}</div></section>;
+export function RolePreview({project,members}:{project:{id:string;organisationId:string};members:PreviewMember[]}){
+ const [state,action,pending]=useActionState(enterAdminRolePreview,undefined);
+ const [search,setSearch]=useState('');
+ const eligible=members.filter(member=>['project_admin','document_controller','engineer'].includes(member.role));
+ const visible=eligible.filter(member=>`${member.display_name} ${member.email} ${member.disciplines.join(' ')} ${scopedRoleLabel(member.role,member.disciplines)}`.toLowerCase().includes(search.toLowerCase()));
+ return <section className="ev-card p-6"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff1e9] text-[#e8733f]"><Eye size={19}/></span><div><h2 className="font-semibold">Audited member preview</h2><p className="mt-1 text-sm leading-6 text-[#617083]">See a team member’s live project dashboard, assignments and permitted data. You stay signed in as the administrator; uploads, approvals and all other changes are disabled. Each 30-minute support session is audited.</p></div></div>
+ {eligible.length?<form action={action} className="mt-5 space-y-4"><input type="hidden" name="organisationId" value={project.organisationId}/><input type="hidden" name="projectId" value={project.id}/>
+ <label className="block"><span className="ev-label">Find a team member</span><input type="search" className="ev-input" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Name, work email or discipline"/></label>
+ <label className="block"><span className="ev-label">View this member’s project workspace</span><select name="memberId" className="ev-input" required defaultValue=""><option value="" disabled>Select a team member</option>{visible.map(member=><option key={member.user_id} value={member.user_id}>{member.display_name||member.email} · {scopedRoleLabel(member.role,member.disciplines)} · {member.email}</option>)}</select></label>
+ <label className="block"><span className="ev-label">Support reason (recorded in the audit log)</span><textarea name="reason" className="ev-input" required minLength={5} maxLength={500} placeholder="For example: investigate missing MDR assignments"/></label>
+ {state?.message&&<p role="alert" className="text-sm text-[#a53724]">{state.message}</p>}
+ <button className="ev-button-secondary" disabled={pending||!visible.length}><Eye size={15}/>{pending?'Opening secure preview…':'Open live read-only preview'}</button></form>:<p className="mt-5 text-sm text-[#617083]">No active Project Manager, DCC or Discipline Engineer is available to preview. Invite and appoint a team member first.</p>}
+ </section>;
 }
 
 function BackupControls({project,policy,backups,connections}:{project:{id:string;organisationId:string};policy:Policy;backups:Backup[];connections:Connection[]}){

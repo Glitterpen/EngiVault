@@ -3,9 +3,9 @@ import {scopedRoleLabel,workspacePersona} from "@/lib/role-experience";
 
 export async function GET(_:Request,{params}:{params:Promise<{organisationId:string;projectId:string}>}){
   const {organisationId,projectId}=await params;
-  const {supabase,user,access,actualRole}=await requireProject(organisationId,projectId);
+  const {supabase,user,access,preview}=await requireProject(organisationId,projectId);
   const role=String(access.role);
-  const disciplineQuery=role==="engineer"&&actualRole==="engineer"
+  const disciplineQuery=role==="engineer"
     ?supabase.from("project_member_disciplines").select("discipline").eq("organisation_id",organisationId).eq("project_id",projectId).eq("user_id",user.id).order("discipline")
     :Promise.resolve({data:[] as Array<{discipline:string}>});
   const [{data:project},{count:pendingReviewCount},{data:disciplineRows}]=await Promise.all([
@@ -14,5 +14,5 @@ export async function GET(_:Request,{params}:{params:Promise<{organisationId:str
     disciplineQuery,
   ]);
   const disciplines=(disciplineRows??[]).map(item=>String(item.discipline));
-  return Response.json({role,roleLabel:scopedRoleLabel(role,disciplines),persona:workspacePersona(role),project:{code:project?.code??"",name:project?.name??""},pendingReviewCount:pendingReviewCount??0},{headers:{"Cache-Control":"private, no-store"}});
+  return Response.json({role,roleLabel:scopedRoleLabel(role,disciplines),persona:workspacePersona(role),preview:Boolean(preview),project:{code:project?.code??"",name:project?.name??""},pendingReviewCount:pendingReviewCount??0},{headers:{"Cache-Control":"private, no-store"}});
 }

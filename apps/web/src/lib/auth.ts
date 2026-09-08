@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {readAdminPreview} from "@/lib/admin-preview";
+import {createMemberPreviewClient} from "@/lib/member-preview-client";
 
 export const requireAuthenticatedUser=cache(async(loginPath="/login")=>{const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();if(!user)redirect(loginPath);return {supabase,user};});
 export const requireUser=cache(async()=>{
@@ -23,6 +24,15 @@ export async function requireProject(orgId:string,projectId:string){
  if(!entitlementError&&!entitled)redirect(`/app/${orgId}/subscription-required`);
  const actualRole=String(data.role);
  const requested=await readAdminPreview();
- const preview=actualRole==="organisation_admin"&&requested?.organisationId===orgId&&requested.projectId===projectId?requested:null;
- return {supabase,user,access:{...data,role:preview?.role??data.role},actualRole,preview};
+ if(requested&&(actualRole!=="organisation_admin"||requested.organisationId!==orgId||requested.projectId!==projectId))notFound();
+ const preview=requested;
+ return {supabase:preview?createMemberPreviewClient(supabase,preview):supabase,
+   user:preview?{...user,id:preview.memberId,email:preview.email,user_metadata:{}}:user,
+   actorUser:user,access:{...data,role:preview?.role??data.role},actualRole,preview};
+}
+
+// Global notifications use the selected project's member perspective in preview.
+export async function requireNotificationUser(){
+ const preview=await readAdminPreview();
+ return preview?requireProject(preview.organisationId,preview.projectId):{...await requireUser(),preview:null};
 }

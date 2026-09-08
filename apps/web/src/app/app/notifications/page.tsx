@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Bell, ChevronRight } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requireNotificationUser } from "@/lib/auth";
 import { NotificationBulkActions } from "@/components/notification-bulk-actions";
 
 export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const query = await searchParams;
-  const { supabase, user } = await requireUser();
+  const { supabase, user, preview } = await requireNotificationUser();
   const { data } = await supabase
     .from("notifications")
     .select("id,kind,title,body,read_at,created_at")
@@ -21,10 +21,10 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Bell /> Notifications</h1>
           <p className="mt-2 text-sm text-[#617083]">Select a message to preview it before opening any related project page.</p>
         </div>
-        <NotificationBulkActions
+        {!preview&&<NotificationBulkActions
           hasNotifications={Boolean(data?.length)}
           hasUnread={Boolean(data?.some((item) => !item.read_at))}
-        />
+        />}
       </div>
 
       {query.error === "delete_all" && (

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { evaluateMutationRequest } from "@/lib/request-security";
 import { refreshSession } from "@/lib/supabase/proxy";
+import {memberPreviewRequestAllowed} from "@/lib/member-preview-security";
 
 const cookieName = "engicite_admin_preview";
 const paystackWebhookPath = "/api/v1/billing/paystack/webhook";
@@ -43,12 +44,9 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  const isSafeMethod = ["GET", "HEAD", "OPTIONS"].includes(request.method);
   const previewValue = request.cookies.get(cookieName)?.value;
-  if (!isSafeMethod && previewValue) {
-    const [organisationId, projectId] = previewValue.split(":");
-    const projectPath = `/${organisationId}/projects/${projectId}`;
-    if (request.nextUrl.pathname.includes(projectPath)) {
+  if (previewValue&&!memberPreviewRequestAllowed(request.method,request.nextUrl.pathname,previewValue)) {
+      if(request.method==='GET'&&request.nextUrl.pathname.startsWith('/app'))return withSecurityResponseHeaders(NextResponse.redirect(new URL('/admin-preview-unavailable',request.url)),requestId);
       console.warn(JSON.stringify({
         event: "security.preview_mutation_rejected",
         request_id: requestId,
@@ -67,7 +65,6 @@ export async function proxy(request: NextRequest) {
         ),
         requestId,
       );
-    }
   }
 
   const requestHeaders = new Headers(request.headers);

@@ -3,6 +3,16 @@ import { can } from "@/lib/permissions";
 import { embedSearchQuery } from "@/lib/processor";
 import { rateLimited } from "@/lib/rate-limit";
 type Params={organisationId:string;projectId:string};
+export async function GET(request:Request,ctx:{params:Promise<Params>}){
+ const {organisationId,projectId}=await ctx.params;const {supabase,access,preview}=await requireProject(organisationId,projectId);
+ if(!preview||!can(String(access.role),'document:read'))return new Response(null,{status:403});
+ const params=new URL(request.url).searchParams;const query=params.get('query')?.trim()??'';
+ if(query.length<2||query.length>500)return Response.json({error:{message:'Enter between 2 and 500 characters.'}},{status:422});
+ // Read-only lexical search: no AI tokens, usage-ledger writes or member audit events.
+ const {data,error}=await supabase.rpc('search_project_member_preview',{query_text:query,filter_discipline:params.get('discipline'),filter_document_type:params.get('documentType')});
+ if(error)return Response.json({error:{message:'Member evidence could not be loaded.'}},{status:503});
+ return Response.json({mode:'full_text',results:data??[]},{headers:{'Cache-Control':'private, no-store'}});
+}
 export async function POST(request:Request,ctx:{params:Promise<Params>}){
  const {organisationId,projectId}=await ctx.params;const {supabase,access}=await requireProject(organisationId,projectId);
  if(!can(String(access.role),"document:read"))return Response.json({error:{code:"FORBIDDEN",message:"Project document access is required."}},{status:403});
