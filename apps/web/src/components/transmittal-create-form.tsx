@@ -1,6 +1,7 @@
 "use client";
 
 import {HelpTip} from "@/components/help-tip";
+import {TRANSMITTAL_DAILY_NOTICE} from "@/lib/submission-override";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -80,6 +81,7 @@ export function TransmittalCreateForm({
 
   return (
     <form action={action} className="space-y-5">
+      <p className="rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-sm font-medium text-[#0c5b45]">{TRANSMITTAL_DAILY_NOTICE}</p>
       <input type="hidden" name="organisationId" value={organisationId} />
       <input type="hidden" name="projectId" value={projectId} />
 

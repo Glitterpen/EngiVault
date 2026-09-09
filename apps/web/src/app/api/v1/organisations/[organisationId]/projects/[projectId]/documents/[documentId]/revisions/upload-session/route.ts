@@ -12,6 +12,7 @@ import { requiredIssuePredecessor } from "@/lib/document-issue-sequence";
 import { requiresNativeCompanion } from "@/lib/native-file-requirement";
 import type { ProjectDeliveryStage } from "@/lib/project-delivery-stage";
 import { rateLimited } from "@/lib/rate-limit";
+import { submissionOverrideMessage } from "@/lib/submission-override";
 
 const fileMetadata = z.object({
   fileName: z.string().min(1).max(180),
@@ -25,7 +26,21 @@ const schema = fileMetadata.extend({
   issueStatus: z.enum(DOCUMENT_ISSUE_STATUS_VALUES),
   issueDate: z.iso.date().optional(),
   nativeFile: fileMetadata.optional(),
+  overrideRevisionId: z.uuid().optional(),
 });
+
+export async function GET(request: Request, ctx: { params: Promise<{ organisationId: string; projectId: string; documentId: string }> }) {
+  const { organisationId, projectId, documentId } = await ctx.params;
+  const { supabase, access } = await requireProject(organisationId, projectId);
+  if (String(access.role) !== "engineer") return Response.json({ error: { message: "Engineer access is required." } }, { status: 403 });
+  const code = z.string().trim().min(1).max(20).safeParse(new URL(request.url).searchParams.get("revisionCode"));
+  if (!code.success) return Response.json({ error: { message: "Enter the existing revision code before choosing override." } }, { status: 422 });
+  const { data, error } = await supabase.rpc("get_submission_override_context", {
+    target_organisation: organisationId, target_project: projectId, target_document: documentId, requested_code: code.data,
+  });
+  if (error) return Response.json({ error: { message: submissionOverrideMessage(error.message) ?? "The transmittal status could not be verified. Try again shortly." } }, { status: error.code === "42501" ? 403 : 503 });
+  return Response.json({ ...data, message: data?.allowed ? undefined : submissionOverrideMessage(String(data?.reason)) ?? "Override is unavailable." }, { headers: { "Cache-Control": "private, no-store" } });
+}
 
 export async function POST(
   request: Request,
@@ -163,11 +178,14 @@ export async function POST(
     native_sha256: body.data.nativeFile?.sha256 ?? null,
     native_storage_key: nativeStorageKey,
     control_status: "submitted",
+    replaces_revision_id: body.data.overrideRevisionId ?? null,
   });
   if (error) {
+    const overrideMessage = submissionOverrideMessage(error.message);
+    if (overrideMessage) return Response.json({ error: { code: "OVERRIDE_BLOCKED", message: overrideMessage } }, { status: error.code === "42501" ? 403 : 409 });
     const sequenceViolation = error.code === "23514" && error.message.includes("issue sequence prerequisite");
     const message = error.code === "23505"
-      ? "This revision code already exists for the document."
+      ? "This revision code already exists. Select Override existing submission if it has not been transmitted, or use the next revision code."
       : sequenceViolation
         ? "The previous controlled issue stage must complete secure submission before this revision can be registered."
         : error.code === "23514"

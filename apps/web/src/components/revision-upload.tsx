@@ -2,7 +2,7 @@
 import { customerErrorMessage } from "@/lib/customer-messages";
 
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileCog, UploadCloud } from "lucide-react";
 import { IssueStatusSelect } from "@/components/issue-status-select";
@@ -26,6 +26,8 @@ import {
   ISSUE_FOR_REVIEW,
 } from "@/lib/document-issue-sequence";
 import { createClient } from "@/lib/supabase/browser";
+import { HelpTip } from "@/components/help-tip";
+import { TRANSMITTAL_DAILY_NOTICE } from "@/lib/submission-override";
 
 type PreparedFile = {
   file: File;
@@ -63,10 +65,49 @@ export function RevisionUpload({
   const [nativeFile, setNativeFile] = useState<File | null>(null);
   const [issueStatus, setIssueStatus] = useState("");
   const [failed, setFailed] = useState(false);
+  const [override, setOverride] = useState(false);
+  const [overrideChecking, setOverrideChecking] = useState(false);
+  const [overrideRevisionId, setOverrideRevisionId] = useState<string | null>(null);
+  const [overrideMessage, setOverrideMessage] = useState("");
+  const overrideRequest = useRef(0);
   const nativeRequired = requiresNativeCompanion(deliveryStage, issueStatus, selectedFile?.name);
   const unavailableIssueStatuses = blockedIssueStatuses(completedIssueStatuses);
   const hasSubmittedIfr = completedIssueStatuses.includes(ISSUE_FOR_REVIEW);
   const hasSubmittedIfa = completedIssueStatuses.includes(ISSUE_FOR_APPROVAL);
+
+  function clearOverride() {
+    overrideRequest.current += 1;
+    setOverride(false);
+    setOverrideChecking(false);
+    setOverrideRevisionId(null);
+    setOverrideMessage("");
+  }
+
+  async function checkOverride(form: HTMLFormElement | null, checked: boolean) {
+    clearOverride();
+    if (!checked || !form) return;
+    const requestId = overrideRequest.current;
+    setOverride(true);
+    setOverrideChecking(true);
+    const code = String(new FormData(form).get("revisionCode") ?? "").trim();
+    try {
+      const response = await fetch(`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/upload-session?revisionCode=${encodeURIComponent(code)}`, { cache: "no-store" });
+      const result = await response.json();
+      if (requestId !== overrideRequest.current) return;
+      if (!response.ok || !result.allowed || !result.revisionId) {
+        setOverrideMessage(result.error?.message ?? result.message ?? "The transmittal status could not be verified.");
+      } else if (result.issueStatus !== new FormData(form).get("issueStatus")) {
+        setOverrideMessage(`Keep the original issue status: ${result.issueStatus}. Then check Override again.`);
+      } else {
+        setOverrideRevisionId(result.revisionId);
+        setOverrideMessage("The replacement will require fresh security processing and DCC review. The original remains in history.");
+      }
+    } catch {
+      if (requestId === overrideRequest.current) setOverrideMessage("The transmittal status could not be verified. Check your connection and try again.");
+    } finally {
+      if (requestId === overrideRequest.current) setOverrideChecking(false);
+    }
+  }
 
   async function submit(formData: FormData, file: File, companion: File | null) {
     setBusy(true);
@@ -91,6 +132,7 @@ export function RevisionUpload({
             revisionCode: formData.get("revisionCode"),
             issueStatus: formData.get("issueStatus"),
             issueDate: formData.get("issueDate") || undefined,
+            overrideRevisionId: override ? overrideRevisionId : undefined,
             fileName: preparedPrimary.fileName,
             mimeType: preparedPrimary.mimeType,
             size: preparedPrimary.size,
@@ -150,6 +192,7 @@ export function RevisionUpload({
         ? "Upload complete. The PDF and native source are queued for security processing."
         : "Upload complete. The revision is queued for secure processing.");
       router.refresh();
+      clearOverride();
     } catch (error) {
       setFailed(true);
       setProgress(0);
@@ -167,6 +210,11 @@ export function RevisionUpload({
     }
     if (!form) return;
     const formData = new FormData(form);
+    if (override && (!overrideRevisionId || overrideChecking)) {
+      setFailed(true);
+      setStatus(overrideMessage || "Wait for the transmittal check before starting the upload.");
+      return;
+    }
     if (!String(formData.get("revisionCode") ?? "").trim()) {
       const revisionInput = form.elements.namedItem("revisionCode");
       setFailed(true);
@@ -207,13 +255,14 @@ export function RevisionUpload({
         <strong className="text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow:</strong>{" "}
         {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.
       </div>
-      <Field name="revisionCode" label="Revision" placeholder="C02" disabled={busy} />
+      <Field name="revisionCode" label="Revision" placeholder="C02" disabled={busy} onChange={clearOverride} />
       <IssueStatusSelect
         name="issueStatus"
         disabled={busy}
         disabledValues={unavailableIssueStatuses}
         onChange={(event) => {
           setIssueStatus(event.currentTarget.value);
+          clearOverride();
           setFailed(false);
           setStatus("");
         }}
@@ -283,10 +332,24 @@ export function RevisionUpload({
         </div>
       )}
 
+      <div className="mt-5 rounded-xl border border-[#dfe7e3] p-3">
+        <div className="flex items-start gap-2">
+          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-sm font-semibold">
+            <input type="checkbox" name="overrideSubmission" checked={override} disabled={busy}
+              className="mt-1 shrink-0 accent-[#0c5b45]"
+              onChange={event => void checkOverride(event.currentTarget.form, event.currentTarget.checked)} />
+            Override existing submission
+          </label>
+          <HelpTip label="About submission overrides">Use the same revision code and issue status to replace your latest submission before DCC generates its transmittal. The existing file is retained in the audit history.</HelpTip>
+        </div>
+        {overrideChecking && <p role="status" className="mt-2 text-xs">Checking transmittal status...</p>}
+        {overrideMessage && <p role={overrideRevisionId ? "status" : "alert"} className={`mt-2 text-xs leading-5 ${overrideRevisionId ? "text-[#0c5b45]" : "text-[#a5452f]"}`}>{overrideMessage}</p>}
+        <p className="mt-3 text-xs font-medium text-[#617083]">{TRANSMITTAL_DAILY_NOTICE}</p>
+      </div>
       <button
         type="button"
         className="ev-button mt-5 w-full"
-        disabled={busy}
+        disabled={busy || overrideChecking || (override && !overrideRevisionId)}
         onClick={(event) => startUpload(event.currentTarget.form)}
       >
         {busy ? "Working..." : "Start secure upload"}
@@ -337,16 +400,18 @@ function Field({
   label,
   placeholder,
   disabled,
+  onChange,
 }: {
   name: string;
   label: string;
   placeholder: string;
   disabled: boolean;
+  onChange?: () => void;
 }) {
   return (
     <label className="mt-4 block">
       <span className="ev-label">{label}</span>
-      <input className="ev-input" name={name} placeholder={placeholder} required disabled={disabled} />
+      <input className="ev-input" name={name} placeholder={placeholder} required disabled={disabled} onChange={onChange} />
     </label>
   );
 }
