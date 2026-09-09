@@ -1,4 +1,5 @@
 "use client";
+import {HelpTip} from "@/components/help-tip";
 import { customerErrorMessage, supportReference } from "@/lib/customer-messages";
 
 
@@ -105,11 +106,9 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
           </Step>
         </section>
 
-        <p className="mt-4 text-xs leading-5 text-[#617083]">
-          Document type is flexible: use a suggested name/code or enter your own type (up to 80 characters).
+        <HelpTip label="Excel MDR import rules">Document type is flexible: use a suggested name/code or enter your own type (up to 80 characters).
           New discipline names are accepted and added to this project when the import succeeds. Check spellings in the preview; the Project Manager can also add disciplines in Project team &amp; resources.
-          Numbers from Removed deliverables can be reused; active MDR numbers must remain unique.
-        </p>
+          Numbers from Removed deliverables can be reused; active MDR numbers must remain unique.</HelpTip>
 
         {preview && <section className="mt-5">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -136,7 +135,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
 }
 
 function Step({ number, title, body, children }: { number: string; title: string; body: string; children: React.ReactNode }) {
-  return <article className="rounded-xl border border-[#dfe7e3] p-4"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{number}</span><h3 className="font-semibold">{title}</h3></div><p className="mt-3 text-xs leading-5 text-[#617083]">{body}</p>{children}</article>;
+  return <article className="rounded-xl border border-[#dfe7e3] p-4"><div className="flex items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{number}</span><h3 className="font-semibold">{title} <HelpTip label={`${title} guidance`}>{body}</HelpTip></h3></div>{children}</article>;
 }
 
 function Summary({ label, value, good = false, warning = false }: { label: string; value: number; good?: boolean; warning?: boolean }) {

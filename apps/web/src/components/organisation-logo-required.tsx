@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import Image from "next/image";
 import {useActionState,useEffect,useState} from "react";
 import {Building2,ImagePlus,ShieldCheck} from "lucide-react";
@@ -16,7 +17,7 @@ export function OrganisationLogoRequired({organisation}:{organisation:{id:string
    <input type="hidden" name="organisationId" value={organisation.id}/>
    <input type="hidden" name="name" value={organisation.name}/>
    <input type="hidden" name="slug" value={organisation.slug}/>
-   <div className="flex items-start gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#e8733f]"><Building2 size={22}/></span><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Required company identity</p><h1 className="mt-2 text-2xl font-semibold">Add the {organisation.name} logo</h1><p className="mt-2 text-sm leading-6 text-[#617083]">EngiCite uses this single company logo automatically as the organisation icon. There is no separate icon selection.</p></div></div>
+   <div className="flex items-start gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#e8733f]"><Building2 size={22}/></span><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Required company identity</p><h1 className="mt-2 text-2xl font-semibold">Add the {organisation.name} logo <HelpTip label="Company logo">EngiCite uses this single company logo automatically as the organisation icon. There is no separate icon selection.</HelpTip></h1></div></div>
    <label className="mt-6 block">
     <span className="ev-label">Company logo</span>
     <span className="mt-2 flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-[#b9c8c1] bg-[#f8faf9] p-4 transition hover:border-[#0c5b45]">
@@ -27,7 +28,7 @@ export function OrganisationLogoRequired({organisation}:{organisation:{id:string
    </label>
    {state?.message&&<p className="mt-4 rounded-lg border border-[#f0c8b7] bg-[#fff6f2] p-3 text-sm text-[#8b3d1f]" role="alert">{state.message}</p>}
    <button className="ev-button mt-5 w-full" disabled={pending||!fileName}><ShieldCheck size={17}/>{pending?"Applying company identity…":"Use logo as organisation icon"}</button>
-   <p className="mt-3 text-center text-xs leading-5 text-[#617083]">The logo remains private and is shown only inside authorised EngiCite workspaces.</p>
+   <HelpTip label="Logo privacy">The logo remains private and is shown only inside authorised EngiCite workspaces.</HelpTip>
   </form>
  </div>
 }

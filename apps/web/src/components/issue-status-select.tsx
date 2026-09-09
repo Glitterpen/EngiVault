@@ -1,3 +1,4 @@
+import {FieldWithHelp} from "@/components/field-with-help";
 import {
   DOCUMENT_ISSUE_STATUSES,
   DOCUMENT_ISSUE_STATUS_GROUPS,
@@ -27,9 +28,7 @@ export function IssueStatusSelect({
   const legacyValue = defaultValue && !isDocumentIssueStatus(defaultValue) ? defaultValue : null;
 
   return (
-    <label className="mt-4 block">
-      <span className="ev-label">{label}</span>
-      <select
+    <FieldWithHelp className="mt-4 block" label={<>{label}</>} helpLabel="Issue status guidance" help={<>Select the purpose for which this revision is formally issued.</>}><select
         className="ev-input"
         name={name}
         defaultValue={defaultValue}
@@ -54,10 +53,6 @@ export function IssueStatusSelect({
             ))}
           </optgroup>
         ))}
-      </select>
-      <span className="mt-1.5 block text-xs leading-5 text-[#617083]">
-        Select the purpose for which this revision is formally issued.
-      </span>
-    </label>
+      </select></FieldWithHelp>
   );
 }

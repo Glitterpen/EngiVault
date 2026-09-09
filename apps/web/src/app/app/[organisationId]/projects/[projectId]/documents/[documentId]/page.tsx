@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import { processingFailureMessage } from "@/lib/customer-messages";
 import Link from "next/link";
 import {loadDocumentSchedules} from "@/lib/document-schedule";
@@ -54,9 +55,9 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
     <Link href={projectHomePath(organisationId,projectId,role)} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]"><ArrowLeft size={16}/>{isEngineer?"My deliverables":"Role workspace"}</Link>
     <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#0c5b45]">{isEngineer?"Engineer deliverable":"Controlled document"} · {doc.document_number}</p>
     <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">{doc.title}</h1>
-    {isEngineer&&<p className="mt-2 text-sm text-[#617083]">Submit revisions for your authorised {doc.discipline} discipline. Document Control will accept the revision or return it with feedback.</p>}
-    <p className="mt-2 text-xs font-semibold text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow · 100% completion requires {projectTerminalIssueStatus(deliveryStage)}.</p>
-    {canWrite&&<details id="document-management" className="ev-card mt-5 scroll-mt-24 p-5" open={doc.lifecycle_status==="archived"||undefined}><summary className="cursor-pointer font-semibold text-[#0c5b45]">Manage MDR deliverable · edit, plan or remove</summary><p className="mt-2 text-xs leading-5 text-[#617083]">Correct the registered information or remove the deliverable from active MDR views. Controlled revisions and audit evidence are never discarded.</p><div className="mt-5 space-y-5"><DocumentAdminForm record={doc}/><DocumentPlanForm record={doc}/></div></details>}
+    {isEngineer&&<HelpTip label="Submitting revisions">Submit revisions for your authorised {doc.discipline} discipline. Document Control will accept the revision or return it with feedback.</HelpTip>}
+    <HelpTip label="Issue milestones">{projectDeliveryStageLabel(deliveryStage)} workflow · 100% completion requires {projectTerminalIssueStatus(deliveryStage)}.</HelpTip>
+    {canWrite&&<details id="document-management" className="ev-card mt-5 scroll-mt-24 p-5" open={doc.lifecycle_status==="archived"||undefined}><summary className="cursor-pointer font-semibold text-[#0c5b45]">Manage MDR deliverable · edit, plan or remove</summary><HelpTip label="Manage MDR deliverable">Correct the registered information or remove the deliverable from active MDR views. Controlled revisions and audit evidence are never discarded.</HelpTip><div className="mt-5 space-y-5"><DocumentAdminForm record={doc}/><DocumentPlanForm record={doc}/></div></details>}
 
     <div className={`mt-8 grid min-w-0 items-start gap-5 ${showAside?"lg:grid-cols-[minmax(0,1fr)_380px]":""}`}>
       <section className="min-w-0 space-y-5">
@@ -80,7 +81,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
       </section>
       <aside id="submit-revision" className={`min-w-0 space-y-5 ${canUpload?"order-first lg:order-none":""}`}>
         {canUpload&&<RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage} completedIssueStatuses={completedIssueStatuses}/>}
-        {canWrite&&<><DocumentAssignmentManager organisationId={organisationId} projectId={projectId} documentId={documentId} discipline={String(doc.discipline)} engineers={assignableEngineers}/><div className="ev-card p-6"><p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><Bell size={16}/> Submission notification</p><p className="mt-2 text-xs leading-5 text-[#617083]">When an assigned engineer uploads a revision, you will receive an EngiCite notification and the submission will enter the DCC review queue.</p><Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] hover:text-[#e8733f]"><ClipboardCheck size={16}/> Open submission review</Link></div></>}
+        {canWrite&&<><DocumentAssignmentManager organisationId={organisationId} projectId={projectId} documentId={documentId} discipline={String(doc.discipline)} engineers={assignableEngineers}/><div className="ev-card p-6"><p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><Bell size={16}/> Submission notification</p><HelpTip label="Submission notifications">When an assigned engineer uploads a revision, you will receive an EngiCite notification and the submission will enter the DCC review queue.</HelpTip><Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] hover:text-[#e8733f]"><ClipboardCheck size={16}/> Open submission review</Link></div></>}
         <RevisionCompare endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/comparisons`} revisions={(revisions??[]).filter(revision=>revision.state==="ready")}/>
       </aside>
     </div>

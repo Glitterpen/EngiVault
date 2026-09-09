@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import {useActionState} from "react";
 import {CheckCircle2,UserCheck,UserMinus} from "lucide-react";
 import {setDocumentAssignment,type WorkflowState} from "@/app/app/workflow-actions";
@@ -9,7 +10,7 @@ export type AssignableEngineer={userId:string;name:string;email:string;assigned:
 export function DocumentAssignmentManager({organisationId,projectId,documentId,discipline,engineers}:{organisationId:string;projectId:string;documentId:string;discipline:string;engineers:AssignableEngineer[]}){
   return <div className="ev-card p-6">
     <div className="flex items-center gap-2"><UserCheck size={18} className="text-[#e8733f]"/><h2 className="font-bold">Assign discipline engineer</h2></div>
-    <p className="mt-3 text-sm leading-6 text-[#617083]">Choose only from active <strong className="text-[#10243e]">{discipline}</strong> engineers already invited by the Project Manager. Assignment gives the engineer upload access to this MDR deliverable.</p>
+    <HelpTip label="Eligible discipline engineers">Choose only from active <strong className="text-[#10243e]">{discipline}</strong> engineers already invited by the Project Manager. Assignment gives the engineer upload access to this MDR deliverable.</HelpTip>
     {engineers.length?<div className="mt-5 divide-y divide-[#edf1ef] rounded-xl border border-[#dfe7e3]">{engineers.map(engineer=><AssignmentControl key={engineer.userId} organisationId={organisationId} projectId={projectId} documentId={documentId} engineer={engineer}/>)}</div>:<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-4 text-sm leading-6 text-[#8b3d1f]"><strong>No eligible {discipline} engineer is available.</strong><br/>Ask the Project Manager to invite and authorise the discipline engineer first.</div>}
   </div>;
 }

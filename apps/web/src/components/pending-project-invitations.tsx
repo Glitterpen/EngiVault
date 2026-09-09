@@ -1,4 +1,5 @@
 "use client";
+import {HelpTip} from "@/components/help-tip";
 import { customerErrorMessage } from "@/lib/customer-messages";
 
 
@@ -60,7 +61,7 @@ export function PendingProjectInvitations({organisationId,projectId,invitations}
 
   return <section className="ev-card mt-6 overflow-hidden">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#edf1ef] px-5 py-4 sm:px-6">
-      <div><div className="flex items-center gap-2"><Mail size={18} className="text-[#e8733f]"/><h2 className="font-semibold">Pending invitations</h2></div><p className="mt-1 text-xs leading-5 text-[#617083]">People listed here have been invited but have not joined the project yet.</p></div>
+      <div><div className="flex items-center gap-2"><Mail size={18} className="text-[#e8733f]"/><h2 className="font-semibold">Pending invitations</h2></div><HelpTip label="Pending invitations">People listed here have been invited but have not joined the project yet.</HelpTip></div>
       <span className="rounded-full bg-[#fff0e9] px-3 py-1 text-xs font-bold text-[#a5452f]">{visibleInvitations.length} awaiting acceptance</span>
     </div>
     {visibleInvitations.length?<div>{visibleInvitations.map(invitation=>{

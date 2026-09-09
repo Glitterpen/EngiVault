@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, Package, Send } from "lucide-react";
@@ -51,8 +52,8 @@ export default async function WorkPackagesPage({
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Controlled issue and handover</p>
-          <h1 className="mt-2 text-3xl font-semibold">Transmittals & engineering work packages</h1>
-          <p className="mt-2 text-sm text-[#617083]">Issue selected documents to a client or freeze authorised revisions into a final project package.</p>
+          <h1 className="mt-2 text-3xl font-semibold">Transmittals & engineering work packages <HelpTip label="Controlled work packages">Issue selected documents to a client or freeze authorised revisions into a final project package.</HelpTip></h1>
+
         </div>
         <Link className="ev-button" href={`/app/${organisationId}/projects/${projectId}/work-packages/transmittals/new`}>
           <Send size={16} /> New client transmittal
@@ -86,8 +87,8 @@ export default async function WorkPackagesPage({
         </section>
         <div className="space-y-4">
           <article className="ev-card border-l-4 border-l-[#0c5b45] p-5">
-            <h2 className="font-semibold">Need to transmit selected documents?</h2>
-            <p className="mt-2 text-xs leading-5 text-[#617083]">Use a client transmittal to choose several accepted revisions and produce an acknowledgement cover.</p>
+            <h2 className="font-semibold">Need to transmit selected documents? <HelpTip label="Client transmittals">Use a client transmittal to choose several accepted revisions and produce an acknowledgement cover.</HelpTip></h2>
+
             <Link className="ev-button-secondary mt-4 w-full" href={`/app/${organisationId}/projects/${projectId}/work-packages/transmittals/new`}>
               <Send size={16} /> Create transmittal
             </Link>

@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import type {DocumentSchedule} from "@/lib/document-schedule";
 import {DocumentIssueSchedule} from "@/components/document-issue-schedule";
@@ -42,8 +43,8 @@ export default async function ProgressPage({params}:{params:Promise<{organisatio
   return <div className="mx-auto max-w-7xl">
     <Link href={projectHomePath(organisationId,projectId,String(access.role))} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16}/> Role workspace</Link>
     <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Deliverables oversight</p>
-    <h1 className="mt-2 text-3xl font-semibold">Project progress</h1>
-    <p className="mt-2 text-sm text-[#617083]">{projectDeliveryStageLabel(deliveryStage)} stage-weighted progress across every active MDR deliverable. A document earns 100% only at {terminalIssueStatus} after DCC acceptance.</p>
+    <h1 className="mt-2 text-3xl font-semibold">Project progress <HelpTip label="Stage-weighted progress">{projectDeliveryStageLabel(deliveryStage)} stage-weighted progress across every active MDR deliverable. A document earns 100% only at {terminalIssueStatus} after DCC acceptance.</HelpTip></h1>
+
 
     <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       <Metric label="Stage-weighted progress" value={`${overall}%`} icon={<Clock3/>}/>

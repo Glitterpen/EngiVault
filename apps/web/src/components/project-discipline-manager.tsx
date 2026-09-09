@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import { useActionState } from "react";
 import { createProjectDiscipline, restoreProjectDiscipline, type DisciplineState } from "@/app/app/project-discipline-actions";
 import { disciplineLabel } from "@/lib/project-disciplines";
@@ -11,12 +12,12 @@ export function ProjectDisciplineManager({ organisationId, projectId, discipline
   const [state, action, pending] = useActionState<DisciplineState, FormData>(createProjectDiscipline, undefined);
   return <details className="ev-card mt-6 p-5 sm:p-6">
     <summary className="cursor-pointer font-semibold">Project disciplines · Manage disciplines</summary>
-    <p className="mt-3 max-w-3xl text-sm leading-6 text-[#617083]">Add a discipline before inviting its engineers or planning resources. New disciplines in a successfully imported MDR are added here automatically. Additions apply only to this project and do not grant anyone access.</p>
+    <HelpTip label="Managing project disciplines">Add a discipline before inviting its engineers or planning resources. New disciplines in a successfully imported MDR are added here automatically. Additions apply only to this project and do not grant anyone access.</HelpTip>
     <div className="mt-4 grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2" aria-label="Available project disciplines">
       {disciplines.map(item => <div key={item.name} className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-[#eef4f1] px-3 py-2 text-xs text-[#0c5b45]"><span className="min-w-0 break-words">{disciplineLabel(item)}</span>{!readOnly&&<ProjectDisciplineRemove organisationId={organisationId} projectId={projectId} name={item.name}/>}</div>)}
       {!disciplines.length&&<p className="text-sm text-[#617083]">No disciplines are available for new selections.</p>}
     </div>
-    {removedDisciplines.length>0&&<details className="mt-4 rounded-lg border border-[#dce2e9] p-3"><summary className="cursor-pointer text-sm font-semibold">Removed disciplines ({removedDisciplines.length})</summary><p className="mt-2 text-xs leading-5 text-[#617083]">Restore a discipline for new selections, or permanently delete it if it has never been assigned and has no linked work or history.</p><div className="mt-3 space-y-2">{removedDisciplines.map(item=><div key={item.name} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#f6f7f8] px-3 py-2 text-sm"><span className="break-words">{disciplineLabel(item)}</span>{!readOnly&&<div className="flex flex-wrap gap-2"><Restore organisationId={organisationId} projectId={projectId} name={item.name}/><ProjectDisciplineRemove organisationId={organisationId} projectId={projectId} name={item.name} permanentOnly/></div>}</div>)}</div></details>}
+    {removedDisciplines.length>0&&<details className="mt-4 rounded-lg border border-[#dce2e9] p-3"><summary className="cursor-pointer text-sm font-semibold">Removed disciplines ({removedDisciplines.length})</summary><HelpTip label="Removed disciplines">Restore a discipline for new selections, or permanently delete it if it has never been assigned and has no linked work or history.</HelpTip><div className="mt-3 space-y-2">{removedDisciplines.map(item=><div key={item.name} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#f6f7f8] px-3 py-2 text-sm"><span className="break-words">{disciplineLabel(item)}</span>{!readOnly&&<div className="flex flex-wrap gap-2"><Restore organisationId={organisationId} projectId={projectId} name={item.name}/><ProjectDisciplineRemove organisationId={organisationId} projectId={projectId} name={item.name} permanentOnly/></div>}</div>)}</div></details>}
     {!readOnly&&<form action={action} className="mt-5 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,.6fr)_auto]">
       <input type="hidden" name="organisationId" value={organisationId}/>
       <input type="hidden" name="projectId" value={projectId}/>

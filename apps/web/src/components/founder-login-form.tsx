@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {useActionState,useEffect,useRef,useState} from "react";
 import type {AuthState} from "@/app/(auth)/actions";
@@ -31,8 +32,8 @@ export function FounderLoginForm({
   },[busy]);
   return <div className="w-full max-w-md">
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Restricted platform access</p>
-    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Founder Control Centre</h2>
-    <p className="mt-2 text-sm leading-6 text-[#617083]">Sign in with the approved founder identity. This route is separate from organisation workspaces and requires authenticator verification before account oversight is opened.</p>
+    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Founder Control Centre <HelpTip label="Founder sign-in">Sign in with the approved founder identity. This route is separate from organisation workspaces and requires authenticator verification before account oversight is opened.</HelpTip></h2>
+
     {notice&&<div className="mt-5 rounded-xl border border-[#b9d9cb] bg-[#eff8f4] p-3 text-sm leading-6 text-[#0c5b45]" role="status">{notice}</div>}
     <form action={formAction} className="mt-8 space-y-5">
       <input type="hidden" name="next" value={next?.startsWith("/founder")?next:"/founder"}/>

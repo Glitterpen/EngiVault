@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import {isProjectSCurveWeeklyDate,projectSCurveCurrentWeekDate,projectSCurveProgress,type ProjectReportSnapshot} from "@/lib/project-report";
 
 type SCurve=ProjectReportSnapshot["s_curve"];
@@ -24,7 +25,7 @@ export function ProjectSCurve({curve,totalDeliverables,reportPeriodEnd}:{curve:S
   const currentWeekX=x(currentWeekDate);
   return <>
     <div className="mt-4 overflow-hidden rounded-2xl border border-[#dfe7e3] bg-white p-3 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1"><p className="text-xs leading-5 text-[#617083]">Cumulative planned final milestones and stage-weighted actual progress across the MDR scope.</p><div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-[.08em] text-[#617083]"><Legend colour="#ed7138" label="Planned progress"/><Legend colour="#0c5b45" label="Stage-weighted actual"/></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1"><HelpTip label="Reading the S-curve">Cumulative planned final milestones and stage-weighted actual progress across the MDR scope.</HelpTip><div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-[.08em] text-[#617083]"><Legend colour="#ed7138" label="Planned progress"/><Legend colour="#0c5b45" label="Stage-weighted actual"/></div></div>
       <svg className="mt-2 h-auto w-full" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Project S-curve comparing cumulative planned and actual percentage progress against dates">
         <rect x={LEFT} y={TOP} width={plotWidth} height={plotHeight} rx="10" fill="#f8faf9"/>
         {yTicks.map(value=><g key={value}><line x1={LEFT} x2={WIDTH-RIGHT} y1={y(value)} y2={y(value)} stroke="#dfe7e3" strokeWidth="1"/><text x={LEFT-12} y={y(value)+4} textAnchor="end" fontSize="11" fill="#617083">{value}%</text></g>)}

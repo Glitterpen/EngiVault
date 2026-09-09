@@ -25,6 +25,9 @@ describe("Project discipline controls", () => {
     render(<ProjectDisciplineManager organisationId="org" projectId="project" disciplines={[{name:"HVAC",code:""}]} removedDisciplines={[{name:"Process",code:"PRO"}]} readOnly/>);
     fireEvent.click(screen.getByText("Project disciplines · Manage disciplines"));
     fireEvent.click(screen.getByText("Removed disciplines (1)"));
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button",{name:/Add discipline|Remove |Restore |Delete /})).toBeNull();
+    expect(screen.getAllByRole("button").every(button=>button.closest("[data-preview-safe]"))).toBe(true);
+    fireEvent.click(screen.getByRole("button",{name:"Managing project disciplines"}));
+    expect(screen.getByRole("tooltip")).toBeTruthy();
   });
 });

@@ -53,7 +53,9 @@ describe("deliverable request queues",()=>{
   });
   it("filters engineer preview requests to that member only",async()=>{
     const query=setup("engineer",true);render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({})}));
-    expect(query.eq).toHaveBeenCalledWith("requester_id","engineer");expect(screen.queryByRole("button")).toBeNull();
+    expect(query.eq).toHaveBeenCalledWith("requester_id","engineer");
+    expect(screen.queryByRole("button",{name:/Send request|Confirm decision|Cancel request/})).toBeNull();
+    expect(screen.getAllByRole("button").every(button=>button.closest("[data-preview-safe]"))).toBe(true);
   });
   it("paginates decided history rather than loading every request",async()=>{
     const query=setup();render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({view:"history",page:"3"})}));

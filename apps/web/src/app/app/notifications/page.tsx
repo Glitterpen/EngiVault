@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import { Bell, ChevronRight } from "lucide-react";
 import { requireNotificationUser } from "@/lib/auth";
@@ -18,8 +19,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Your activity</p>
-          <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Bell /> Notifications</h1>
-          <p className="mt-2 text-sm text-[#617083]">Select a message to preview it before opening any related project page.</p>
+          <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Bell /> Notifications <HelpTip label="Opening notifications">Select a message to preview it before opening any related project page.</HelpTip></h1>
+
         </div>
         {!preview&&<NotificationBulkActions
           hasNotifications={Boolean(data?.length)}

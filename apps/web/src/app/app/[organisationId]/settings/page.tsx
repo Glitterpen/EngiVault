@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {ArrowLeft} from "lucide-react";
 import {notFound} from "next/navigation";
@@ -18,9 +19,9 @@ export default async function OrganisationSettings({params}:{params:Promise<{org
  return <div className="mx-auto max-w-3xl">
   <Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16}/> Organisation</Link>
   <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Organisation administrator</p>
-  <h1 className="mt-2 text-3xl font-semibold">Manage organisation</h1>
-  <p className="mb-6 mt-2 text-sm text-[#617083]">Edit company identity, pause the workspace or remove it securely.</p>
+  <h1 className="mt-2 text-3xl font-semibold">Manage organisation <HelpTip label="Organisation settings">Edit company identity, pause the workspace or remove it securely.</HelpTip></h1>
+
   <OrganisationAdminForm record={org}/>
-  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">User account management</h2><p className="mb-4 mt-2 text-sm text-[#617083]">Delete login accounts after their project-team appointments have been removed, while preserving project documents and audit history.</p><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/removed-accounts`}>Manage removed team accounts</Link></section>
+  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">User account management <HelpTip label="Removed team accounts">Delete login accounts after their project-team appointments have been removed, while preserving project documents and audit history.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/removed-accounts`}>Manage removed team accounts</Link></section>
  </div>
 }

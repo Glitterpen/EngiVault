@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import Image from "next/image";
 import {useActionState,useEffect,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
@@ -26,8 +27,8 @@ export function OrganisationAdminForm({record}:{record:{id:string;name:string;sl
  return <div className="space-y-5">
   <form action={action} className="ev-card p-6">
    <input type="hidden" name="organisationId" value={record.id}/>
-   <h2 className="font-semibold">Edit organisation</h2>
-   <p className="mt-2 text-sm text-[#617083]">Update the company identity shown to authorised project teams.</p>
+   <h2 className="font-semibold">Edit organisation <HelpTip label="Organisation identity">Update the company identity shown to authorised project teams.</HelpTip></h2>
+
    <div className="mt-5 flex flex-wrap items-center gap-4">
     <span className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#dfe7e3] bg-white text-[#e8733f] shadow-sm">{preview&&failedPreview!==preview?<Image unoptimized src={preview} alt={`${record.name} logo`} width={80} height={80} onError={()=>setFailedPreview(preview)} className="size-full object-contain p-2"/>:<Building2 size={28}/>}</span>
     <label className="ev-button-secondary cursor-pointer"><ImagePlus size={16}/> Replace company logo<input className="sr-only" type="file" name="logo" accept="image/png,image/jpeg,image/webp" onChange={event=>selectLogo(event.target.files?.[0]??null)}/></label>
@@ -52,7 +53,7 @@ export function ProjectAdminForm({record}:{record:{id:string;organisation_id:str
  const tooManyLogos=logoCount>3;
  return <div className="space-y-5"><form action={action} className="ev-card p-6">
   <input type="hidden" name="organisationId" value={record.organisation_id}/><input type="hidden" name="projectId" value={record.id}/>
-  <h2 className="font-semibold">Project and client identity</h2><p className="mt-2 text-sm text-[#617083]">The first client logo is used automatically as the project icon.</p>
+  <h2 className="font-semibold">Project and client identity <HelpTip label="Project icon">The first client logo is used automatically as the project icon.</HelpTip></h2>
   <div className="mt-5 flex flex-wrap items-center gap-4">
    {logoPreviews.length?<div className="flex flex-wrap gap-2">{logoPreviews.map((src,index)=><span key={src} className="grid size-16 place-items-center overflow-hidden rounded-xl border border-[#dfe7e3] bg-white p-1.5"><Image unoptimized src={src} alt={`Replacement client logo ${index+1}`} width={52} height={52} className="size-full object-contain"/></span>)}</div>:<span className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#dfe7e3] bg-white p-2 text-[#e8733f] shadow-sm"><ProjectLogo organisationId={record.organisation_id} projectId={record.id} name={record.name} size={80} version={state?.logoVersion} className="size-full object-contain"/></span>}
    <label className="ev-button-secondary cursor-pointer"><ImagePlus size={16}/> Replace client logos<input className="sr-only" type="file" name="clientLogos" accept="image/png,image/jpeg,image/webp" multiple onChange={event=>chooseLogos(event.target.files)}/></label>
@@ -65,7 +66,7 @@ export function ProjectAdminForm({record}:{record:{id:string;organisation_id:str
  </form><Lifecycle action={setProjectArchived} ids={{organisationId:record.organisation_id,projectId:record.id}} archived={record.status==="archived"} subject="project"/></div>
 }
 
-export function DocumentAdminForm({record}:{record:{id:string;organisation_id:string;project_id:string;document_number:string;title:string;document_type:string;discipline:string;area:string|null;system:string|null;work_package:string|null;lifecycle_status:string}}){const [state,action,pending]=useActionState<MutationState,FormData>(updateDocument,undefined);return <div className="space-y-5"><form action={action} className="ev-card p-6"><input type="hidden" name="organisationId" value={record.organisation_id}/><input type="hidden" name="projectId" value={record.project_id}/><input type="hidden" name="documentId" value={record.id}/><h2 className="font-semibold">Document metadata</h2><p className="mt-2 text-sm text-[#617083]">Correct the registered deliverable details. Changes are recorded in the project audit trail.</p><Field name="documentNumber" label="Document number" value={record.document_number}/><Field name="title" label="Title" value={record.title}/><DocumentTypeInput defaultValue={record.document_type}/><Field name="discipline" label="Discipline" value={record.discipline}/><Field name="area" label="Area" value={record.area??""} optional/><Field name="system" label="System" value={record.system??""} optional/><Field name="workPackage" label="Work package" value={record.work_package??""} optional/>{state?.message&&<p className="mt-3 text-sm">{state.message}</p>}<button className="ev-button mt-5 w-full" disabled={pending}>{pending?"Saving…":"Save MDR changes"}</button></form><DocumentLifecycle record={record}/></div>}
+export function DocumentAdminForm({record}:{record:{id:string;organisation_id:string;project_id:string;document_number:string;title:string;document_type:string;discipline:string;area:string|null;system:string|null;work_package:string|null;lifecycle_status:string}}){const [state,action,pending]=useActionState<MutationState,FormData>(updateDocument,undefined);return <div className="space-y-5"><form action={action} className="ev-card p-6"><input type="hidden" name="organisationId" value={record.organisation_id}/><input type="hidden" name="projectId" value={record.project_id}/><input type="hidden" name="documentId" value={record.id}/><h2 className="font-semibold">Document metadata <HelpTip label="Edit registered deliverable">Correct the registered deliverable details. Changes are recorded in the project audit trail.</HelpTip></h2><Field name="documentNumber" label="Document number" value={record.document_number}/><Field name="title" label="Title" value={record.title}/><DocumentTypeInput defaultValue={record.document_type}/><Field name="discipline" label="Discipline" value={record.discipline}/><Field name="area" label="Area" value={record.area??""} optional/><Field name="system" label="System" value={record.system??""} optional/><Field name="workPackage" label="Work package" value={record.work_package??""} optional/>{state?.message&&<p className="mt-3 text-sm">{state.message}</p>}<button className="ev-button mt-5 w-full" disabled={pending}>{pending?"Saving…":"Save MDR changes"}</button></form><DocumentLifecycle record={record}/></div>}
 
 function DocumentLifecycle({record}:{record:{id:string;organisation_id:string;project_id:string;document_number:string;lifecycle_status:string}}){
  const [state,action,pending]=useActionState<MutationState,FormData>(setDocumentArchived,undefined);const archived=record.lifecycle_status==="archived";

@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import { useActionState, useEffect, useState } from "react";
 import { Building2, ImagePlus, Plus } from "lucide-react";
 import Image from "next/image";
@@ -34,6 +35,6 @@ export function OrganisationCreateForm({initialName="",initialSlug=""}:{initialN
     </label>
     {state?.message&&<p className="mt-4 rounded-lg border border-[#f0c8b7] bg-[#fff6f2] p-3 text-xs leading-5 text-[#8b3d1f]" role="alert">{state.message}</p>}
     <button className="ev-button mt-5 w-full" disabled={pending}>{pending?"Creating workspace…":"Create secure workspace"}</button>
-    <p className="mt-3 text-xs leading-5 text-[#617083]">Your logo is stored privately and shown only to authorised organisation members.</p>
+    <HelpTip label="Company logo privacy">Your logo is stored privately and shown only to authorised organisation members.</HelpTip>
   </form>;
 }

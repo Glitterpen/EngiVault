@@ -10,7 +10,9 @@ describe("deliverable request forms",()=>{
   it("shows the current assigned deliverable and keeps new dates behind approvals",()=>{
     render(<NewDeliverableRequestForm {...scope} documents={[{id:"doc",document_number:"MEC-001",title:"Pump",due_date:"2026-10-01"}]} disciplines={["Mechanical"]} documentTypes={[]} selectedDocument="doc"/>);
     expect((screen.getByLabelText("Assigned deliverable") as HTMLSelectElement).value).toBe("doc");
-    expect(screen.getByText(/existing deadline stays in force/)).toBeTruthy();
+    expect(screen.queryByText(/existing deadline stays in force/)).toBeNull();
+    fireEvent.mouseEnter(screen.getByRole("button",{name:"Submission-date approval workflow"}));
+    expect(screen.getByRole("tooltip").textContent).toContain("existing deadline stays in force");
     expect(screen.queryByLabelText(/document number/i)).toBeNull();
   });
   it("offers flexible types and only supplied PM-authorised disciplines for new deliverables",()=>{

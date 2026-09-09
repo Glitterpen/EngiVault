@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {ArrowUpRight,Settings} from "lucide-react";
 import {requireUser} from "@/lib/auth";
@@ -18,7 +19,7 @@ export default async function AppHome(){
  const organisationOnboarding=user.user_metadata?.onboarding_mode==="organisation";
  const canCreateOrganisation=canCreateOrganisationWorkspace(orgs.map(org=>org.role),projectRoles,organisationOnboarding);
  return <div className="mx-auto max-w-6xl">
-  <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Secure workspace</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Your organisations</h1><p className="mt-2 text-[#617083]">Choose an organisation to open the projects and responsibilities assigned to you.</p></div></div>
+  <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Secure workspace</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Your organisations <HelpTip label="Your organisations">Choose an organisation to open the projects and responsibilities assigned to you.</HelpTip></h1></div></div>
   <div className={`mt-8 grid gap-5 ${canCreateOrganisation?"lg:grid-cols-[1fr_360px]":""}`}>
    <section className="grid content-start gap-3">{orgs.length?orgs.map(org=><article key={org.organisation_id} className="ev-card flex items-center gap-2 p-2 transition hover:-translate-y-0.5">
     <Link href={`/app/${org.organisation_id}`} className="flex min-w-0 flex-1 items-center gap-4 rounded-xl p-3">

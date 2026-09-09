@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {redirect} from "next/navigation";
 import {z} from "zod";
@@ -60,8 +61,8 @@ export default async function DeliverableRequestsPage({params,searchParams}:{par
   }
   return <div className="mx-auto max-w-[1250px]">
     <Link href={projectHomePath(organisationId,projectId,role)} className="text-sm font-semibold text-[#0c5b45]">← Project dashboard</Link>
-    <h1 className="mt-5 text-3xl font-semibold">{engineer?"My deliverable requests":"Deliverable requests"}</h1>
-    <p className="mt-2 text-sm leading-6 text-[#617083]">Submission-date changes: Engineer → PM → DCC. Additional deliverables: Engineer → DCC numbering and approval.</p>
+    <h1 className="mt-5 text-3xl font-semibold">{engineer?"My deliverable requests":"Deliverable requests"} <HelpTip label="Deliverable request workflow">Submission-date changes: Engineer → PM → DCC. Additional deliverables: Engineer → DCC numbering and approval.</HelpTip></h1>
+
     {preview&&<p className="mt-3 text-sm text-[#a5452f]">Live member preview · Read-only</p>}
     <div className={`mt-6 grid items-start gap-6 ${engineer&&!preview?"lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]":""}`}>
       {engineer&&!preview&&<NewDeliverableRequestForm organisationId={organisationId} projectId={projectId} documents={documents} disciplines={disciplines} documentTypes={documentTypes} selectedDocument={search.document}/>}

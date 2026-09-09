@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -65,12 +66,10 @@ export default async function ReviewsPage({
       </p>
       <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold">
         <ClipboardCheck /> Submission review
-      </h1>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-[#617083]">
-        Preview every engineer submission, verify its document details and file
+       <HelpTip label="Reviewing engineer submissions">Preview every engineer submission, verify its document details and file
         content, then accept it into the controlled register or return it with
-        clear instructions.
-      </p>
+        clear instructions.</HelpTip></h1>
+
 
       <div className="mt-6 space-y-5">
         {error ? <div className="ev-card p-6" role="alert">Submissions could not be loaded. Refresh the page and try again.</div> : rows.length ? (

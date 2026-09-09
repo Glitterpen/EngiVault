@@ -44,6 +44,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .workspace-main h1 { text-wrap: balance; }
+.ev-help-trigger { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; opacity: .8; cursor: help; vertical-align: middle; }
+.ev-help-trigger:hover, .ev-help-trigger[aria-expanded="true"] { opacity: 1; background: rgba(127,145,165,.16); }
+.ev-help-trigger:focus-visible { outline: 2px solid #ed7138; outline-offset: 2px; opacity: 1; }
+.ev-help-popup { position: fixed; inset: auto; z-index: 1000; display: block; margin: 0; border: 1px solid #d7e0e9; border-radius: 12px; padding: 14px 16px; background: #fff; color: #34465c; box-shadow: 0 12px 36px rgba(16,36,62,.2); font-size: 13px; line-height: 1.65; font-weight: 400; letter-spacing: normal; text-transform: none; text-align: left; white-space: normal; overflow-wrap: anywhere; overflow-y: auto; overscroll-behavior: contain; }
+.ev-help-popup::backdrop { background: transparent; pointer-events: none; }
+@media print { .ev-help { display: none !important; } .ev-help-popup { display: none !important; } }
 .workspace-main table { border-collapse: separate; border-spacing: 0; }
 .workspace-main tbody tr { transition: background-color .16s ease; }
 .workspace-main tbody tr:hover { background: #fafcfb; }

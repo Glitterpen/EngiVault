@@ -1,10 +1,11 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
-import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import {RevisionCycleForm} from "./revision-cycle-form";
 vi.mock("@/app/app/revision-cycle-actions",()=>({updateRevisionCycle:vi.fn()}));
-afterEach(cleanup);
+afterEach(()=>{cleanup();vi.useRealTimers();});
 describe("revision cycle setting",()=>{
   it("keeps the form compact and shows the explanation only when hovering over help",()=>{
+    vi.useFakeTimers();
     render(<RevisionCycleForm organisationId="org" projectId="project" days={3}/>);
     const input=screen.getByRole("spinbutton",{name:"Revision cycle (working days)"}) as HTMLInputElement;
     expect(input.value).toBe("3");expect(input.min).toBe("1");expect(input.step).toBe("1");
@@ -20,6 +21,7 @@ describe("revision cycle setting",()=>{
     fireEvent.mouseLeave(help,{relatedTarget:tooltip});
     expect(screen.getByRole("tooltip")).toBeTruthy();
     fireEvent.mouseLeave(tooltip);
+    act(()=>vi.advanceTimersByTime(150));
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
   it("supports keyboard focus, Escape and tapping the help icon",()=>{

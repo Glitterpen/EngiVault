@@ -1,6 +1,8 @@
 "use client";
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
-import {useActionState,useEffect,useRef,useState} from "react";
+import {useActionState,useEffect,useId,useRef,useState} from "react";
+import {FieldWithHelp} from "@/components/field-with-help";
 import type {AuthState} from "@/app/(auth)/actions";
 import {AuthTurnstile} from "@/components/auth-turnstile";
 
@@ -25,8 +27,8 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
   },[busy]);
   return <div className="w-full max-w-md">
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">{organisationRegistration?"Organisation onboarding":invitation?"Project invitation":"Organisation-controlled access"}</p>
-    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Sign in to EngiCite"}</h2>
-    <p className="mt-2 text-sm leading-6 text-[#617083]">{organisationRegistration?"Create the organisation owner account and private company workspace. Project Managers, Document Controllers and Discipline Engineers join only through organisation-controlled invitations.":invitation?(registering?"Use the exact work email that received your project invitation. Your assigned role and discipline will be applied automatically.":"Sign in with the exact work email that received your project invitation."):"Open the secure workspace assigned to you as an Organisation Administrator, Project Manager, Document Controller or Discipline Engineer. Your role and discipline control what you can see and do."}</p>
+    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Sign in to EngiCite"} <HelpTip label="Signing in and organisation registration">{organisationRegistration?"Create the organisation owner account and private company workspace. Project Managers, Document Controllers and Discipline Engineers join only through organisation-controlled invitations.":invitation?(registering?"Use the exact work email that received your project invitation. Your assigned role and discipline will be applied automatically.":"Sign in with the exact work email that received your project invitation."):"Open the secure workspace assigned to you as an Organisation Administrator, Project Manager, Document Controller or Discipline Engineer. Your role and discipline control what you can see and do."}</HelpTip></h2>
+
     {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
     {notice&&<div className="mt-5 rounded-xl border border-[#b9d9cb] bg-[#eff8f4] p-3 text-sm leading-6 text-[#0c5b45]" role="status">{notice}</div>}
     <form action={formAction} className="mt-8 space-y-5">
@@ -49,8 +51,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       <input type="hidden" name="captchaToken" value={captchaToken}/>
       <button className="ev-button w-full" disabled={busy||captchaIncomplete}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
       <div className="rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-3">
-        <p className="text-xs font-bold uppercase tracking-[.12em] text-[#10243e]">Need help signing in?</p>
-        <p className="mt-1 text-xs leading-5 text-[#617083]">Enter the exact work email above, then choose the help you need.</p>
+        <HelpTip label="Sign-in help">Enter the exact work email above, then choose password reset or resend verification.</HelpTip>
         <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resetPending?"Requesting password reset...":"Forgot password?"}</button>
         <button className="mt-2 w-full rounded-lg px-3 py-2 text-xs font-bold text-[#0c5b45] hover:bg-[#eaf3ef] disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
       </div>
@@ -60,5 +61,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
 }
 
 function Field({label,name,type="text",autoComplete,hint,error}:{label:string;name:string;type?:string;autoComplete?:string;hint?:string;error?:string}){
-  return <label className="block"><span className="ev-label">{label}</span><input className="ev-input" name={name} type={type} autoComplete={autoComplete} required aria-invalid={!!error}/>{(error||hint)&&<span className={`mt-1.5 block text-xs ${error?"text-red-700":"text-[#617083]"}`}>{error||hint}</span>}</label>;
+  const id=useId();
+  const input=<input id={id} className="ev-input" name={name} type={type} autoComplete={autoComplete} required aria-invalid={!!error} aria-describedby={error?`${id}-error`:undefined}/>;
+  return <div>{hint?<FieldWithHelp label={label} helpLabel={`${label} guidance`} help={hint}>{input}</FieldWithHelp>:<><label htmlFor={id} className="ev-label">{label}</label>{input}</>}{error&&<span id={`${id}-error`} className="mt-1.5 block text-xs text-red-700" role="alert">{error}</span>}</div>;
 }

@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import {requireUser} from "@/lib/auth";
@@ -18,8 +19,8 @@ export default async function RemovedAccounts({params,searchParams}:{params:Prom
   const href=(index:number)=>`?${new URLSearchParams({q:search,page:String(index)})}`;
   return <div className="mx-auto max-w-3xl">
     <Link className="text-sm font-semibold text-[#0c5b45]" href={`/app/${organisationId}/settings`}>← Manage organisation</Link>
-    <h1 className="mt-6 text-3xl font-semibold">Removed team accounts</h1>
-    <p className="mt-3 text-sm leading-6 text-[#617083]">After a Project Manager removes a team member, an Organisation Administrator can delete their login here. All project appointments must be removed first. Other organisations’ access and protected administrator accounts cannot be deleted.</p>
+    <h1 className="mt-6 text-3xl font-semibold">Removed team accounts <HelpTip label="Account deletion eligibility">After a Project Manager removes a team member, an Organisation Administrator can delete their login here. All project appointments must be removed first. Other organisations’ access and protected administrator accounts cannot be deleted.</HelpTip></h1>
+
     <form className="my-5 flex gap-2"><label className="min-w-0 flex-1"><span className="sr-only">Search removed accounts</span><input className="ev-input w-full" name="q" placeholder="Search name or email" defaultValue={search} maxLength={100}/></label><button className="ev-button-secondary">Search</button></form>
     {error?<p role="alert" className="ev-card p-5">Account management is temporarily unavailable. Contact EngiCite support if this continues.</p>:<>
       <div className="grid gap-4">{rows.length?rows.map(account=><section key={account.user_id} className="ev-card min-w-0 p-5">

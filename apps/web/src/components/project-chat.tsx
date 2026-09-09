@@ -1,4 +1,5 @@
 "use client";
+import {HelpTip} from "@/components/help-tip";
 import { customerErrorMessage } from "@/lib/customer-messages";
 
 
@@ -193,10 +194,8 @@ export function ProjectChat({
           </summary>
           <div className="border-t border-white/10 px-4 pb-4 pt-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="max-w-2xl text-xs leading-5 text-[#a9bdd4]">
-                EngiCite can retrieve only the ready revisions selected here. The
-                scope locks after your first question.
-              </p>
+              <HelpTip label="Authorised revision scope">EngiCite can retrieve only the ready revisions selected here. The
+                scope locks after your first question.</HelpTip>
               {!sessionId && revisions.length > 0 && (
                 <div className="flex gap-2 text-xs font-semibold">
                   <button

@@ -1,3 +1,4 @@
+import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, BadgeCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -151,10 +152,8 @@ export default async function NewTransmittalPage({
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Controlled client issue</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Create document transmittal</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#617083]">
-            Select several approved revisions, freeze the exact issue set, and download one secure ZIP containing the engineering documents and client acknowledgement transmittal PDF.
-          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Create document transmittal <HelpTip label="Creating a client transmittal">Select several approved revisions, freeze the exact issue set, and download one secure ZIP containing the engineering documents and client acknowledgement transmittal PDF.</HelpTip></h1>
+
         </div>
         <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#0c5b45]">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ed] px-3 py-2"><BadgeCheck size={15} /> Accepted revisions only</span>

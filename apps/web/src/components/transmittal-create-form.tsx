@@ -1,5 +1,6 @@
 "use client";
 
+import {HelpTip} from "@/components/help-tip";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -88,10 +89,8 @@ export function TransmittalCreateForm({
             <Send size={19} />
           </span>
           <div>
-            <h2 className="font-semibold">Transmission details</h2>
-            <p className="mt-1 text-xs leading-5 text-[#617083]">
-              The recipient company is inherited from the controlled project information and frozen into the audit record.
-            </p>
+            <h2 className="font-semibold">Transmission details <HelpTip label="Recipient company">The recipient company is inherited from the controlled project information and frozen into the audit record.</HelpTip></h2>
+
           </div>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -102,9 +101,7 @@ export function TransmittalCreateForm({
               <Building2 size={16} className="shrink-0" />
               <span>{clientName || "Client name is missing from project information"}</span>
             </div>
-            <p className="mt-1.5 text-[11px] leading-4 text-[#617083]">
-              Controlled by the Project Manager; the DCC cannot change it here.
-            </p>
+            <HelpTip label="Controlled project information">Controlled by the Project Manager; the DCC cannot change it here.</HelpTip>
           </div>
           <Field name="recipientContact" label="Attention" placeholder="Client representative" optional />
           <Field name="recipientEmail" label="Recipient email" type="email" placeholder="representative@client.com" optional />
@@ -123,10 +120,8 @@ export function TransmittalCreateForm({
       <section className="ev-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4ebe7] px-5 py-4 sm:px-6">
           <div>
-            <h2 className="font-semibold">Select accepted documents</h2>
-            <p className="mt-1 text-xs text-[#617083]">
-              Only the latest DCC-accepted, processing-ready revision of each document is available.
-            </p>
+            <h2 className="font-semibold">Select accepted documents <HelpTip label="Eligible transmittal revisions">Only the latest DCC-accepted, processing-ready revision of each document is available.</HelpTip></h2>
+
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="ev-button-secondary" onClick={() => router.refresh()}>
@@ -147,10 +142,8 @@ export function TransmittalCreateForm({
             <div className="flex items-start gap-3">
               <Clock3 className="mt-0.5 shrink-0 text-[#c36a2d]" size={18} />
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-semibold text-[#6f421f]">Recently accepted documents</h3>
-                <p className="mt-1 text-xs leading-5 text-[#7a6555]">
-                  The latest accepted revision replaces older issues immediately. It becomes selectable as soon as secure preparation finishes.
-                </p>
+                <h3 className="text-sm font-semibold text-[#6f421f]">Recently accepted documents <HelpTip label="Latest accepted revisions">The latest accepted revision replaces older issues immediately. It becomes selectable as soon as secure preparation finishes.</HelpTip></h3>
+
                 <div className="mt-3 grid gap-2 lg:grid-cols-2">
                   {preparing.map((revision) => (
                     <Link
@@ -233,9 +226,7 @@ export function TransmittalCreateForm({
               Creation is paused until the Project Manager adds the client name in Project information.
             </p>
           )}
-          <p className="mt-3 text-xs leading-5 text-[#617083]">
-            EngiCite will identify the authenticated DCC issuer and add an audit-backed attestation. When a verified qualified seal is configured, EngiCite embeds it in the PDF. The client acknowledgement block remains for the recipient to sign and return.
-          </p>
+          <HelpTip label="Transmittal attestation">EngiCite will identify the authenticated DCC issuer and add an audit-backed attestation. When a verified qualified seal is configured, EngiCite embeds it in the PDF. The client acknowledgement block remains for the recipient to sign and return.</HelpTip>
         </div>
       </section>
     </form>
