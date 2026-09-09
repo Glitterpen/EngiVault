@@ -6,6 +6,7 @@ import type {AdminPreview} from "@/lib/admin-preview";
 
 const readRpcs=new Set(['get_project_team','get_project_document_categories','get_pending_project_invitations','get_engineer_project_impact','can_register_documents','can_upload_document','search_project_member_preview']);
 const files:Record<string,string>={authorize_revision_preview:'revision_preview',authorize_revision_download:'revision_download',authorize_revision_native_download:'revision_native_download',get_work_package_download:'work_package_download'};
+const interdisciplinaryReads=new Set(['get_interdisciplinary_documents','get_interdisciplinary_revision','authorize_interdisciplinary_file']);
 
 export function createMemberPreviewClient(actor:SupabaseClient,preview:AdminPreview):SupabaseClient{
   const env=publicEnv();
@@ -41,12 +42,16 @@ export function createMemberPreviewClient(actor:SupabaseClient,preview:AdminPrev
     const resource=match[2];
     let data:unknown,total:number|undefined;
     if(match[1]){
-      if(!readRpcs.has(resource)&&!files[resource])throw new Error('Changes are disabled in member preview');
+      if(!readRpcs.has(resource)&&!files[resource]&&!interdisciplinaryReads.has(resource))throw new Error('Changes are disabled in member preview');
       // The database obtains org/project/member from its validated session, never
       // from these caller-supplied RPC arguments.
       for(const key of ['target_organisation','org'])if(body[key]&&body[key]!==preview.organisationId)throw new Error('Preview organisation mismatch');
       for(const key of ['target_project','project'])if(body[key]&&body[key]!==preview.projectId)throw new Error('Preview project mismatch');
-      data=await read(files[resource]??resource,body);
+      if(interdisciplinaryReads.has(resource)){
+        const result=await actor.rpc(resource,{...body,target_organisation:preview.organisationId,target_project:preview.projectId,target_preview:preview.sessionId});
+        if(result.error)throw new Error('Approved reference unavailable to this member');
+        data=result.data;
+      }else data=await read(files[resource]??resource,body);
     }else{
       if(!['GET','HEAD'].includes(method))throw new Error('Changes are disabled in member preview');
       const {selection,query}=previewQuery(url);

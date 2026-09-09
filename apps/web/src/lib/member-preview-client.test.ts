@@ -10,6 +10,17 @@ const rpc=vi.fn();
 const actor={rpc} as unknown as SupabaseClient;
 beforeEach(()=>rpc.mockReset());
 describe('member preview Supabase transport',()=>{
+ it('delegates approved-library reads with the server-validated preview scope',async()=>{
+   rpc.mockResolvedValue({data:{documents:[],total:0},error:null});
+   const result=await createMemberPreviewClient(actor,preview).rpc('get_interdisciplinary_documents',{target_organisation:'org-id',target_project:'project-id',target_preview:'forged',page_offset:25});
+   expect(result.error).toBeNull();expect(rpc).toHaveBeenCalledWith('get_interdisciplinary_documents',{target_organisation:'org-id',target_project:'project-id',target_preview:'session-id',page_offset:25});
+ });
+ it('blocks interdisciplinary mutations and fails closed on denied references',async()=>{
+   const client=createMemberPreviewClient(actor,preview);
+   expect((await client.rpc('submit_interdisciplinary_check',{})).error).not.toBeNull();expect(rpc).not.toHaveBeenCalled();
+   rpc.mockResolvedValue({data:null,error:{code:'42501'}});
+   expect((await client.rpc('get_interdisciplinary_revision',{target_revision:'revision'})).data).toBeNull();expect(rpc).toHaveBeenCalledTimes(1);
+ });
  it('uses only authenticated read delegation and preserves count/embedded rows',async()=>{
    rpc.mockResolvedValue({data:{rows:[{id:'d1',document_revisions:[{state:'ready'}]}],total:31},error:null});
    const client=createMemberPreviewClient(actor,preview);
