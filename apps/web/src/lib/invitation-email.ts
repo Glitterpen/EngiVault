@@ -25,6 +25,11 @@ export async function sendInvitationEmail(input:InvitationEmailInput){
   if(!organisationName)return {sent:false,reason:"identity_unavailable" as const};
   const projectName=sanitiseEmailHeaderText(input.projectName,"your project");
   const from=formatOrganisationSender(configuredFrom,organisationName);
+  if(input.role==="executive_viewer"){
+    const html=`<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#10243e"><h1>${escapeHtml(organisationName)} executive invitation</h1><p>You have been invited as an <strong>Executive Viewer</strong> for ${escapeHtml(organisationName)}.</p><p>Your private, read-only dashboard shows project progress, outstanding deliverables, overdue submissions, planned dates and delivery gaps. It does not allow changes to project data or access to documents.</p><p>Your identity is hidden from ordinary project teams, while authorised Organisation Administrators and security auditing retain visibility.</p><p><a href="${escapeHtml(input.acceptUrl)}">Open your executive invitation</a></p><p>Use the exact invited email. If this is your first invitation, choose Create invited account and verify your email before signing in. This link expires in seven days. The invitation was issued by ${escapeHtml(organisationName)} through EngiCite.</p></div>`;
+    const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{authorization:`Bearer ${apiKey}`,"content-type":"application/json"},body:JSON.stringify({from,to:[input.to],subject:`${organisationName}: private executive access`,html})});
+    return response.ok?{sent:true as const}:{sent:false as const,reason:"provider_error" as const};
+  }
   const scope=input.disciplines?.length?input.disciplines.join(", "):input.discipline;
   const discipline=scope?` for these authorised disciplines: ${scope}`:"";
   const accessNote=scope?`<p><strong>Authorised disciplines:</strong> ${escapeHtml(scope)}.</p><p>Use this work email and one account to see all your assigned deliverables on one dashboard. Your upload access is limited to DCC-assigned Master Document Register documents in these disciplines.</p>`:"";

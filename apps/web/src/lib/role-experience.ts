@@ -11,6 +11,7 @@ export function workspacePersona(role:string):WorkspacePersona{
 
 export function roleLabel(role:string):string{
   const labels:Record<EffectiveRole,string>={
+    executive_viewer:"Executive Viewer",
     organisation_admin:"Organisation Administrator",
     project_admin:"Project Manager",
     document_controller:"Document Controller",

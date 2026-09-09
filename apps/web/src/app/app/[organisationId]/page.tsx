@@ -11,7 +11,7 @@ import {
   HeartPulse,
   Settings,
 } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound,redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { ProjectCreateForm } from "@/components/project-create-form";
 import {OrganisationLogo} from "@/components/organisation-logo";
@@ -29,6 +29,7 @@ export default async function OrganisationPage({params}:{params:Promise<{organis
   const {data:orgData}=await supabase.rpc("get_my_organisations").eq("organisation_id",organisationId).maybeSingle();
   const org=orgData as {organisation_id:string;name:string;slug:string;role:string}|null;
   if(!org)notFound();
+  if(org.role==="executive_viewer")redirect(`/app/${organisationId}/executive`);
   const {data:projectData}=await supabase.rpc("get_accessible_projects",{target_org:organisationId});
   const projects=((projectData??[]) as Array<Omit<Project,"status">&{status?:string}>).map(project=>({...project,status:project.status??"active"}));
 

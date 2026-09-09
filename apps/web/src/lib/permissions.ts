@@ -1,9 +1,10 @@
-export type EffectiveRole="organisation_admin"|"project_admin"|"document_controller"|"engineer"|"viewer";
+export type EffectiveRole="organisation_admin"|"project_admin"|"document_controller"|"engineer"|"viewer"|"executive_viewer";
 export type ProjectRole="project_admin"|"document_controller"|"engineer"|"viewer";
 export type InvitableProjectRole=Exclude<ProjectRole,"viewer">;
 export type AdministratorPreviewRole=Exclude<ProjectRole,"viewer">;
 export type Capability="project:create"|"project:appoint"|"project:lifecycle"|"project:backup"|"project:preview_roles"|"project:manage"|"members:manage"|"engineers:manage"|"document:register"|"document:write"|"document:assign"|"document:submit_discipline"|"document:read"|"document:download"|"ai:use"|"audit:read";
 const grants:Record<EffectiveRole,ReadonlySet<Capability>>={
+  executive_viewer:new Set(),
   organisation_admin:new Set(["project:create","project:appoint","project:lifecycle","project:backup","project:preview_roles","document:read","document:download","audit:read"]),
   project_admin:new Set(["project:manage","members:manage","engineers:manage","document:read","document:download","audit:read"]),
   document_controller:new Set(["document:register","document:write","document:assign","document:read","document:download","ai:use"]),
@@ -13,6 +14,7 @@ const grants:Record<EffectiveRole,ReadonlySet<Capability>>={
 export function can(role:string,capability:Capability):boolean{return role in grants&&grants[role as EffectiveRole].has(capability)}
 
 const invitations:Record<EffectiveRole,ReadonlySet<InvitableProjectRole>>={
+  executive_viewer:new Set(),
   organisation_admin:new Set(["project_admin","document_controller"]),
   project_admin:new Set(["engineer"]),
   document_controller:new Set(),

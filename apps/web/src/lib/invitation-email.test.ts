@@ -7,6 +7,18 @@ beforeEach(()=>{vi.stubEnv("RESEND_API_KEY","test-only-key");vi.stubEnv("INVITAT
 afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();vi.clearAllMocks();});
 const input={to:"engineer@example.test",acceptUrl:"https://example.test/invite/test-only",projectName:"Test project",organisationName:"Example Engineering",role:"engineer"};
 describe("Multi-discipline invitation email",()=>{
+  it("sends a private organisation-branded executive invitation without project details",async()=>{
+    await sendInvitationEmail({...input,role:"executive_viewer",projectIntroduction:"Private project brief"});
+    const body=JSON.parse(request.mock.calls[0][1].body);
+    expect(body.to).toEqual([input.to]);
+    expect(body.from).toContain("Example Engineering");
+    expect(body.subject).toBe("Example Engineering: private executive access");
+    expect(body.html).toContain("read-only");
+    expect(body.html).toContain("authorised Organisation Administrators");
+    expect(body.html).toContain("Create invited account");
+    expect(body.html).not.toContain("Private project brief");
+    expect(body.html).not.toContain("Test project");
+  });
   it("includes every discipline in one organisation-branded email",async()=>{
     await sendInvitationEmail({...input,disciplines:["Electrical","Instrumentation","Controls & Automation"]});
     const body=JSON.parse(request.mock.calls[0][1].body);

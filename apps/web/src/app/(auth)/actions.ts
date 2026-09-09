@@ -17,7 +17,7 @@ const registerSchema = z.object({ name:z.string().trim().min(2).max(80), email, 
 const organisationRegisterSchema=registerSchema.extend({organisationName:z.string().trim().min(2).max(100),organisationSlug:z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48)});
 const passwordResetSchema=z.object({password,confirmPassword:z.string()}).refine(value=>value.password===value.confirmPassword,{message:"Passwords must match.",path:["confirmPassword"]});
 const invitationDestination=/^\/invite\/([a-f0-9]{64})$/i;
-const loginRoles=new Set(["organisation_admin","project_admin","document_controller","engineer"]);
+const loginRoles=new Set(["organisation_admin","project_admin","document_controller","engineer","executive_viewer"]);
 const founderAccessSchema=z.object({
   is_founder:z.boolean(),access_status:z.string(),require_mfa:z.boolean(),current_aal:z.string(),authorised:z.boolean(),
 });
