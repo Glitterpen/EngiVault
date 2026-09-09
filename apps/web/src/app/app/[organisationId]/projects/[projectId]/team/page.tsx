@@ -10,6 +10,7 @@ import {PendingProjectInvitations,type PendingProjectInvitation} from "@/compone
 import {ProjectMemberRemove} from "@/components/project-member-remove";
 import {ProjectDisciplineManager} from "@/components/project-discipline-manager";
 import {disciplineLabel} from "@/lib/project-disciplines";
+import {activeProjectResourcePlans} from "@/lib/project-resource-readiness";
 import {ResourcePlanForm} from "@/components/project-management-forms";
 import {projectHomePath,workspacePersona} from "@/lib/role-experience";
 
@@ -28,19 +29,20 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
   const allowedRoles=invitableProjectRoles(role);
   const canReview=isDcc;
   const canManageEngineers=can(role,"engineers:manage");
-  const [{data:team},{data:categoryRows},{data:pendingRows},{data:resourceRows}]=await Promise.all([
+  const [{data:team},{data:categoryRows,error:categoryError},{data:pendingRows},{data:resourceRows,error:resourceError}]=await Promise.all([
     supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),
     supabase.rpc("get_project_document_categories",{target_organisation:organisationId,target_project:projectId}),
     allowedRoles.length?supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId}):Promise.resolve({data:[]}),
     supabase.from("project_resource_plans").select("id,discipline,required_count,notes").eq("organisation_id",organisationId).eq("project_id",projectId).order("discipline")
   ]);
+  if(categoryError||resourceError)throw new Error("Project resource readiness could not be loaded. Please retry.");
   const allMembers=(team??[]) as Member[];
   const members=isDcc?allMembers.filter(member=>member.role==="engineer"):isOrganisationAdmin?allMembers.filter(member=>member.role==="project_admin"||member.role==="document_controller"):allMembers;
   const disciplines=((categoryRows??[]) as Discipline[]).filter(item=>item.kind==="discipline");
   const {data:removedRows,error:removedError}=role==="project_admin"?await supabase.from("project_disciplines").select("name,code").eq("organisation_id",organisationId).eq("project_id",projectId).eq("is_active",false).order("name"): {data:[],error:null};
   if(removedError)throw new Error("Project discipline settings could not be loaded. Please contact EngiCite support.");
   const removedDisciplines=(removedRows??[]).map(item=>({name:item.name,code:item.code??""}));
-  const resources=(resourceRows??[]) as Resource[];
+  const resources=activeProjectResourcePlans((resourceRows??[]) as Resource[],disciplines);
   const pending=((pendingRows??[]) as PendingProjectInvitation[]).filter(invitation=>allowedRoles.some(allowedRole=>allowedRole===invitation.project_role));
   const workspaceTitle=isDcc?"Discipline engineers":isOrganisationAdmin?"Project leadership appointments":"Project team & resources";
   const workspaceKicker=isDcc?"Document control resources":isOrganisationAdmin?"Organisation governance":"Project management resources";
