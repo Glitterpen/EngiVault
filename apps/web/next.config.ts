@@ -5,7 +5,8 @@ const turnstileOrigin = "https://challenges.cloudflare.com";
 const scriptSource = `'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} ${turnstileOrigin}`;
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Vercel's adapter packages the server itself; retain standalone output for self-hosting.
+  output: process.env.VERCEL === "1" ? undefined : "standalone",
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   experimental: {
