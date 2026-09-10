@@ -31,7 +31,7 @@ class FakeGateway:
             },
         )
 
-    def download_key(self, storage_key, target, max_bytes):
+    def download_key(self, storage_key, target, max_bytes, *, bucket=None):
         target.write_bytes(self.sources[storage_key])
 
     def upload_backup(self, storage_key, archive):
@@ -58,3 +58,28 @@ def test_project_backup_contains_metadata_mdr_and_revision(tmp_path):
         assert "Documents/Process/EPC-PRO-001/Revision R01/basis.pdf" in names
         assert archive.read("Documents/Process/EPC-PRO-001/Revision R01/basis.pdf") == b"controlled engineering evidence"
         assert archive.read("Documents/Process/EPC-PRO-001/Revision R01/Native Source/basis.dwg") == b"AC1032 editable drawing evidence"
+
+
+def test_backup_includes_published_template_pack_not_pending_uploads(tmp_path):
+    class TemplateGateway(FakeGateway):
+        def project_backup_data(self, backup_id):
+            job, project, datasets = super().project_backup_data(backup_id)
+            datasets["template_packs"] = [
+                {"id": "pack", "state": "ready", "filename": "Templates.zip", "byte_size": 8,
+                 "sha256": hashlib.sha256(b"template").hexdigest()},
+                {"id": "unscanned", "state": "pending"},
+            ]
+            return job, project, datasets
+
+        def download_key(self, storage_key, target, max_bytes, *, bucket=None):
+            if bucket == "project-templates":
+                assert storage_key == "org-1/project-1/pack/published.zip"
+                target.write_bytes(b"template")
+            else:
+                super().download_key(storage_key, target, max_bytes)
+
+    target = tmp_path / "backup.zip"
+    result = build_project_backup(TemplateGateway(target), "backup-1")
+    assert result["template_pack_files"] == 1
+    with ZipFile(target) as archive:
+        assert archive.read("Project Templates/pack/Templates.zip") == b"template"

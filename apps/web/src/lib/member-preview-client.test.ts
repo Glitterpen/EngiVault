@@ -10,6 +10,14 @@ const rpc=vi.fn();
 const actor={rpc} as unknown as SupabaseClient;
 beforeEach(()=>rpc.mockReset());
 describe('member preview Supabase transport',()=>{
+ it('scopes template reads to the validated member and blocks uploads',async()=>{
+   rpc.mockResolvedValue({data:{current:null,pending:null},error:null});
+   const client=createMemberPreviewClient(actor,preview);
+   await client.rpc('get_project_template_pack',{target_organisation:'org-id',target_project:'project-id',target_preview:'forged'});
+   expect(rpc).toHaveBeenCalledWith('get_project_template_pack',{target_organisation:'org-id',target_project:'project-id',target_preview:'session-id'});
+   expect((await client.rpc('begin_project_template_upload',{})).error).not.toBeNull();
+   expect(rpc).toHaveBeenCalledTimes(1);
+ });
  it('delegates approved-library reads with the server-validated preview scope',async()=>{
    rpc.mockResolvedValue({data:{documents:[],total:0},error:null});
    const result=await createMemberPreviewClient(actor,preview).rpc('get_interdisciplinary_documents',{target_organisation:'org-id',target_project:'project-id',target_preview:'forged',page_offset:25});

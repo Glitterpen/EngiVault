@@ -96,9 +96,9 @@ class SupabaseGateway:
             result=self.client.get("/rest/v1/document_revisions",params={"id":f"in.({','.join(ids)})","select":"id,storage_key,original_filename,byte_size,sha256,native_storage_key,native_original_filename,native_byte_size,native_sha256"});self._raise(result,"Package revisions unavailable.");revisions={row["id"]:row for row in result.json()}
         return package.json()[0],rows,revisions
 
-    def download_key(self, storage_key: str, target: Path, max_bytes: int = 2_147_483_648) -> int:
+    def download_key(self, storage_key: str, target: Path, max_bytes: int = 2_147_483_648, *, bucket: str | None = None) -> int:
         object_path=quote(storage_key,safe="/");written=0
-        with self.client.stream("GET",f"/storage/v1/object/authenticated/{quote(self.bucket)}/{object_path}") as response:
+        with self.client.stream("GET",f"/storage/v1/object/authenticated/{quote(bucket or self.bucket)}/{object_path}") as response:
             self._raise(response,"Package source download failed.")
             with target.open("xb") as stream:
                 for chunk in response.iter_bytes(1024*1024):
@@ -141,6 +141,7 @@ class SupabaseGateway:
             "audit_events":("audit_events","id,actor_user_id,action,target_type,target_id,outcome,changes,created_at","created_at.asc"),
             "weekly_reports":("project_weekly_reports","*","period_end.asc"),
             "deliverable_requests":("deliverable_requests","*","created_at.asc,id.asc"),
+            "template_packs":("project_template_packs","*","created_at.asc,id.asc"),
         }
         datasets:dict[str,list[dict[str,object]]]={}
         for name,(table,selection,order) in sources.items():

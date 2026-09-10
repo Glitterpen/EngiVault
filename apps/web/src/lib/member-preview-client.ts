@@ -6,7 +6,7 @@ import type {AdminPreview} from "@/lib/admin-preview";
 
 const readRpcs=new Set(['get_project_team','get_project_document_categories','get_pending_project_invitations','get_engineer_project_impact','can_register_documents','can_upload_document','search_project_member_preview']);
 const files:Record<string,string>={authorize_revision_preview:'revision_preview',authorize_revision_download:'revision_download',authorize_revision_native_download:'revision_native_download',get_work_package_download:'work_package_download'};
-const interdisciplinaryReads=new Set(['get_interdisciplinary_documents','get_interdisciplinary_revision','authorize_interdisciplinary_file']);
+const interdisciplinaryReads=new Set(['get_interdisciplinary_documents','get_interdisciplinary_revision','authorize_interdisciplinary_file','get_project_template_pack','authorize_project_template_download']);
 
 export function createMemberPreviewClient(actor:SupabaseClient,preview:AdminPreview):SupabaseClient{
   const env=publicEnv();

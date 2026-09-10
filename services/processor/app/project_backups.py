@@ -30,6 +30,7 @@ def build_project_backup(gateway: SupabaseGateway, backup_id: str) -> dict[str, 
         included = 0
         native_sources = 0
         skipped = 0
+        template_files = 0
         with tempfile.TemporaryDirectory(prefix="engicite-backup-") as temporary:
             root = Path(temporary)
             archive = root / "project-backup.zip"
@@ -79,6 +80,19 @@ def build_project_backup(gateway: SupabaseGateway, backup_id: str) -> dict[str, 
                         checksums.append(f"{native_digest}  {native_archive_name}")
                         native_sources += 1
                     included += 1
+                for pack in datasets.get("template_packs", []):
+                    if pack["state"] not in {"ready", "superseded"}:
+                        continue  # Never export an unscanned upload in a team backup.
+                    source = root / f"templates-{pack['id']}.zip"
+                    key = f"{job['organisation_id']}/{job['project_id']}/{pack['id']}/published.zip"
+                    gateway.download_key(key, source, max_bytes=int(pack["byte_size"]), bucket="project-templates")
+                    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+                    if digest != pack["sha256"]:
+                        raise GatewayError("Project template backup checksum mismatch.")
+                    name = f"Project Templates/{pack['id']}/{_safe(pack['filename'])}"
+                    output.write(source, name)
+                    checksums.append(f"{digest}  {name}")
+                    template_files += 1
                 output.writestr("00 - Backup Control/file-checksums.sha256", "\n".join(checksums))
             archive_size = archive.stat().st_size
             archive_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
@@ -87,6 +101,7 @@ def build_project_backup(gateway: SupabaseGateway, backup_id: str) -> dict[str, 
             "format": "engicite-portable-project-backup-v1",
             "documents": len(documents), "revision_files": included, "native_source_files": native_sources,
             "skipped_revision_files": skipped,
+            "template_pack_files": template_files,
             "audit_events": len(datasets["audit_events"]), "archive_bytes": archive_size,
             "provider": job["provider"],
             "external_delivery": "complete" if job["provider"] == "engicite" else "awaiting_configured_connector",

@@ -18,6 +18,7 @@ from .malware import MalwareDetected, MalwareScannerUnavailable, build_malware_s
 from .mdr_import import MdrImportError, parse_mdr_workbook
 from .packages import build_package
 from .project_backups import build_project_backup
+from .template_packs import TemplatePackError, publish_template_pack
 from .worker import process_next
 
 app = FastAPI(title="EngiCite document processor", version="0.2.0", docs_url=None, redoc_url=None)
@@ -87,9 +88,30 @@ class PackageDownloadQuery(BaseModel):
 class ProjectBackupQuery(BaseModel):
     backup_id: UUID4
 
+class TemplatePackQuery(BaseModel):
+    pack_id: UUID4
+
 def require_service(x_processor_secret: str = Header(default="")) -> None:
     if not hmac.compare_digest(x_processor_secret, settings().processor_shared_secret):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service credential")
+
+
+@app.post("/internal/v1/publish-template-pack", dependencies=[Depends(require_service)])
+def publish_project_templates(query: TemplatePackQuery) -> dict[str, object]:
+    config = settings()
+    gateway = SupabaseGateway(config.supabase_url, config.supabase_service_role_key,
+                              "project-templates", config.worker_name)
+    scanner = build_malware_scanner(config.malware_scan_mode, host=config.clamav_host,
+                                    port=config.clamav_port, timeout_seconds=config.clamav_timeout_seconds)
+    try:
+        return {"state": "ready", "fileCount": publish_template_pack(gateway, str(query.pack_id), scanner)}
+    except (TemplatePackError, MalwareDetected) as error:
+        message = str(error) if isinstance(error, TemplatePackError) else "The template pack failed the security scan."
+        raise HTTPException(status_code=422, detail=message) from error
+    except (MalwareScannerUnavailable, GatewayError, httpx.HTTPError) as error:
+        raise HTTPException(status_code=503, detail="Template security checks or publication are unavailable. The previous pack is unchanged; retry shortly.") from error
+    finally:
+        gateway.close()
 
 
 @app.post("/internal/v1/parse-mdr-import", dependencies=[Depends(require_service)])
