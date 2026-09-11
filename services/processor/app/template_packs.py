@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from zipfile import BadZipFile, ZipFile
 
-from .gateway import GatewayError, SupabaseGateway
+from .gateway import GatewayError, StorageObjectNotFound, SupabaseGateway
 from .malware import MalwareScanner, MalwareScannerUnavailable
 
 MAX_ZIP_BYTES = 50 * 1024 * 1024
@@ -99,7 +99,12 @@ def publish_template_pack(gateway: SupabaseGateway, pack_id: str, scanner: Malwa
     with tempfile.TemporaryDirectory(prefix="engicite-template-scan-") as directory:
         source = Path(directory) / "templates.zip"
         # Gateway is constructed specifically for the private template bucket.
-        gateway._download_processing_object(f"{prefix}/upload.zip", size, source)
+        try:
+            gateway._download_processing_object(f"{prefix}/upload.zip", size, source)
+        except StorageObjectNotFound as error:
+            raise TemplatePackError(
+                "The ZIP upload did not complete. Select the ZIP and upload it again before retrying security checks."
+            ) from error
         with source.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         if digest != pack["sha256"]:

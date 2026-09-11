@@ -14,6 +14,10 @@ class GatewayError(RuntimeError):
     pass
 
 
+class StorageObjectNotFound(GatewayError):
+    """The requested Storage object is absent, not merely inaccessible."""
+
+
 class SupabaseGateway:
     def __init__(self, url: str, service_role_key: str, bucket: str, worker_name: str) -> None:
         headers = {"apikey": service_role_key, "authorization": f"Bearer {service_role_key}"}
@@ -43,6 +47,8 @@ class SupabaseGateway:
         object_path = quote(storage_key, safe="/")
         written = 0
         with self.client.stream("GET", f"/storage/v1/object/authenticated/{quote(self.bucket)}/{object_path}") as response:
+            if self._object_is_missing(response):
+                raise StorageObjectNotFound("The uploaded object is missing.")
             self._raise(response, "Object download failed.")
             with target.open("xb") as stream:
                 for chunk in response.iter_bytes(1024 * 1024):
@@ -52,6 +58,24 @@ class SupabaseGateway:
                     stream.write(chunk)
         if written != authorised_size:
             raise GatewayError("Downloaded object size differs from its authorised size.")
+
+    @staticmethod
+    def _object_is_missing(response: httpx.Response) -> bool:
+        if response.status_code == 404:
+            return True
+        # Storage can wrap an object-not-found response in HTTP 400. Do not
+        # classify permission errors or service failures as a missing upload.
+        if response.status_code != 400:
+            return False
+        response.read()
+        try:
+            error = response.json()
+        except ValueError:
+            return False
+        return isinstance(error, dict) and str(error.get("statusCode")) == "404" and (
+            error.get("code") == "NoSuchKey"
+            or (error.get("error") == "not_found" and error.get("message") == "Object not found")
+        )
 
     def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None:
         delete = self.client.delete("/rest/v1/extracted_units", params={"run_id": f"eq.{job.run_id}"})

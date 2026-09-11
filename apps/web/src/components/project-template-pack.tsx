@@ -46,8 +46,11 @@ export function ProjectTemplatePack({organisationId,projectId,canManage=false}:{
       const session=await response.json();
       if(!response.ok)throw new Error(session.error?.message??"Upload could not be started.");
       setMessage("Uploading template ZIP…");
-      const {error}=await createClient().storage.from("project-templates").uploadToSignedUrl(session.path,session.token,file,{contentType:"application/zip",upsert:false});
-      if(error)throw new Error("The ZIP could not be uploaded. Select the file and retry.");
+      // Multipart uploads use the File's MIME type, not the SDK contentType option.
+      // Normalise browser/Windows ZIP labels without changing the hashed bytes.
+      const zip=new File([file],file.name,{type:"application/zip",lastModified:file.lastModified});
+      const {error}=await createClient().storage.from("project-templates").uploadToSignedUrl(session.path,session.token,zip,{contentType:"application/zip",upsert:false});
+      if(error)throw new Error("The ZIP upload did not complete. Select the ZIP and upload it again before retrying security checks.");
       await publish(session.id);if(input.current)input.current.value="";
     });
   }

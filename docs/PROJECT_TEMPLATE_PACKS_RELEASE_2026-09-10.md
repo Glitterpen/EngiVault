@@ -32,3 +32,11 @@ Publication replaces the active metadata atomically under a project lock. Supers
 - Project-backup tests verify only published template snapshots enter the export.
 
 The live production upload/download smoke test remains necessary after the database and both services are deployed.
+
+## ZIP upload compatibility fix — 11 September 2026
+
+- Browser/Windows ZIP MIME labels are normalised to `application/zip` on the uploaded File itself. The multipart SDK does not override a File's MIME type with its `contentType` option. File bytes, SHA-256 identity and filename remain unchanged; the bucket's MIME restriction remains strict.
+- Missing raw upload bytes now return a specific re-upload instruction, not a generic scan/service retry. Permission errors and temporary storage/scanner failures are not treated as missing files.
+- Deploy the web and processor changes together. No SQL migration, bucket change or new environment variable is required for this fix.
+- For an existing pending upload with missing bytes, the Project Manager must select the original ZIP and upload it again after deployment. Retrying security checks alone cannot recover a file that never reached storage. The new upload still requires every security check before publication.
+- Local verification: 573 web tests, 90 processor tests, TypeScript, ESLint, Ruff and the production web build passed. A real Project Manager upload and team download remain the post-deployment smoke test.

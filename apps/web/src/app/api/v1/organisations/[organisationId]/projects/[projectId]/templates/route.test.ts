@@ -58,6 +58,26 @@ describe("project template routes",()=>{
     expect(response.status).toBe(422);expect((await response.json()).error.message).toBe("Unsafe ZIP");
     expect(mocks.admin).not.toHaveBeenCalled();
   });
+  it("forwards missing-upload instructions instead of asking the manager to retry a scan",async()=>{
+    const detail="The ZIP upload did not complete. Select the ZIP and upload it again before retrying security checks.";
+    mocks.rpc.mockResolvedValue({data:{current:{id:"old"},pending:{id}},error:null});
+    vi.mocked(fetch).mockResolvedValue({ok:false,status:422,json:async()=>({detail})} as Response);
+    const response=await complete(body({id}),ctx);
+    expect(response.status).toBe(422);
+    expect((await response.json()).error.message).toBe(detail);
+    expect(mocks.admin).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+  it("keeps transient service failures retryable and does not expose backend details",async()=>{
+    mocks.rpc.mockResolvedValue({data:{current:{id:"old"},pending:{id}},error:null});
+    vi.mocked(fetch).mockResolvedValue({ok:false,status:503,json:async()=>({detail:"Private storage/scanner failure"})} as Response);
+    const response=await complete(body({id}),ctx);
+    expect(response.status).toBe(503);
+    const message=(await response.json()).error.message;
+    expect(message).toContain("Retry shortly.");
+    expect(message).not.toContain("Private storage/scanner failure");
+    expect(mocks.admin).not.toHaveBeenCalled();
+  });
   it("requires download authorization before using privileged storage",async()=>{
     mocks.rpc.mockResolvedValue({data:null,error:{code:"42501"}});
     expect((await download(read(),ctx)).status).toBe(403);
