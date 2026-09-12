@@ -3,13 +3,20 @@
 import Link from "next/link";
 import {ChevronDown,LogOut,ShieldCheck} from "lucide-react";
 import {usePathname} from "next/navigation";
-import {useEffect,useState} from "react";
+import {useEffect,useState,useRef} from "react";
 import {signOut} from "@/app/(auth)/actions";
 
 const projectPathPattern=new RegExp("^/app/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/projects/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})","i");
 
 export function AccountMenu({email,initialRoleLabel,founderAccess=false}:{email:string;initialRoleLabel:string;founderAccess?:boolean}){
   const pathname=usePathname();
+  const panel=useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{
+    const close=(event:PointerEvent)=>{if(panel.current&&!panel.current.contains(event.target as Node))panel.current.open=false;};
+    document.addEventListener("pointerdown",close);
+    return()=>document.removeEventListener("pointerdown",close);
+  },[]);
+  useEffect(()=>{if(panel.current)panel.current.open=false;},[pathname]);
   const match=pathname.match(projectPathPattern);
   const organisationId=match?.[1];
   const projectId=match?.[2];
@@ -28,13 +35,13 @@ export function AccountMenu({email,initialRoleLabel,founderAccess=false}:{email:
     return()=>controller.abort();
   },[organisationId,projectId,projectKey]);
 
-  return <details className="group relative">
+  return <details ref={panel} className="group relative" onKeyDown={e=>{if(e.key==="Escape"&&panel.current?.open){e.preventDefault();panel.current.open=false;panel.current.querySelector("summary")?.focus();}}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))e.currentTarget.open=false;}}>
     <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2 text-[#58687b] transition hover:border-[#cbd7d1] hover:bg-white sm:gap-2 sm:pr-2.5" aria-label={`Open account details, ${currentRoleLabel}`}>
       <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{initial}</span>
       <span className="hidden max-w-52 truncate text-xs font-bold text-[#35485d] sm:block">{currentRoleLabel}</span>
       <ChevronDown size={14} className="shrink-0 transition group-open:rotate-180"/>
     </summary>
-    <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 overflow-hidden rounded-2xl border border-[#dce4ea] bg-white shadow-[0_18px_50px_rgba(16,36,62,.16)]">
+    <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#dce4ea] bg-white shadow-[0_18px_50px_rgba(16,36,62,.16)]">
       <div className="border-b border-[#edf1f4] p-4">
         <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#e8733f]">Signed-in account</p>
         <p className="mt-2 break-all text-sm font-semibold text-[#10243e]">{email}</p>

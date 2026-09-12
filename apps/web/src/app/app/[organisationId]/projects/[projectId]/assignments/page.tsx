@@ -41,7 +41,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const isEngineer=String(access.role)==="engineer";
   if(!isEngineer)redirect(projectHomePath(organisationId,projectId,String(access.role)));
 
-  const [{data:disciplineRows},{data:assignmentRows},{data:documentRows},{data:projectData},{data:noticeData},{data:impactData}]=await Promise.all([
+  const [{data:disciplineRows,error:disciplineError},{data:assignmentRows,error:assignmentError},{data:documentRows,error:documentError},{data:projectData,error:projectError},{data:noticeData},{data:impactData,error:impactError}]=await Promise.all([
     supabase.from("project_member_disciplines").select("discipline").eq("organisation_id",organisationId).eq("project_id",projectId).eq("user_id",user.id).order("discipline"),
     supabase.from("document_assignments").select("document_id").eq("organisation_id",organisationId).eq("project_id",projectId).eq("user_id",user.id).eq("status","active"),
     supabase.from("documents").select("id,document_number,title,discipline,document_type,planned_submission_date,planned_final_date,required_issue_status,responsible_party,progress_weight").eq("organisation_id",organisationId).eq("project_id",projectId).eq("lifecycle_status","active").order("discipline").order("document_number").limit(5000),
@@ -49,14 +49,19 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     supabase.from("notifications").select("id,title,body,href,created_at,read_at").eq("organisation_id",organisationId).eq("project_id",projectId).order("created_at",{ascending:false}).limit(3),
     supabase.rpc("get_engineer_project_impact",{target_organisation:organisationId,target_project:projectId}),
   ]);
+  const retryPath=`/app/${organisationId}/projects/${projectId}/assignments`;
+  if(disciplineError||assignmentError||documentError||projectError||!projectData){
+    return <AssignmentsUnavailable retryPath={retryPath}/>;
+  }
   const disciplines=(disciplineRows??[]).map(row=>row.discipline);
   const assignedDocumentIds=new Set((assignmentRows??[]).map(assignment=>assignment.document_id));
   const documents=((documentRows??[]) as DocumentRow[]).filter(document=>assignedDocumentIds.has(document.id)&&disciplines.some(discipline=>disciplineMatches(discipline,document.discipline)));
   const documentIds=documents.map(document=>document.id);
   const schedules=await loadDocumentSchedules(supabase,organisationId,projectId,documentIds);
-  const {data:revisionData}=documentIds.length
+  const {data:revisionData,error:revisionError}=documentIds.length
     ? await supabase.from("document_revisions").select("id,document_id,revision_code,issue_status,state,control_status,review_comment,created_at").in("document_id",documentIds).order("created_at",{ascending:false})
-    : {data:[]};
+    : {data:[],error:null};
+  if(revisionError)return <AssignmentsUnavailable retryPath={retryPath}/>;
   const latestByDocument=new Map<string,RevisionRow>();
   for(const revision of (revisionData??[]) as RevisionRow[])if(revision.state!=="pending_upload"&&!latestByDocument.has(revision.document_id))latestByDocument.set(revision.document_id,revision);
   const latestAcceptedByDocument=new Map<string,RevisionRow>();
@@ -80,7 +85,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const plannedWeight=deliverables.reduce((sum,item)=>isDue(item.document.planned_final_date??item.document.planned_submission_date)?sum+Number(item.document.progress_weight):sum,0);
   const plannedCompletion=totalWeight?Math.round(plannedWeight/totalWeight*100):0;
   const impact=(impactData??{}) as Partial<ProjectImpactRow>;
-  const impactAvailable=Boolean(impactData);
+  const impactAvailable=!impactError&&Boolean(impactData);
   const projectActual=numberValue(impact.project_actual_percent,completion);
   const projectPlanned=numberValue(impact.project_planned_percent,plannedCompletion);
   const engineerActual=numberValue(impact.engineer_actual_percent,completion);
@@ -98,13 +103,13 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   return <div className="mx-auto max-w-[1450px]">
     <Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]"><ArrowLeft size={16}/> My project assignments</Link>
     <header className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
-      <div className="min-w-0 max-w-3xl"><p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#e8733f] sm:text-xs sm:tracking-[.16em]">Discipline Engineer workspace</p><h1 className="mt-2 break-words text-[1.65rem] font-semibold leading-[1.15] tracking-[-.04em] sm:text-3xl">{project?.code} · {project?.name} <HelpTip label="My deliverables and submission workflow"><span className="block">Your DCC-assigned MDR deliverables, deadlines, submissions and Document Controller feedback.</span><span className="mt-2 block">1. Open the MDR deliverable assigned to your discipline.</span><span className="mt-2 block">2. Upload the correct document revision and issue details.</span><span className="mt-2 block">3. Document Control accepts it or returns it with a comment.</span></HelpTip></h1><ProjectBrief project={project}/><div className="mt-4 flex flex-wrap items-center gap-2"><span className="w-full text-[10px] font-bold uppercase tracking-[.1em] text-[#617083] sm:w-auto sm:text-xs">Project Manager-authorised disciplines</span>{disciplines.length?disciplines.map(discipline=><span key={discipline} className="rounded-full bg-[#e8f1ed] px-3 py-1 text-xs font-bold text-[#0c5b45]"><ShieldCheck size={12} className="mr-1 inline"/>{discipline}</span>):<span className="rounded-full bg-[#fff0e9] px-3 py-1 text-xs font-bold text-[#a5452f]">Not assigned</span>}</div></div>
+      <div className="min-w-0 max-w-3xl"><p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#e8733f] sm:text-xs sm:tracking-[.16em]">Discipline Engineer workspace</p><h1 className="mt-2 break-words text-[1.65rem] font-semibold leading-[1.15] tracking-[-.04em] sm:text-3xl">{project?.code} · {project?.name} <HelpTip label="My deliverables and submission workflow"><span className="block">Your DCC-assigned MDR deliverables, deadlines, submissions and Document Controller feedback.</span><span className="mt-2 block">1. Open the MDR deliverable assigned to your discipline.</span><span className="mt-2 block">2. Upload the correct document revision and issue details.</span><span className="mt-2 block">3. Document Control accepts it or returns it with a comment.</span></HelpTip></h1><details className="mt-4 rounded-2xl border border-[#dfe7e3] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#0c5b45]">Project brief, objectives and dates</summary><div className="px-3 pb-3"><ProjectBrief project={project}/></div></details><div className="mt-4 flex flex-wrap items-center gap-2"><span className="w-full text-[10px] font-bold uppercase tracking-[.1em] text-[#617083] sm:w-auto sm:text-xs">Project Manager-authorised disciplines</span>{disciplines.length?disciplines.map(discipline=><span key={discipline} className="rounded-full bg-[#e8f1ed] px-3 py-1 text-xs font-bold text-[#0c5b45]"><ShieldCheck size={12} className="mr-1 inline"/>{discipline}</span>):<span className="rounded-full bg-[#fff0e9] px-3 py-1 text-xs font-bold text-[#a5452f]">Not assigned</span>}</div></div>
       <div className="w-full rounded-2xl border border-[#dfe7e3] bg-white p-4 shadow-sm"><div className="flex items-end justify-between"><span className="text-3xl font-semibold text-[#0c5b45]">{completion}%</span><FileCheck2 size={22} className="text-[#e8733f]"/></div><p className="mt-1 text-xs font-bold uppercase tracking-[.1em] text-[#617083]">Stage-weighted progress</p><p className="mt-1 text-[10px] text-[#617083]">100% at {projectTerminalIssueStatus(deliveryStage)}</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e5ece8]"><div className="h-full rounded-full bg-[#0c5b45]" style={{width:`${completion}%`}}/></div></div>
     </header>
 
     <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4"><Metric label="My deliverables" value={deliverables.length} icon={<FileUp/>}/><Metric label="Action required" value={actionCount} icon={<AlertCircle/>} warn={actionCount>0}/><Metric label="With Document Control" value={reviewCount} icon={<Clock3/>}/><Metric label="Accepted" value={acceptedCount} icon={<CheckCircle2/>}/></section>
 
-    <EngineerProjectImpact
+    {impactAvailable?<EngineerProjectImpact
       health={health}
       impactAvailable={impactAvailable}
       projectActual={projectActual}
@@ -115,7 +120,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
       contribution={numberValue(impact.engineer_project_contribution_percent,completion)}
       expectedContribution={numberValue(impact.engineer_project_expected_contribution_percent,plannedCompletion)}
       delayImpact={numberValue(impact.engineer_project_delay_impact_points,Math.max(0,plannedCompletion-completion))}
-    />
+    />:<section role="status" className="ev-card mt-6 p-5"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-2 text-sm text-[#617083]">Your assigned deliverables remain available below. Refresh to retry the project summary.</p></section>}
 
     <div className="mt-5"><Link className="ev-button-secondary" href={`/app/${organisationId}/projects/${projectId}/requests`}>Request a date change or additional deliverable</Link></div>
     <CloseOutActions actions={closeOutActions} organisationId={organisationId} projectId={projectId} projectTotalWeight={projectTotalWeight}/>
@@ -136,6 +141,15 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
       </aside>
     </div>
   </div>;
+}
+
+function AssignmentsUnavailable({retryPath}:{retryPath:string}){
+  return <section role="alert" className="ev-card mx-auto max-w-2xl p-6 sm:p-8">
+    <h1 className="text-2xl font-semibold">Your assignments could not be loaded</h1>
+    <p className="mt-3 text-sm leading-6 text-[#617083]">We could not verify your current deliverables and revision status. Please retry before taking action.</p>
+    {/* A full reload retries the failed route rather than reusing a cached response. */}
+    <a href={retryPath} className="ev-button-secondary mt-5">Retry assignments</a>
+  </section>;
 }
 
 function EngineerProjectImpact({health,impactAvailable,projectActual,projectPlanned,engineerActual,engineerPlanned,engineerShare,contribution,expectedContribution,delayImpact}:{health:EngineerProgressHealth;impactAvailable:boolean;projectActual:number;projectPlanned:number;engineerActual:number;engineerPlanned:number;engineerShare:number;contribution:number;expectedContribution:number;delayImpact:number}){

@@ -1,6 +1,7 @@
 import {afterEach, expect, it, vi} from "vitest";
 import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {TransmittalCreateForm} from "./transmittal-create-form";
+import {AdminPreviewBoundary} from "./admin-preview-boundary";
 import type {TransmittalHistoryItem} from "@/lib/transmittal-revisions";
 vi.mock("next/navigation", () => ({useRouter: () => ({refresh:vi.fn()})}));
 vi.mock("@/app/app/actions", () => ({createDocumentTransmittal:vi.fn()}));
@@ -34,4 +35,15 @@ it("limits bulk selection to 100", () => {
   const {container} = render(<TransmittalCreateForm {...props} history={[]} revisions={Array.from({length:101},(_,i)=>row(String(i)))} />);
   fireEvent.click(screen.getByRole("button", {name:"Select visible (max 100)"}));
   expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(100);
+});
+
+it("allows preview search without unlocking selection or submission",()=>{
+  const {container}=render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"document_controller",displayName:"DCC",disciplines:[],expiresAt:"2099-01-01"}}><TransmittalCreateForm {...props} revisions={[row("3"),row("4")]}/></AdminPreviewBoundary>);
+  expect((screen.getByLabelText("Find deliverable") as HTMLInputElement).disabled).toBe(false);
+  expect((screen.getByLabelText("Discipline filter") as HTMLSelectElement).disabled).toBe(false);
+  fireEvent.change(screen.getByLabelText("Find deliverable"),{target:{value:"DOC-4"}});
+  expect(screen.queryByLabelText("Select DOC-3 revision A01")).toBeNull();
+  expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Create transmittal"}) as HTMLButtonElement).disabled).toBe(true);
+  expect(fireEvent.submit(container.querySelector('form:not([method])')!)).toBe(false);
 });

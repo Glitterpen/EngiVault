@@ -109,7 +109,7 @@ export function TransmittalCreateForm({
             <div key={label} className="min-w-0 rounded-xl border border-[#e4ebe7] p-3"><strong className="block text-xl text-[#0c5b45]">{count}</strong><span className="text-xs text-[#617083]">{label}</span></div>
           ))}
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div data-preview-safe className="mt-4 grid gap-3 sm:grid-cols-2">
           <label><span className="ev-label">Find deliverable</span><input className="ev-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Document number, title or revision" /></label>
           <label><span className="ev-label">Discipline filter</span><select className="ev-input" value={discipline} onChange={(event) => setDiscipline(event.target.value)}><option value="">All disciplines</option>{disciplines.map((name) => <option key={name}>{name}</option>)}</select></label>
         </div>

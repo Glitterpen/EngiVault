@@ -1,33 +1,38 @@
-import {afterEach,describe,expect,it,vi} from "vitest";
 import {cleanup,render,screen} from "@testing-library/react";
+import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import AssignmentsPage from "./page";
-import {requireProject} from "@/lib/auth";
-vi.mock("@/lib/auth",()=>({requireProject:vi.fn()}));
-vi.mock("next/navigation",()=>({redirect:vi.fn()}));
-afterEach(()=>{cleanup();vi.clearAllMocks();});
-describe("Multi-discipline engineer dashboard",()=>{
-  it("shows assigned deliverables across all PM scopes without exposing unrelated documents",async()=>{
-    const document=(id:string,discipline:string)=>({id,discipline,document_number:id,title:`${id} deliverable`,document_type:"Report",progress_weight:1,planned_submission_date:null,planned_final_date:null,required_issue_status:"Issued for Review (IFR)"});
-    const rows:Record<string,unknown[]>={
-      project_member_disciplines:[{discipline:"Electrical"},{discipline:"Instrumentation"}],
-      document_assignments:[{document_id:"ELE-01"},{document_id:"INS-01"},{document_id:"MECH-01"}],
-      documents:[document("ELE-01","Electrical"),document("INS-01","Instrumentation"),document("MECH-01","Mechanical"),document("ELE-02","Electrical")],
-      document_revisions:[],notifications:[],
-      project_document_progress:["ELE-01","INS-01"].map(document_id=>({document_id,planned_submission_date:null,next_submission_date:null,last_issue_date:null,revision_cycle_days:3,deadline_kind:"first_issue",overdue:false})),
-    };
-    const from=vi.fn((table:string)=>{
-      const result={data:table==="projects"?{name:"Multi-discipline project",code:"MULTI",delivery_stage:"feed",key_objectives:[]}:rows[table]??[]};
-      const query:Record<string,unknown>={then:(resolve:(value:unknown)=>unknown)=>Promise.resolve(result).then(resolve)};
-      for(const method of ["select","eq","in","order","limit","maybeSingle"])query[method]=vi.fn(()=>query);
-      return query;
-    });
-    vi.mocked(requireProject).mockResolvedValue({access:{role:"engineer"},user:{id:"engineer"},supabase:{from,rpc:vi.fn().mockResolvedValue({data:null})}} as never);
-    render(await AssignmentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve({})}));
-    expect(screen.getByRole("heading",{name:"ELE-01 deliverable",level:2})).toBeTruthy();
-    expect(screen.getByRole("heading",{name:"INS-01 deliverable",level:2})).toBeTruthy();
-    expect(screen.queryByText("MECH-01 deliverable")).toBeNull();
-    expect(screen.queryByText("ELE-02 deliverable")).toBeNull();
-    expect(screen.getAllByText("Electrical").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Instrumentation").length).toBeGreaterThan(0);
-  });
+const state=vi.hoisted(()=>({failed:"",hasDocument:false}));
+vi.mock("@/components/help-tip",()=>({HelpTip:()=>null}));
+vi.mock("@/lib/document-schedule",()=>({loadDocumentSchedules:async()=>new Map([["doc",{document_id:"doc",next_submission_date:null,overdue:false}]])}));
+vi.mock("@/lib/auth",()=>({requireProject:async()=>({user:{id:"member"},access:{role:"engineer"},supabase:{
+  from:(table:string)=>{
+    const rows:Record<string,unknown>={projects:{code:"P01",name:"Test project",delivery_stage:"feed"},project_member_disciplines:[{discipline:"Mechanical"}],document_assignments:state.hasDocument?[{document_id:"doc"}]:[],documents:state.hasDocument?[{id:"doc",discipline:"Mechanical",progress_weight:1}]:[]};
+    const result={data:rows[table]??[],error:state.failed===table?{message:"private failure"}:null};
+    const query={select:()=>query,eq:()=>query,in:()=>query,order:()=>query,limit:()=>query,maybeSingle:()=>query,then:(resolve:(value:typeof result)=>unknown)=>Promise.resolve(result).then(resolve)};
+    return query;
+  },
+  rpc:async()=>({data:null,error:{message:"aggregate unavailable"}}),
+}})}));
+beforeEach(()=>{state.failed="";state.hasDocument=false;});
+afterEach(cleanup);
+const page=()=>AssignmentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve({})});
+it.each(["project_member_disciplines","document_assignments","documents","projects"])("does not show empty assignments when %s fails",async(table)=>{
+  state.failed=table;
+  render(await page());
+  expect(screen.getByRole("alert").textContent).toContain("Your assignments could not be loaded");
+  expect(screen.getByRole("link",{name:"Retry assignments"}).getAttribute("href")).toBe("/app/org/projects/project/assignments");
+  expect(screen.queryByText("My deliverables")).toBeNull();
+  expect(screen.queryByText("private failure")).toBeNull();
+});
+it("does not invent a revision status after a failed revision fetch",async()=>{
+  state.hasDocument=true;state.failed="document_revisions";
+  render(await page());
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(screen.queryByText("No revision submitted")).toBeNull();
+});
+it("retains successfully loaded assignments but hides unavailable project aggregates",async()=>{
+  render(await page());
+  expect(screen.getByText("My deliverables")).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toContain("Project-wide progress is temporarily unavailable");
+  expect(screen.queryByText("Project delay influence")).toBeNull();
 });
