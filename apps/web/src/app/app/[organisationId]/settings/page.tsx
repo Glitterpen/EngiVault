@@ -22,6 +22,7 @@ export default async function OrganisationSettings({params}:{params:Promise<{org
   <h1 className="mt-2 text-3xl font-semibold">Manage organisation <HelpTip label="Organisation settings">Edit company identity, pause the workspace or remove it securely.</HelpTip></h1>
 
   <OrganisationAdminForm record={org}/>
+  <section className="ev-card mt-6 p-5"><h2 className="mb-3 font-semibold">My email notifications</h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/notifications`}>Choose disciplines and events</Link></section>
   <section className="ev-card mt-6 p-5"><h2 className="font-semibold">Executive access <HelpTip label="Executive Viewer role">Privately invite read-only executive viewers to see organisation and project status. They are hidden from ordinary users and project teams.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/executives`}>Manage Executive Viewers</Link></section>
   <section className="ev-card mt-6 p-5"><h2 className="font-semibold">User account management <HelpTip label="Removed team accounts">Delete login accounts after their project-team appointments have been removed, while preserving project documents and audit history.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/removed-accounts`}>Manage removed team accounts</Link></section>
  </div>
