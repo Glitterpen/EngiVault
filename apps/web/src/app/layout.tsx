@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import {IdleSessionGuard} from "@/components/idle-session-guard";
 
 export const metadata: Metadata = {
   title: { default: "EngiCite | Engineering document control and intelligence", template: "%s · EngiCite" },
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className="h-full antialiased"><body className="min-h-full font-sans">{children}</body></html>;
+  return <html lang="en" className="h-full antialiased"><body className="min-h-full font-sans"><IdleSessionGuard>{children}</IdleSessionGuard></body></html>;
 }
