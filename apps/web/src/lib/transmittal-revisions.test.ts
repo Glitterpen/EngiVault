@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   classifyLatestAcceptedRevisions,
   groupRevisionTransmittals,
+  separateTransmissionQueue,
   type AcceptedRevisionCandidate,
+  type TransmittalHistoryItem,
 } from "./transmittal-revisions";
 
 function revision(
@@ -69,6 +71,27 @@ describe("transmittal revision selection", () => {
 
     expect(result.ready).toHaveLength(1);
     expect(result.preparing).toHaveLength(1);
+  });
+});
+
+describe("transmission queue", () => {
+  const issue = (overrides: Partial<TransmittalHistoryItem> = {}): TransmittalHistoryItem => ({
+    revisionId: revision().id, packageId: "package", packageState: "ready", transmittalNumber: "TR-001",
+    createdAt: "2026-08-02T10:00:00Z", documentId: revision().documentId,
+    documentNumber: "EC-PRO-001", discipline: "Process", revisionCode: "R01", issueStatus: "Issued for Review", ...overrides,
+  });
+  it.each(["frozen", "generating", "failed", "cancelled", "ready"])("never reselects a revision already in a %s transmittal", (packageState) => {
+    const result = separateTransmissionQueue([revision()], [issue({packageState})]);
+    expect(result.ready).toEqual([]);
+    expect(result.transmitted.length).toBe(packageState === "ready" ? 1 : 0);
+    expect(result.staged.length).toBe(packageState === "ready" ? 0 : 1);
+  });
+  it("allows a new revision of an already transmitted document and retains old issue history", () => {
+    const next = revision({id: "new", revisionCode: "A01"});
+    expect(separateTransmissionQueue([next], [issue()])).toMatchObject({ready: [next], transmitted: [issue()]});
+  });
+  it("resolves equal creation timestamps consistently by revision id", () => {
+    expect(classifyLatestAcceptedRevisions([revision({id:"a"}), revision({id:"b"})]).ready[0].id).toBe("b");
   });
 });
 

@@ -7,9 +7,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Building2, CheckCheck, Clock3, FileCheck2, RefreshCw, Send } from "lucide-react";
 import { createDocumentTransmittal, type MutationState } from "@/app/app/actions";
-import type {
-  PreparingTransmittalRevision,
-  TransmittalRevision,
+import {
+  separateTransmissionQueue,
+  type PreparingTransmittalRevision,
+  type TransmittalRevision,
+  type TransmittalHistoryItem,
 } from "@/lib/transmittal-revisions";
 
 export function TransmittalCreateForm({
@@ -20,6 +22,7 @@ export function TransmittalCreateForm({
   revisions,
   preparing,
   issuedRevisionNumbers,
+  history,
 }: {
   organisationId: string;
   projectId: string;
@@ -28,6 +31,7 @@ export function TransmittalCreateForm({
   revisions: TransmittalRevision[];
   preparing: PreparingTransmittalRevision[];
   issuedRevisionNumbers: Record<string, string[]>;
+  history: TransmittalHistoryItem[];
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<MutationState, FormData>(
@@ -35,9 +39,19 @@ export function TransmittalCreateForm({
     undefined,
   );
   const [selected, setSelected] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [discipline, setDiscipline] = useState("");
   const [preparingMessage, setPreparingMessage] = useState("");
-  const selectedSet = useMemo(() => new Set(selected), [selected]);
-  const allSelected = revisions.length > 0 && selected.length === revisions.length;
+  const queue = useMemo(() => separateTransmissionQueue(revisions, history), [revisions, history]);
+  const eligible = queue.ready.filter((revision) => !(issuedRevisionNumbers[revision.id]?.length));
+  const matches = (row: {documentNumber: string; discipline: string; revisionCode: string; title?: string}) =>
+    (!discipline || row.discipline === discipline) &&
+    `${row.documentNumber} ${row.revisionCode} ${row.discipline} ${row.title ?? ""}`.toLowerCase().includes(search.trim().toLowerCase());
+  const visibleRevisions = eligible.filter(matches);
+  const selectableIds = visibleRevisions.slice(0, 100).map((revision) => revision.id);
+  const selectedSet = new Set(selected.filter((id) => eligible.some((revision) => revision.id === id)));
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedSet.has(id));
+  const disciplines = [...new Set([...revisions, ...preparing, ...history].map((row) => row.discipline))].sort();
   const clientConfigured = Boolean(clientName?.trim());
   const activePreparing = preparing.some((revision) =>
     ["quarantined", "processing"].includes(revision.state),
@@ -74,8 +88,9 @@ export function TransmittalCreateForm({
   }, [activePreparing, processEndpoint, router]);
 
   function toggle(id: string) {
+    if (!eligible.some((revision) => revision.id === id)) return;
     setSelected((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+      current.includes(id) ? current.filter((value) => value !== id) : [...selectedSet, id].slice(0, 100),
     );
   }
 
@@ -84,6 +99,21 @@ export function TransmittalCreateForm({
       <p className="rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-sm font-medium text-[#0c5b45]">{TRANSMITTAL_DAILY_NOTICE}</p>
       <input type="hidden" name="organisationId" value={organisationId} />
       <input type="hidden" name="projectId" value={projectId} />
+      {/* Hidden fields retain intentional selections when a search hides their rows. */}
+      {[...selectedSet].map((id) => <input key={id} type="hidden" name="revisionIds" value={id} />)}
+
+      <section className="ev-card p-5 sm:p-6">
+        <h2 className="font-semibold">Deliverables transmission status <HelpTip label="Transmission status">Ready lists only newly approved, securely prepared revisions not already reserved in a transmittal. Staged revisions remain reserved while their ZIP is preparing or needs retry. Transmitted means the transmittal ZIP is generated, not confirmation that the client received it.</HelpTip></h2>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[['Ready for transmission', eligible.length], ['Approved · preparing', preparing.length], ['Staged / needs attention', queue.staged.length], ['Transmitted', queue.transmitted.length]].map(([label, count]) => (
+            <div key={label} className="min-w-0 rounded-xl border border-[#e4ebe7] p-3"><strong className="block text-xl text-[#0c5b45]">{count}</strong><span className="text-xs text-[#617083]">{label}</span></div>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label><span className="ev-label">Find deliverable</span><input className="ev-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Document number, title or revision" /></label>
+          <label><span className="ev-label">Discipline filter</span><select className="ev-input" value={discipline} onChange={(event) => setDiscipline(event.target.value)}><option value="">All disciplines</option>{disciplines.map((name) => <option key={name}>{name}</option>)}</select></label>
+        </div>
+      </section>
 
       <section className="ev-card p-5 sm:p-6">
         <div className="flex items-start gap-3">
@@ -122,7 +152,7 @@ export function TransmittalCreateForm({
       <section className="ev-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4ebe7] px-5 py-4 sm:px-6">
           <div>
-            <h2 className="font-semibold">Select accepted documents <HelpTip label="Eligible transmittal revisions">Only the latest DCC-accepted, processing-ready revision of each document is available.</HelpTip></h2>
+            <h2 className="font-semibold">Ready for transmission <HelpTip label="Eligible transmittal revisions">Only the latest approved and securely prepared revision is selectable. Previously staged or transmitted revisions are excluded. Select up to 100 revisions per transmittal.</HelpTip></h2>
 
           </div>
           <div className="flex flex-wrap gap-2">
@@ -132,10 +162,10 @@ export function TransmittalCreateForm({
             <button
               type="button"
               className="ev-button-secondary"
-              disabled={!revisions.length}
-              onClick={() => setSelected(allSelected ? [] : revisions.map((revision) => revision.id))}
+              disabled={pending || !visibleRevisions.length}
+              onClick={() => setSelected(allSelected ? [] : selectableIds)}
             >
-              <CheckCheck size={16} /> {allSelected ? "Clear selection" : "Select all"}
+              <CheckCheck size={16} /> {allSelected ? "Clear selection" : "Select visible (max 100)"}
             </button>
           </div>
         </div>
@@ -171,7 +201,7 @@ export function TransmittalCreateForm({
           </div>
         )}
         <div className="max-h-[52vh] divide-y divide-[#edf1ef] overflow-y-auto">
-          {revisions.map((revision) => (
+          {visibleRevisions.map((revision) => (
             <label
               key={revision.id}
               className={`flex cursor-pointer gap-3 p-4 transition hover:bg-[#f8faf8] sm:px-6 ${
@@ -180,8 +210,9 @@ export function TransmittalCreateForm({
             >
               <input
                 type="checkbox"
-                name="revisionIds"
                 value={revision.id}
+                aria-label={`Select ${revision.documentNumber} revision ${revision.revisionCode}`}
+                disabled={pending || (!selectedSet.has(revision.id) && selectedSet.size >= 100)}
                 checked={selectedSet.has(revision.id)}
                 onChange={() => toggle(revision.id)}
                 className="mt-1 size-4 accent-[#0c5b45]"
@@ -192,7 +223,7 @@ export function TransmittalCreateForm({
                   <span className="rounded-full bg-[#e8f1ed] px-2 py-0.5 text-[10px] font-bold uppercase text-[#0c5b45]">
                     Rev {revision.revisionCode}
                   </span>
-                  <IssuedBadge numbers={issuedRevisionNumbers[revision.id] ?? []} />
+                  <span className="text-[10px] font-bold uppercase text-[#0c5b45]">Not yet transmitted</span>
                 </span>
                 <span className="mt-1 block text-sm font-medium text-[#24384f]">{revision.title}</span>
                 <span className="mt-1 block text-xs text-[#617083]">
@@ -201,20 +232,20 @@ export function TransmittalCreateForm({
               </span>
             </label>
           ))}
-          {!revisions.length && (
+          {!visibleRevisions.length && (
             <div className="p-10 text-center">
               <FileCheck2 className="mx-auto text-[#9aa7a1]" />
-              <p className="mt-3 text-sm font-semibold">No accepted documents are ready for transmission.</p>
-              <p className="mt-1 text-xs text-[#617083]">Accept a completed revision from the DCC review queue first.</p>
+              <p className="mt-3 text-sm font-semibold">{eligible.length ? "No ready deliverables match these filters." : "No new approved documents are ready for transmission."}</p>
+              <HelpTip label="No ready deliverables">Previously staged or transmitted revisions are kept in their separate lists below. Newly approved revisions appear here after secure preparation finishes.</HelpTip>
             </div>
           )}
         </div>
         <div className="border-t border-[#e4ebe7] bg-[#fbfcfb] p-5 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-[#0c5b45]">
-              {selected.length} document{selected.length === 1 ? "" : "s"} selected
+              {selectedSet.size} document{selectedSet.size === 1 ? "" : "s"} selected
             </p>
-            <button className="ev-button" disabled={pending || !selected.length || !revisions.length || !clientConfigured}>
+            <button className="ev-button" disabled={pending || !selectedSet.size || !eligible.length || !clientConfigured}>
               <Send size={16} /> {pending ? "Freezing transmittal..." : "Create transmittal"}
             </button>
           </div>
@@ -231,8 +262,23 @@ export function TransmittalCreateForm({
           <HelpTip label="Transmittal attestation">EngiCite will identify the authenticated DCC issuer and add an audit-backed attestation. When a verified qualified seal is configured, EngiCite embeds it in the PDF. The client acknowledgement block remains for the recipient to sign and return.</HelpTip>
         </div>
       </section>
+      <TransmissionHistory title="Staged / needs attention" items={queue.staged.filter(matches)} total={queue.staged.length} organisationId={organisationId} projectId={projectId} />
+      <TransmissionHistory title="Already transmitted" items={queue.transmitted.filter(matches)} total={queue.transmitted.length} organisationId={organisationId} projectId={projectId} />
     </form>
   );
+}
+
+function TransmissionHistory({title, items, total, organisationId, projectId}: {title: string; items: TransmittalHistoryItem[]; total: number; organisationId: string; projectId: string}) {
+  return <details className="ev-card overflow-hidden">
+    <summary className="cursor-pointer p-5 font-semibold">{title} ({total})</summary>
+    <div className="max-h-[52vh] divide-y divide-[#edf1ef] overflow-y-auto border-t border-[#e4ebe7]">
+      {[...items].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map((item) => <div key={`${item.packageId}-${item.revisionId}`} className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-6">
+        <div className="min-w-0"><strong className="break-words text-sm">{item.documentNumber} · Rev {item.revisionCode}</strong><p className="text-xs text-[#617083]">{item.discipline} · {item.issueStatus}</p><p className="mt-1 text-xs text-[#617083]">Staged {new Date(item.createdAt).toISOString().slice(0,10)} · {item.packageState === 'ready' ? 'Transmittal generated' : item.packageState === 'failed' ? 'Generation failed — retry existing transmittal' : item.packageState === 'cancelled' ? 'Cancelled — retained in issue history' : 'Reserved in existing transmittal'}</p></div>
+        <Link className="ev-button-secondary" href={`/app/${organisationId}/projects/${projectId}/work-packages/${item.packageId}`}>{item.transmittalNumber}</Link>
+      </div>)}
+      {!items.length && <p className="p-5 text-sm text-[#617083]">{total ? 'No matching deliverables.' : 'No deliverables in this category.'}</p>}
+    </div>
+  </details>;
 }
 
 function Field({

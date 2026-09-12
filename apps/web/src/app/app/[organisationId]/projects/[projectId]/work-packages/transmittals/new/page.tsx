@@ -7,11 +7,12 @@ import {
   TransmittalCreateForm,
 } from "@/components/transmittal-create-form";
 import { projectHomePath } from "@/lib/role-experience";
+import { loadTransmittalRows, TRANSMITTAL_PAGE_SIZE } from "@/lib/load-transmittal-rows";
 import {
   classifyLatestAcceptedRevisions,
   groupRevisionTransmittals,
   type AcceptedRevisionCandidate,
-  type RevisionTransmittalRecord,
+  type TransmittalHistoryItem,
 } from "@/lib/transmittal-revisions";
 
 export const dynamic = "force-dynamic";
@@ -41,9 +42,14 @@ type RevisionRow = {
 
 type IssuedItemRow = {
   revision_id: string | null;
+  document_id: string;
+  document_number: string;
+  revision_code: string;
+  discipline: string;
+  issue_status: string;
   work_packages:
-    | { package_number: string; manifest: Record<string, unknown> | null; created_at: string }
-    | { package_number: string; manifest: Record<string, unknown> | null; created_at: string }[];
+    | { id: string; state: string; package_number: string; manifest: Record<string, unknown> | null; created_at: string }
+    | { id: string; state: string; package_number: string; manifest: Record<string, unknown> | null; created_at: string }[];
 };
 
 export default async function NewTransmittalPage({
@@ -63,24 +69,28 @@ export default async function NewTransmittalPage({
         .eq("organisation_id", organisationId)
         .eq("id", projectId)
         .single(),
-      supabase
+      loadTransmittalRows<RevisionRow>((offset) => supabase
         .from("document_revisions")
         .select(
           "id,revision_code,issue_status,state,created_at,documents!inner(id,document_number,title,discipline,document_type,lifecycle_status)",
+          {count: "exact"},
         )
         .eq("organisation_id", organisationId)
         .eq("project_id", projectId)
         .eq("control_status", "accepted")
         .in("state", ["quarantined", "processing", "ready", "failed"])
         .eq("documents.lifecycle_status", "active")
-        .order("created_at", { ascending: false }),
-      supabase
+        .order("id")
+        .range(offset, offset + TRANSMITTAL_PAGE_SIZE - 1)),
+      loadTransmittalRows<IssuedItemRow>((offset) => supabase
         .from("work_package_items")
-        .select("revision_id,work_packages!inner(package_number,manifest,created_at)")
+        .select("revision_id,document_id,document_number,revision_code,discipline,issue_status,work_packages!inner(id,state,package_number,manifest,created_at)", {count: "exact"})
         .eq("organisation_id", organisationId)
         .eq("project_id", projectId)
         .eq("inclusion_state", "included")
-        .limit(10_000),
+        .eq("work_packages.manifest->>kind", "document_transmittal")
+        .order("id")
+        .range(offset, offset + TRANSMITTAL_PAGE_SIZE - 1)),
       supabase
         .from("work_packages")
         .select("id", { count: "exact", head: true })
@@ -127,7 +137,7 @@ export default async function NewTransmittalPage({
     });
   }
   const { ready: revisions, preparing } = classifyLatestAcceptedRevisions(candidates);
-  const issueRecords: RevisionTransmittalRecord[] = [];
+  const issueRecords: TransmittalHistoryItem[] = [];
   for (const row of (issuedRows ?? []) as unknown as IssuedItemRow[]) {
     const pack = Array.isArray(row.work_packages) ? row.work_packages[0] : row.work_packages;
     if (!row.revision_id || !pack || pack.manifest?.kind !== "document_transmittal") continue;
@@ -135,6 +145,13 @@ export default async function NewTransmittalPage({
       revisionId: row.revision_id,
       transmittalNumber: pack.package_number,
       createdAt: pack.created_at,
+      packageId: pack.id,
+      packageState: pack.state,
+      documentId: row.document_id,
+      documentNumber: row.document_number,
+      revisionCode: row.revision_code,
+      discipline: row.discipline,
+      issueStatus: row.issue_status,
     });
   }
   const issuedRevisionNumbers = groupRevisionTransmittals(issueRecords);
@@ -169,6 +186,7 @@ export default async function NewTransmittalPage({
           revisions={revisions}
           preparing={preparing}
           issuedRevisionNumbers={issuedRevisionNumbers}
+          history={issueRecords}
         />
       </div>
     </div>

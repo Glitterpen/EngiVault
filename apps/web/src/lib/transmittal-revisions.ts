@@ -21,10 +21,29 @@ export type RevisionTransmittalRecord = {
   createdAt: string;
 };
 
+export type TransmittalHistoryItem = RevisionTransmittalRecord & {
+  packageId: string;
+  packageState: string;
+  documentId: string;
+  documentNumber: string;
+  revisionCode: string;
+  discipline: string;
+  issueStatus: string;
+};
+
+export function separateTransmissionQueue(revisions: TransmittalRevision[], history: TransmittalHistoryItem[]) {
+  const reserved = new Set(history.map((item) => item.revisionId));
+  return {
+    ready: revisions.filter((revision) => !reserved.has(revision.id)),
+    staged: history.filter((item) => item.packageState !== "ready"),
+    transmitted: history.filter((item) => item.packageState === "ready"),
+  };
+}
+
 export function classifyLatestAcceptedRevisions(rows: AcceptedRevisionCandidate[]) {
   const latestByDocument = new Map<string, AcceptedRevisionCandidate>();
   const newestFirst = [...rows].sort((left, right) =>
-    right.createdAt.localeCompare(left.createdAt),
+    right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
   );
 
   for (const row of newestFirst) {
