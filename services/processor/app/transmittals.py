@@ -7,7 +7,6 @@ from datetime import datetime
 
 NAVY = (0.035, 0.137, 0.267)
 GREEN = (0.047, 0.357, 0.271)
-ORANGE = (0.929, 0.443, 0.220)
 GREY = (0.380, 0.439, 0.514)
 
 
@@ -26,14 +25,14 @@ def build_transmittal_pdf(
     reference = _attestation_reference(package, documents, manifest)
     pages: list[list[str]] = []
 
-    first_rows, remaining = documents[:18], documents[18:]
-    pages.append(_document_page(package, project, recipient, issuer, first_rows, issued_at, 1, reference, electronic_seal_expected))
+    first_page, remaining = _document_page(package, project, recipient, issuer, documents, issued_at, 1, reference, electronic_seal_expected)
+    pages.append(first_page)
     page_number = 2
     while remaining:
         page_rows, remaining = remaining[:28], remaining[28:]
         pages.append(_continuation_page(package, page_rows, page_number))
         page_number += 1
-    pages.append(_acknowledgement_page(package, recipient, reference, page_number))
+    pages.append(_acknowledgement_page(package, reference, page_number))
     return _render_pdf(pages)
 
 
@@ -47,8 +46,8 @@ def _document_page(
     page_number: int,
     reference: str,
     electronic_seal_expected: bool,
-) -> list[str]:
-    commands = _page_header(package, "DOCUMENT TRANSMITTAL", page_number)
+) -> tuple[list[str], list[dict[str, object]]]:
+    commands = _page_header(package, "DOCUMENT TRANSMITTAL")
     y = 730
     commands += _label_value(44, y, "PROJECT", f"{project.get('code', '')} - {project.get('name', '')}", width=76)
     y -= 31
@@ -69,16 +68,19 @@ def _document_page(
     y -= max(30, 12 * len(textwrap.wrap(_plain(message), width=94)))
     commands += _table_header(y)
     y -= 22
-    for row in rows:
+    # Keep the last row rule above the attestation box (top = 166),
+    # allowing for the actual height of the cover message.
+    visible_count = max(0, (y - 19 - 178) // 23 + 1)
+    for row in rows[:visible_count]:
         commands += _table_row(y, row)
         y -= 23
     commands += _attestation_box(44, 83, issuer, issued_at, reference, electronic_seal_expected)
     commands += _footer(page_number)
-    return commands
+    return commands, rows[visible_count:]
 
 
 def _continuation_page(package: dict[str, object], rows: list[dict[str, object]], page_number: int) -> list[str]:
-    commands = _page_header(package, "DOCUMENT SCHEDULE - CONTINUED", page_number)
+    commands = _page_header(package, "DOCUMENT SCHEDULE - CONTINUED")
     y = 730
     commands += _table_header(y)
     y -= 22
@@ -91,54 +93,34 @@ def _continuation_page(package: dict[str, object], rows: list[dict[str, object]]
 
 def _acknowledgement_page(
     package: dict[str, object],
-    recipient: dict[str, object],
     reference: str,
     page_number: int,
 ) -> list[str]:
-    commands = _page_header(package, "CLIENT ACKNOWLEDGEMENT", page_number)
-    commands += _text(44, 724, "ACKNOWLEDGEMENT OF RECEIPT", 14, True, NAVY)
+    commands = _page_header(package, "CLIENT ACKNOWLEDGEMENT")
     commands += _wrapped_text(
         44,
-        697,
-        f"We acknowledge receipt of transmittal {package.get('package_number', '')} and the {len((package.get('manifest') or {}).get('documents', [])) or (package.get('manifest') or {}).get('document_count', '')} document(s) listed in the attached schedule.",
+        715,
+        "I acknowledge receipt of the documents listed in this transmittal.",
         10,
         91,
-        GREY,
+        NAVY,
         leading=14,
     )
-    commands += _text(44, 633, "Recipient company", 8, True, GREY)
-    commands += _line(44, 611, 548, 611)
-    commands += _text(48, 617, str(recipient.get("company") or ""), 10, False, NAVY)
-    fields = [
-        ("Representative name", 566),
-        ("Job title", 502),
-        ("Signature", 438),
-        ("Date received", 374),
-    ]
-    for label, y in fields:
-        commands += _text(44, y + 22, label, 8, True, GREY)
-        commands += _line(44, y, 548, y)
-    commands += _text(44, 320, "Client comments / exceptions", 8, True, GREY)
-    for y in (294, 264, 234, 204):
-        commands += _line(44, y, 548, y)
-    commands.append(_box(44, 108, 504, 58, fill=(0.961, 0.976, 0.969), stroke=(0.812, 0.882, 0.847)))
-    commands += _text(56, 145, "RETURN INSTRUCTION", 8, True, GREEN)
-    commands += _wrapped_text(56, 128, "Sign this acknowledgement and return it to the issuing Document Controller. Quote the transmittal number and attestation reference in your response.", 9, 84, NAVY, leading=12)
-    commands += _text(44, 86, f"Attestation reference: {reference}", 8, True, GREY)
+    commands += _text(44, 654, "Signature", 8, True, GREY)
+    commands += _line(44, 602, 365, 602)
+    commands += _text(400, 654, "Date", 8, True, GREY)
+    commands += _line(400, 602, 551, 602)
+    commands += _wrapped_text(44, 565, "Please sign, date and return this acknowledgement to the issuing Document Controller.", 9, 94, GREY, leading=12)
+    commands += _text(44, 535, f"Attestation reference: {reference}", 8, False, GREY)
     commands += _footer(page_number)
     return commands
 
 
-def _page_header(package: dict[str, object], title: str, page_number: int) -> list[str]:
+def _page_header(package: dict[str, object], title: str) -> list[str]:
     number = str(package.get("package_number") or "")
     return [
-        "0.035 0.137 0.267 rg 0 782 595 60 re f",
-        "0.929 0.443 0.220 rg 0 782 9 60 re f",
-        *_text(30, 809, "Engi", 20, True, (1, 1, 1)),
-        *_text(73, 809, "Cite", 20, True, ORANGE),
-        *_text(548, 813, f"{page_number}", 9, True, (1, 1, 1)),
-        *_text(44, 758, title, 16, True, NAVY),
-        *_text(548, 758, number, 9, True, ORANGE, align="right"),
+        *_text(44, 790, title, 16, True, NAVY),
+        *_text(44, 768, f"Transmittal: {number}", 9, True, GREY),
         *_line(44, 746, 551, 746, GREEN, 1.2),
     ]
 
@@ -173,7 +155,7 @@ def _attestation_box(
     electronic_seal_expected: bool,
 ) -> list[str]:
     commands = [_box(x, y, 507, 83, fill=(0.961, 0.976, 0.969), stroke=(0.812, 0.882, 0.847))]
-    commands += _text(x + 12, y + 62, "ENGICITE SYSTEM-ISSUED ATTESTATION", 8, True, GREEN)
+    commands += _text(x + 12, y + 62, "SYSTEM-ISSUED ATTESTATION", 8, True, GREEN)
     name = str(issuer.get("name") or "Document Controller")
     email = str(issuer.get("email") or "")
     commands += _wrapped_text(x + 12, y + 46, f"Issued by {name}{' (' + email + ')' if email else ''} while authenticated as the project Document Controller on {issued_at}.", 8.5, 91, NAVY, leading=11)
@@ -196,7 +178,7 @@ def _label_value(x: float, y: float, label: str, value: str, width: float) -> li
 def _footer(page_number: int) -> list[str]:
     return [
         *_line(44, 52, 551, 52, (0.86, 0.89, 0.91), 0.5),
-        *_text(44, 36, "Generated by EngiCite - Know the answer. Cite the proof.", 7.5, False, GREY),
+        *_text(44, 36, "Generated by EngiCite", 7.5, False, GREY),
         *_text(551, 36, f"Page {page_number}", 7.5, True, GREY, align="right"),
     ]
 

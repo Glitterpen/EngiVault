@@ -113,7 +113,7 @@ export function TransmittalCreateForm({
               className="ev-input min-h-24 resize-y"
               name="message"
               maxLength={2000}
-              placeholder="Please acknowledge receipt and record any comments on the enclosed transmittal form."
+              placeholder="Please sign and date the enclosed acknowledgement and return it to the issuing Document Controller."
             />
           </label>
         </div>

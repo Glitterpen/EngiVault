@@ -73,6 +73,7 @@ def test_adobe_intesi_seal_flow_is_pades_and_records_evidence():
     assert options["documentLevelPermission"]=="FORM_FILLING"
     assert options["tsaOptions"]["url"].startswith("https://")
     assert options["cscCredentialOptions"]["providerName"]=="provider-name-from-onboarding"
+    assert options["sealFieldOptions"]["fieldName"]=="QualifiedOrganisationSeal"
 
 
 def test_enabled_sealer_fails_closed_when_credentials_are_missing():

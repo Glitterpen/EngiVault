@@ -199,7 +199,7 @@ class AdobeIntesiElectronicSealer:
             },
             "sealFieldOptions": {
                 "pageNumber": 1,
-                "fieldName": "EngiCiteQualifiedOrganisationSeal",
+                "fieldName": "QualifiedOrganisationSeal",
                 "visible": True,
                 "location": {"left": 327, "bottom": 91, "right": 539, "top": 155},
             },

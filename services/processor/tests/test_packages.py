@@ -86,7 +86,8 @@ def test_transmittal_contains_signed_cover_and_acknowledgement():
         return package,items,revisions
     gateway.package_data=transmittal_data
     build_package(gateway,"transmittal-id")
-    assert "00 - Transmittal Control/EngiCite-Transmittal-FWP-001.pdf" in gateway.names
+    assert "00 - Transmittal Control/Transmittal-FWP-001.pdf" in gateway.names
+    assert not any("engicite" in name.lower() for name in gateway.names)
     assert not any(name.endswith(".csv") for name in gateway.names)
     assert not any(name.endswith(".json") for name in gateway.names)
     assert not any(name.endswith(".sha256") for name in gateway.names)
@@ -122,5 +123,6 @@ def test_transmittal_pdf_identifies_attestation_and_client_acknowledgement():
     documents=[{"revision_id":"revision-id","document_number":"DOC-001","discipline":"Process","revision_code":"C01","issue_status":"Issued for Approval"}]
     pdf=build_transmittal_pdf(package,documents)
     assert pdf.startswith(b"%PDF-1.4")
-    assert b"ENGICITE SYSTEM-ISSUED ATTESTATION" in pdf
+    assert b"SYSTEM-ISSUED ATTESTATION" in pdf
+    assert b"ENGICITE SYSTEM-ISSUED ATTESTATION" not in pdf
     assert b"CLIENT ACKNOWLEDGEMENT" in pdf

@@ -117,7 +117,7 @@ def build_package(
 
             if is_transmittal:
                 seal_expected = bool(electronic_sealer and electronic_sealer.enabled)
-                cover_name = f"{control_folder}/EngiCite-Transmittal-{safe_number}.pdf"
+                cover_name = f"{control_folder}/Transmittal-{safe_number}.pdf"
                 cover = build_transmittal_pdf(
                     package,
                     manifest_rows,
