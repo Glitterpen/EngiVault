@@ -4,12 +4,27 @@ import type {SupabaseClient} from '@supabase/supabase-js';
 vi.mock('server-only',()=>({}));
 vi.mock('@/lib/env',()=>({publicEnv:()=>({NEXT_PUBLIC_SUPABASE_URL:'https://preview.example.test',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'public-placeholder-key-for-test'})}));
 import {createMemberPreviewClient} from './member-preview-client';
+import {loadTransmittalHistoryRows} from './load-transmittal-rows';
 import type {AdminPreview} from './admin-preview';
 const preview:AdminPreview={sessionId:'session-id',organisationId:'org-id',projectId:'project-id',memberId:'member-id',role:'engineer',displayName:'Engineer',email:'engineer@example.test',disciplines:['Electrical'],expiresAt:'2026-09-09T00:00:00Z'};
 const rpc=vi.fn();
 const actor={rpc} as unknown as SupabaseClient;
 beforeEach(()=>rpc.mockReset());
 describe('member preview Supabase transport',()=>{
+ it('loads the transmittal history through audited DCC scope, including multiple pages',async()=>{
+   const pack={id:'package',state:'ready',package_number:'TR-001',manifest:{kind:'document_transmittal'},created_at:'2026-09-12T00:00:00Z'};
+   const row={revision_id:'revision',document_id:'document',document_number:'E-001',revision_code:'A',discipline:'Electrical',issue_status:'IFR',work_packages:pack};
+   rpc.mockResolvedValueOnce({data:{rows:[row],total:2},error:null})
+      .mockResolvedValueOnce({data:{rows:[{...row,revision_id:'revision-2'}],total:2},error:null});
+   const client=createMemberPreviewClient(actor,{...preview,role:'document_controller'});
+   const result=await loadTransmittalHistoryRows(client,'org-id','project-id');
+   expect(result.data).toEqual([row,{...row,revision_id:'revision-2'}]);
+   expect(rpc).toHaveBeenCalledTimes(2);
+   expect(rpc.mock.calls[0][1]).toMatchObject({target_preview:'session-id',resource:'work_package_items',query:{offset:0,embeds:['work_packages'],inner:['work_packages'],filters:[{column:'organisation_id',op:'eq',value:'org-id'},{column:'project_id',op:'eq',value:'project-id'},{column:'inclusion_state',op:'eq',value:'included'}]}});
+   expect(rpc.mock.calls[1][1].query.offset).toBe(1);
+   expect((await client.rpc('create_document_transmittal',{})).error).not.toBeNull();
+   expect(rpc).toHaveBeenCalledTimes(2);
+ });
  it('scopes template reads to the validated member and blocks uploads',async()=>{
    rpc.mockResolvedValue({data:{current:null,pending:null},error:null});
    const client=createMemberPreviewClient(actor,preview);

@@ -7,7 +7,7 @@ import {
   TransmittalCreateForm,
 } from "@/components/transmittal-create-form";
 import { projectHomePath } from "@/lib/role-experience";
-import { loadTransmittalRows, TRANSMITTAL_PAGE_SIZE } from "@/lib/load-transmittal-rows";
+import { loadTransmittalRows, loadTransmittalHistoryRows, TRANSMITTAL_PAGE_SIZE } from "@/lib/load-transmittal-rows";
 import {
   classifyLatestAcceptedRevisions,
   groupRevisionTransmittals,
@@ -82,15 +82,7 @@ export default async function NewTransmittalPage({
         .eq("documents.lifecycle_status", "active")
         .order("id")
         .range(offset, offset + TRANSMITTAL_PAGE_SIZE - 1)),
-      loadTransmittalRows<IssuedItemRow>((offset) => supabase
-        .from("work_package_items")
-        .select("revision_id,document_id,document_number,revision_code,discipline,issue_status,work_packages!inner(id,state,package_number,manifest,created_at)", {count: "exact"})
-        .eq("organisation_id", organisationId)
-        .eq("project_id", projectId)
-        .eq("inclusion_state", "included")
-        .eq("work_packages.manifest->>kind", "document_transmittal")
-        .order("id")
-        .range(offset, offset + TRANSMITTAL_PAGE_SIZE - 1)),
+      loadTransmittalHistoryRows<IssuedItemRow>(supabase, organisationId, projectId),
       supabase
         .from("work_packages")
         .select("id", { count: "exact", head: true })
@@ -215,7 +207,7 @@ function TransmittalLoadError({
         </span>
         <h1 className="mt-5 text-2xl font-semibold tracking-[-.03em]">Transmittal list could not be refreshed</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[#617083]">
-          EngiCite temporarily lost its secure connection while loading the accepted documents. Check the Work packages list before submitting again, then retry this page.
+          EngiCite could not safely load the accepted documents and transmission history. Check the Work packages list before submitting again, then retry this page.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <a href={pagePath} className="ev-button">
