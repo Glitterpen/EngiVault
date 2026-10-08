@@ -157,7 +157,7 @@ export function RevisionUpload({
       const storage = createClient().storage.from("documents");
       setProgress(45);
       setStatus("Uploading the controlled issue file to private storage...");
-      const { error } = await storage.uploadToSignedUrl(session.path, session.token, file, {
+      const { error } = await storage.uploadToSignedUrl(session.path, session.token, preparedPrimary.file, {
         contentType: preparedPrimary.mimeType,
         upsert: false,
       });
@@ -387,7 +387,9 @@ async function prepareFile(file: File, nativeOnly: boolean): Promise<PreparedFil
   }
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return {
-    file,
+    // Signed multipart uploads use File.type for the part, not contentType.
+    // Preserve the validated/hashed bytes while normalising browser DWG labels.
+    file: new File([file], file.name, { type: mimeType, lastModified: file.lastModified }),
     fileName: file.name,
     mimeType,
     size: file.size,
