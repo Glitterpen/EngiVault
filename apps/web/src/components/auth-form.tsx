@@ -1,5 +1,6 @@
 "use client";
 import {HelpTip} from "@/components/help-tip";
+import {PasswordInput} from "@/components/password-input";
 import Link from "next/link";
 import {useActionState,useEffect,useId,useRef,useState} from "react";
 import {FieldWithHelp} from "@/components/field-with-help";
@@ -62,6 +63,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
 
 function Field({label,name,type="text",autoComplete,hint,error}:{label:string;name:string;type?:string;autoComplete?:string;hint?:string;error?:string}){
   const id=useId();
-  const input=<input id={id} className="ev-input" name={name} type={type} autoComplete={autoComplete} required aria-invalid={!!error} aria-describedby={error?`${id}-error`:undefined}/>;
+  const inputProps={id,className:"ev-input",name,autoComplete,required:true,"aria-invalid":!!error,"aria-describedby":error?`${id}-error`:undefined};
+  const input=type==="password"?<PasswordInput {...inputProps}/>:<input {...inputProps} type={type}/>;
   return <div>{hint?<FieldWithHelp label={label} helpLabel={`${label} guidance`} help={hint}>{input}</FieldWithHelp>:<><label htmlFor={id} className="ev-label">{label}</label>{input}</>}{error&&<span id={`${id}-error`} className="mt-1.5 block text-xs text-red-700" role="alert">{error}</span>}</div>;
 }

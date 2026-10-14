@@ -1,8 +1,9 @@
 "use client";
 
 import {HelpTip} from "@/components/help-tip";
+import {PasswordInput} from "@/components/password-input";
 import Link from "next/link";
-import {useActionState,useEffect,useRef,useState} from "react";
+import {useActionState,useEffect,useId,useRef,useState} from "react";
 import type {AuthState} from "@/app/(auth)/actions";
 import {AuthTurnstile} from "@/components/auth-turnstile";
 
@@ -51,5 +52,7 @@ export function FounderLoginForm({
 }
 
 function Field({label,name,type,autoComplete,error}:{label:string;name:string;type:string;autoComplete:string;error?:string}){
-  return <label className="block"><span className="ev-label">{label}</span><input className="ev-input" name={name} type={type} autoComplete={autoComplete} required aria-invalid={Boolean(error)}/>{error&&<span className="mt-1.5 block text-xs text-red-700">{error}</span>}</label>;
+  const id=useId();
+  const props={id,className:"ev-input",name,autoComplete,required:true,"aria-invalid":Boolean(error),"aria-describedby":error?`${id}-error`:undefined};
+  return <div className="block"><label htmlFor={id} className="ev-label">{label}</label>{type==="password"?<PasswordInput {...props}/>:<input {...props} type={type}/>} {error&&<span id={`${id}-error`} className="mt-1.5 block text-xs text-red-700">{error}</span>}</div>;
 }
