@@ -35,5 +35,5 @@ it("groups approved purposes while retaining newest-first database order within 
     "Issued for Review (IFR) 2 documents","Issued for Approval (IFA) 1 document","Issued for Design (IFD) 1 document","Issued for Construction (IFC) 1 document",
   ]);
   expect(Array.from(groups[0].querySelectorAll("h3")).map(node=>node.textContent)).toEqual(["Newest review","Older review"]);
-  expect(groups.every(group=>group.hasAttribute("open"))).toBe(true);
+  expect(groups.map(group=>group.hasAttribute("open"))).toEqual([true,false,false,false]);
 });

@@ -18,22 +18,22 @@ export default async function InterdisciplinaryLibraryPage({params,searchParams}
     <p className="text-xs font-bold uppercase tracking-widest text-[#e8733f]">Project reference library</p>
     <h1 className="mt-2 flex flex-wrap items-center gap-2 text-3xl font-semibold">Interdisciplinary check <HelpTip label="Approved-document library guidance">Browse the latest available DCC-approved revision from every discipline in this project. Drafts and pending submissions are not shared here. Sign-offs and feedback are separate from final DCC approval; upload assignments are unchanged.</HelpTip></h1>
     {preview&&<p className="mt-3 text-sm text-[#a5452f]">Live member preview · Read-only</p>}
-    <form action={base} method="get" className="ev-card mt-6 grid items-end gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+    <form action={base} method="get" className="ev-card mt-4 grid items-end gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:p-4">
       <label className="min-w-0"><span className="ev-label">Document number or title</span><input name="q" type="search" className="ev-input" defaultValue={q} maxLength={200}/></label>
       <label className="min-w-0"><span className="ev-label">Discipline</span><select name="discipline" className="ev-input" defaultValue={discipline}><option value="">All disciplines</option>{library.disciplines.map(name=><option key={name}>{name}</option>)}</select></label>
       <button className="ev-button">Apply filters</button>
     </form>
-    <p className="mt-5 text-sm text-[#617083]">Grouped by issue purpose · Newest submissions first within each group · Counts shown for this page</p>
-    <div className="mt-4 grid gap-4">{groupSubmissions(library.documents.map(document=>({latest:{issue_status:document.issue_status},document}))).map(group=><details key={group.label} open className="min-w-0 rounded-2xl border border-[#dfe7e3] bg-[#f3f8f6]">
-      <summary className="min-h-12 cursor-pointer break-words rounded-2xl px-4 py-4 font-semibold text-[#0c5b45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45]">{group.label} <span className="ml-2 inline-block rounded-full bg-white px-2.5 py-1 text-xs">{group.items.length} {group.items.length===1?"document":"documents"}</span></summary>
-      <div className="grid gap-4 px-3 pb-3 lg:grid-cols-2">{group.items.map(({document})=><article key={document.document_id} className="ev-card min-w-0 break-words p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold text-[#e8733f]">{document.document_number}</p><span className="rounded-full bg-[#eaf5ef] px-3 py-1 text-xs font-semibold text-[#0c5b45]">DCC approved</span></div>
-      <h3 className="mt-3 text-lg font-semibold">{document.title}</h3>
-      <p className="mt-2 text-sm text-[#617083]">{document.discipline} · {document.document_type}</p>
-      <p className="mt-3 text-sm">Rev {document.revision_code} · {document.issue_status} · {referenceDate(document.issue_date)}</p>
-      <Link href={`${base}/${document.revision_id}`} className="ev-button-secondary mt-4">View approved file & checks →</Link>
+    <div className="mt-3 flex items-center gap-2"><span className="rounded-full bg-[#eaf5ef] px-3 py-1 text-xs font-semibold text-[#0c5b45]">DCC approved</span><HelpTip label="Document grouping and order">Expand an issue purpose to browse its approved documents. Newest submissions appear first within each group. Group counts refer to this page; older entries remain available on subsequent pages.</HelpTip></div>
+    <div className="mt-3 grid gap-3">{groupSubmissions(library.documents.map(document=>({latest:{issue_status:document.issue_status},document}))).map((group,index)=><details key={group.label} open={index===0} className="min-w-0 rounded-2xl border border-[#dfe7e3] bg-[#f3f8f6]">
+      <summary className="min-h-11 cursor-pointer break-words rounded-2xl px-3 py-3 font-semibold text-[#0c5b45] sm:px-4"><h2 className="inline text-sm">{group.label} <span className="ml-2 inline-block rounded-full bg-white px-2.5 py-1 text-xs">{group.items.length} {group.items.length===1?"document":"documents"}</span></h2></summary>
+      <div className="grid gap-2 px-2 pb-2 sm:px-3 sm:pb-3">{group.items.map(({document})=><article key={document.document_id} className="min-w-0 rounded-xl border border-[#dde4eb] bg-white p-3 sm:flex sm:items-center sm:justify-between sm:gap-4 sm:px-4">
+      <div className="min-w-0"><p className="break-words text-xs font-bold text-[#a64019]">{document.document_number}</p>
+      <h3 className="mt-1 break-words text-base font-semibold">{document.title}</h3>
+      <p className="mt-1 text-sm text-[#617083]">{document.discipline} · {document.document_type}</p></div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 sm:mt-0 sm:shrink-0 sm:flex-col sm:items-end"><p className="text-xs text-[#617083]">Rev {document.revision_code} · {referenceDate(document.issue_date)}</p>
+      <Link href={`${base}/${document.revision_id}`} aria-label={`View approved file and checks for ${document.document_number}`} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-[#0c5b45] hover:bg-[#eef5f1]">View file & checks <span aria-hidden="true">→</span></Link></div>
     </article>)}</div></details>)}</div>
     {!library.documents.length&&<p className="ev-card mt-5 p-8 text-center text-sm text-[#617083]">No approved documents match this selection.</p>}
-    <nav aria-label="Approved document pages" className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">{page>1?<Link href={pageUrl(page-1)}>← Previous</Link>:<span/>}<span>Page {page} · {library.total} approved documents</span>{page*25<library.total?<Link href={pageUrl(page+1)}>Next →</Link>:<span/>}</nav>
+    <nav aria-label="Approved document pages" className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">{page>1?<Link className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-[#0c5b45]" href={pageUrl(page-1)}>← Previous</Link>:<span/>}<span>Page {page} · {library.total} approved documents</span>{page*25<library.total?<Link className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-[#0c5b45]" href={pageUrl(page+1)}>Next →</Link>:<span/>}</nav>
   </div>;
 }
