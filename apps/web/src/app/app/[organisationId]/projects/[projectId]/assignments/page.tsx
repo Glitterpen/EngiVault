@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import {requireProject} from "@/lib/auth";
 import {disciplineMatches} from "@/lib/discipline-access";
+import {groupSubmissions} from "@/lib/submission-groups";
 import {engineerActionInstruction,engineerActionPriority,engineerDeliverableState,requiresEngineerAction,type EngineerDeliverableState} from "@/lib/engineer-deliverables";
 import {engineerProgressHealth,recoverableProjectImpact,type EngineerProgressHealth} from "@/lib/engineer-progress";
 import {projectHomePath} from "@/lib/role-experience";
@@ -133,7 +134,15 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
           <Filter href={`${base}?view=review`} active={view==="review"} label="In DCC review" count={reviewCount}/>
           <Filter href={`${base}?view=accepted`} active={view==="accepted"} label="Accepted" count={acceptedCount}/>
         </nav>
-        <section className="mt-4 grid gap-4">{filtered.length?filtered.map(item=><DeliverableCard key={item.document.id} item={item} organisationId={organisationId} projectId={projectId}/>):<div className="ev-card p-10 text-center text-[#617083]">No deliverables match this status.</div>}</section>
+        <h2 className="mt-5 font-semibold">Submissions by issue purpose <HelpTip label="Submission grouping">Deliverables are grouped by their latest submitted revision’s issue purpose, not the next required stage. Expand a group to view its deliverables and revision codes. Status filters apply across all groups.</HelpTip></h2>
+        <section aria-label="Submissions by issue purpose" className="mt-4 grid min-w-0 gap-4">
+          {filtered.length?groupSubmissions(filtered).map(group=><details key={`${view}-${group.label}`} open className="min-w-0 rounded-2xl border border-[#dfe7e3] bg-[#f3f8f6]">
+            <summary className="min-h-12 cursor-pointer break-words rounded-2xl px-4 py-4 font-semibold text-[#0c5b45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45] sm:px-5">
+              {group.label} <span className="ml-2 inline-block rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#526171]">{group.items.length} {group.items.length===1?"deliverable":"deliverables"}</span>
+            </summary>
+            <div className="grid min-w-0 gap-3 px-2 pb-2 sm:px-3 sm:pb-3">{group.items.map(item=><DeliverableCard key={item.document.id} item={item} organisationId={organisationId} projectId={projectId}/>)}</div>
+          </details>):<div className="ev-card p-10 text-center text-[#617083]">No deliverables match this status.</div>}
+        </section>
       </main>
       <aside className="space-y-5">
         <section className="ev-card p-5"><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#e8733f]">Recent notices</p><h2 className="mt-1 font-semibold">Engineer notifications</h2></div><Bell size={18} className="text-[#0c5b45]"/></div><div className="mt-4 space-y-3">{notices.length?notices.map(notice=><Link key={notice.id} href={`/app/notifications/${notice.id}`} className="block rounded-xl border border-[#e5ebe8] p-3 transition hover:border-[#e8733f]"><div className="flex gap-2"><CircleDot size={13} className={`mt-0.5 shrink-0 ${notice.read_at?"text-[#9aa6b2]":"text-[#e8733f]"}`}/><div><p className="text-xs font-bold">{notice.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-[#617083]">{notice.body}</p></div></div></Link>):<p className="text-sm text-[#617083]">No project notifications yet.</p>}</div><Link href="/app/notifications" className="mt-4 inline-flex text-xs font-bold text-[#0c5b45] hover:text-[#e8733f]">View all notifications</Link></section>

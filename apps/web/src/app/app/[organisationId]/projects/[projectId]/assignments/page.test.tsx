@@ -1,21 +1,21 @@
-import {cleanup,render,screen} from "@testing-library/react";
+import {cleanup,render,screen,within} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import AssignmentsPage from "./page";
-const state=vi.hoisted(()=>({failed:"",hasDocument:false}));
+const state=vi.hoisted(()=>({failed:"",hasDocument:false,revisions:[] as Record<string,string>[]}));
 vi.mock("@/components/help-tip",()=>({HelpTip:()=>null}));
 vi.mock("@/lib/document-schedule",()=>({loadDocumentSchedules:async()=>new Map([["doc",{document_id:"doc",next_submission_date:null,overdue:false}]])}));
 vi.mock("@/lib/auth",()=>({requireProject:async()=>({user:{id:"member"},access:{role:"engineer"},supabase:{
   from:(table:string)=>{
     const rows:Record<string,unknown>={projects:{code:"P01",name:"Test project",delivery_stage:"feed"},project_member_disciplines:[{discipline:"Mechanical"}],document_assignments:state.hasDocument?[{document_id:"doc"}]:[],documents:state.hasDocument?[{id:"doc",discipline:"Mechanical",progress_weight:1}]:[]};
-    const result={data:rows[table]??[],error:state.failed===table?{message:"private failure"}:null};
+    const result={data:table==="document_revisions"?state.revisions:rows[table]??[],error:state.failed===table?{message:"private failure"}:null};
     const query={select:()=>query,eq:()=>query,in:()=>query,order:()=>query,limit:()=>query,maybeSingle:()=>query,then:(resolve:(value:typeof result)=>unknown)=>Promise.resolve(result).then(resolve)};
     return query;
   },
   rpc:async()=>({data:null,error:{message:"aggregate unavailable"}}),
 }})}));
-beforeEach(()=>{state.failed="";state.hasDocument=false;});
+beforeEach(()=>{state.failed="";state.hasDocument=false;state.revisions=[];});
 afterEach(cleanup);
-const page=()=>AssignmentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve({})});
+const page=(view?:string)=>AssignmentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve({view})});
 it.each(["project_member_disciplines","document_assignments","documents","projects"])("does not show empty assignments when %s fails",async(table)=>{
   state.failed=table;
   render(await page());
@@ -35,4 +35,29 @@ it("retains successfully loaded assignments but hides unavailable project aggreg
   expect(screen.getByText("My deliverables")).toBeTruthy();
   expect(screen.getByRole("status").textContent).toContain("Project-wide progress is temporarily unavailable");
   expect(screen.queryByText("Project delay influence")).toBeNull();
+});
+it("groups by the latest completed upload, retains revision codes and ignores pending uploads",async()=>{
+  state.hasDocument=true;
+  state.revisions=[
+    {document_id:"doc",issue_status:"IFC",revision_code:"C",state:"pending_upload",control_status:"pending"},
+    {document_id:"doc",issue_status:"IFA",revision_code:"B",state:"ready",control_status:"pending"},
+    {document_id:"doc",issue_status:"IFR",revision_code:"A",state:"ready",control_status:"accepted"},
+  ];
+  render(await page());
+  const region=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  expect(region.querySelectorAll("details")).toHaveLength(1);
+  expect(region.querySelector("summary")?.textContent).toContain("Issued for Approval (IFA)");
+  expect(region.querySelector("summary")?.textContent).toContain("1 deliverable");
+  expect(within(region).getByText("Latest B · IFA")).toBeTruthy();
+  expect(region.querySelector("details")?.hasAttribute("open")).toBe(true);
+});
+it("keeps unsubmitted deliverables separate and respects status filtering",async()=>{
+  state.hasDocument=true;
+  render(await page());
+  expect(screen.getByRole("region",{name:"Submissions by issue purpose"}).querySelector("summary")?.textContent).toContain("Not submitted");
+  cleanup();
+  render(await page("review"));
+  const region=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  expect(region.querySelectorAll("details")).toHaveLength(0);
+  expect(within(region).getByText("No deliverables match this status.")).toBeTruthy();
 });
