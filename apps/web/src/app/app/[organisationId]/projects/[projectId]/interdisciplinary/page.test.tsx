@@ -19,3 +19,21 @@ it("hides sign-off even if the preview response accidentally advertises it",asyn
 it("explains stale revisions and keeps their history visible",async()=>{rpc.mockResolvedValue({data:{...detail(),isCurrent:false,canSignOff:false,checks:[{id:"check",decision:"changes_requested",comment:"Revise nozzle clearance",reviewer_name:"Process reviewer",reviewer_role:"engineer",reviewer_disciplines:["Process"],created_at:"2026-09-02",is_mine:false,is_latest:true}]},error:null});render(await revisionPage());expect(screen.getByText(/A newer approved revision exists/)).toBeTruthy();expect(screen.getByText("Revise nozzle clearance")).toBeTruthy();expect(screen.queryByRole("button",{name:"Record interdisciplinary check"})).toBeNull();});
 it("does not display an unavailable or unauthorised revision",async()=>{rpc.mockResolvedValue({data:null,error:{code:"42501"}});await expect(revisionPage()).rejects.toThrow("not found");});
 it("does not turn an RPC failure into an empty library",async()=>{rpc.mockResolvedValue({data:null,error:{code:"XX000"}});await expect(LibraryPage({params:Promise.resolve({organisationId,projectId}),searchParams:Promise.resolve({})})).rejects.toThrow("could not be loaded");});
+it("groups approved purposes while retaining newest-first database order within groups",async()=>{
+  const documents=[
+    {document_id:"new",title:"Newest review",issue_status:"IFR"},
+    {document_id:"approval",title:"Approval document",issue_status:"Issued for Approval (IFA)"},
+    {document_id:"old",title:"Older review",issue_status:"Issued for Review (IFR)"},
+    {document_id:"design",title:"Design document",issue_status:"IFD"},
+    {document_id:"construction",title:"Construction document",issue_status:"IFC"},
+  ].map(row=>({...row,revision_id:row.document_id,revision_code:"01",issue_date:null}));
+  rpc.mockResolvedValue({data:{total:5,disciplines:[],documents},error:null});
+  render(await LibraryPage({params:Promise.resolve({organisationId,projectId}),searchParams:Promise.resolve({})}));
+  const groups=Array.from(document.querySelectorAll("details"));
+  expect(groups).toHaveLength(4);
+  expect(groups.map(group=>group.querySelector("summary")?.textContent)).toEqual([
+    "Issued for Review (IFR) 2 documents","Issued for Approval (IFA) 1 document","Issued for Design (IFD) 1 document","Issued for Construction (IFC) 1 document",
+  ]);
+  expect(Array.from(groups[0].querySelectorAll("h3")).map(node=>node.textContent)).toEqual(["Newest review","Older review"]);
+  expect(groups.every(group=>group.hasAttribute("open"))).toBe(true);
+});

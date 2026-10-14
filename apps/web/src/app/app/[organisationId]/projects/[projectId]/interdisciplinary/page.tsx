@@ -2,6 +2,7 @@ import Link from "next/link";
 import {HelpTip} from "@/components/help-tip";
 import {requireProject} from "@/lib/auth";
 import {referenceDate,type InterdisciplinaryLibrary} from "@/lib/interdisciplinary-checks";
+import {groupSubmissions} from "@/lib/submission-groups";
 
 export default async function InterdisciplinaryLibraryPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{q?:string;discipline?:string;page?:string}>}){
   const [{organisationId,projectId},search]=await Promise.all([params,searchParams]);
@@ -22,13 +23,16 @@ export default async function InterdisciplinaryLibraryPage({params,searchParams}
       <label className="min-w-0"><span className="ev-label">Discipline</span><select name="discipline" className="ev-input" defaultValue={discipline}><option value="">All disciplines</option>{library.disciplines.map(name=><option key={name}>{name}</option>)}</select></label>
       <button className="ev-button">Apply filters</button>
     </form>
-    <div className="mt-5 grid gap-4 lg:grid-cols-2">{library.documents.map(document=><article key={document.document_id} className="ev-card min-w-0 break-words p-5">
+    <p className="mt-5 text-sm text-[#617083]">Grouped by issue purpose · Newest submissions first within each group · Counts shown for this page</p>
+    <div className="mt-4 grid gap-4">{groupSubmissions(library.documents.map(document=>({latest:{issue_status:document.issue_status},document}))).map(group=><details key={group.label} open className="min-w-0 rounded-2xl border border-[#dfe7e3] bg-[#f3f8f6]">
+      <summary className="min-h-12 cursor-pointer break-words rounded-2xl px-4 py-4 font-semibold text-[#0c5b45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45]">{group.label} <span className="ml-2 inline-block rounded-full bg-white px-2.5 py-1 text-xs">{group.items.length} {group.items.length===1?"document":"documents"}</span></summary>
+      <div className="grid gap-4 px-3 pb-3 lg:grid-cols-2">{group.items.map(({document})=><article key={document.document_id} className="ev-card min-w-0 break-words p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold text-[#e8733f]">{document.document_number}</p><span className="rounded-full bg-[#eaf5ef] px-3 py-1 text-xs font-semibold text-[#0c5b45]">DCC approved</span></div>
-      <h2 className="mt-3 text-lg font-semibold">{document.title}</h2>
+      <h3 className="mt-3 text-lg font-semibold">{document.title}</h3>
       <p className="mt-2 text-sm text-[#617083]">{document.discipline} · {document.document_type}</p>
       <p className="mt-3 text-sm">Rev {document.revision_code} · {document.issue_status} · {referenceDate(document.issue_date)}</p>
       <Link href={`${base}/${document.revision_id}`} className="ev-button-secondary mt-4">View approved file & checks →</Link>
-    </article>)}</div>
+    </article>)}</div></details>)}</div>
     {!library.documents.length&&<p className="ev-card mt-5 p-8 text-center text-sm text-[#617083]">No approved documents match this selection.</p>}
     <nav aria-label="Approved document pages" className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">{page>1?<Link href={pageUrl(page-1)}>← Previous</Link>:<span/>}<span>Page {page} · {library.total} approved documents</span>{page*25<library.total?<Link href={pageUrl(page+1)}>Next →</Link>:<span/>}</nav>
   </div>;
