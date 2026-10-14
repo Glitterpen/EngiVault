@@ -7,6 +7,7 @@ import { notFound,redirect } from "next/navigation";
 import { ArrowLeft,Bell,ClipboardCheck,Download,Eye,FileCog,FileText,History } from "lucide-react";
 import { requireProject } from "@/lib/auth";
 import { RevisionUpload } from "@/components/revision-upload";
+import { IncompleteUploadRecovery } from "@/components/incomplete-upload-recovery";
 import { RevisionProcessingStatus } from "@/components/revision-processing-status";
 import { RevisionCompare } from "@/components/revision-compare";
 import { DocumentAdminForm } from "@/components/record-admin-forms";
@@ -18,7 +19,7 @@ import {projectDeliveryStageLabel,projectIssueProgressCredit,projectTerminalIssu
 
 export default async function DocumentPage({params}:{params:Promise<{organisationId:string;projectId:string;documentId:string}>}){
   const {organisationId,projectId,documentId}=await params;
-  const {supabase,access}=await requireProject(organisationId,projectId);
+  const {supabase,access,user,preview}=await requireProject(organisationId,projectId);
   const role=String(access.role);
   const canWrite=role==="document_controller";
   const isEngineer=role==="engineer";
@@ -41,7 +42,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
     .filter(member=>member.role==="engineer"&&(member.disciplines??[]).some(discipline=>disciplineMatches(discipline,String(doc.discipline))))
     .map<AssignableEngineer>(member=>({userId:member.user_id,name:member.display_name,email:member.email,assigned:assignedUsers.has(member.user_id)}));
 
-  const {data:revisions}=await supabase.from("document_revisions").select("id,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,control_status,review_comment,submission_version,overridden_by_revision_id").eq("document_id",documentId).order("created_at",{ascending:false});
+  const {data:revisions}=await supabase.from("document_revisions").select("id,uploaded_by,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,control_status,review_comment,submission_version,overridden_by_revision_id").eq("document_id",documentId).order("created_at",{ascending:false});
   const revisionIds=(revisions??[]).map(revision=>revision.id);
   const {data:runs}=revisionIds.length?await supabase.from("processing_runs").select("revision_id,state,attempt,error_code,metrics,updated_at").in("revision_id",revisionIds):{data:[]};
   const runByRevision=new Map((runs??[]).map(run=>[run.revision_id,run]));
@@ -80,6 +81,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
         </div>
       </section>
       <aside id="submit-revision" className={`min-w-0 space-y-5 ${canUpload?"order-first lg:order-none":""}`}>
+        {!preview&&canUpload&&(revisions??[]).filter(revision=>revision.state==="pending_upload"&&revision.control_status==="submitted"&&revision.uploaded_by===user.id).map(revision=><section key={revision.id} className="min-w-0"><h2 className="break-words font-semibold">Resume revision {revision.revision_code} · {revision.issue_status}</h2><IncompleteUploadRecovery endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/${revision.id}/recovery`}/></section>)}
         {canUpload&&<RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage} completedIssueStatuses={completedIssueStatuses}/>}
         {canWrite&&<><DocumentAssignmentManager organisationId={organisationId} projectId={projectId} documentId={documentId} discipline={String(doc.discipline)} engineers={assignableEngineers}/><div className="ev-card p-6"><p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><Bell size={16}/> Submission notification</p><HelpTip label="Submission notifications">When an assigned engineer uploads a revision, you will receive an EngiCite notification and the submission will enter the DCC review queue.</HelpTip><Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] hover:text-[#e8733f]"><ClipboardCheck size={16}/> Open submission review</Link></div></>}
         <RevisionCompare endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/comparisons`} revisions={(revisions??[]).filter(revision=>revision.state==="ready")}/>

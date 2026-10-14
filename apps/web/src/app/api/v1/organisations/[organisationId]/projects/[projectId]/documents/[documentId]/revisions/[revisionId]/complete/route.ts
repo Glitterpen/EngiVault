@@ -8,7 +8,8 @@ export const maxDuration = 300;
 
 export async function POST(_:Request,ctx:{params:Promise<{organisationId:string;projectId:string;documentId:string;revisionId:string}>}){
   const {organisationId,projectId,documentId,revisionId}=await ctx.params;
-  const {supabase,access}=await requireProject(organisationId,projectId);
+  const {supabase,access,preview}=await requireProject(organisationId,projectId);
+  if(preview)return Response.json({error:{code:"FORBIDDEN",message:"Member preview is read-only."}},{status:403});
   if(String(access.role)!=="engineer")return Response.json({error:{code:"FORBIDDEN",message:"Only an authorised discipline engineer may complete MDR revision uploads."}},{status:403});
   const {data:disciplineAccess,error:accessError}=await supabase.rpc("can_upload_document",{org:organisationId,project:projectId,document:documentId});
   if(accessError||!disciplineAccess)return Response.json({error:{code:"FORBIDDEN",message:"You can complete uploads only for MDR documents in your authorised engineering discipline."}},{status:403});

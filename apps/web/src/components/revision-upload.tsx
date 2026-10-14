@@ -197,6 +197,8 @@ export function RevisionUpload({
       setFailed(true);
       setProgress(0);
       setStatus(customerErrorMessage(error,"Upload failed."));
+      // Expose recovery if registration succeeded but a later upload step failed.
+      router.refresh();
     } finally {
       setBusy(false);
     }
