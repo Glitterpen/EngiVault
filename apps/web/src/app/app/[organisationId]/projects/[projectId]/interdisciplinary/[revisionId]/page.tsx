@@ -6,7 +6,7 @@ import {InterdisciplinaryCheckForm} from "@/components/interdisciplinary-check-f
 import {scopedRoleLabel} from "@/lib/role-experience";
 import {interdisciplinaryScope,referenceDate,interdisciplinaryDecisionLabel,type InterdisciplinaryRevision} from "@/lib/interdisciplinary-checks";
 
-export default async function InterdisciplinaryRevisionPage({params}:{params:Promise<{organisationId:string;projectId:string;revisionId:string}>}){
+export default async function InterdisciplinaryRevisionPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string;revisionId:string}>;searchParams?:Promise<{q?:string;page?:string}>}){
   const parsed=interdisciplinaryScope.safeParse(await params);if(!parsed.success)notFound();
   const {organisationId,projectId,revisionId}=parsed.data;
   const {supabase,preview}=await requireProject(organisationId,projectId);
@@ -15,9 +15,12 @@ export default async function InterdisciplinaryRevisionPage({params}:{params:Pro
   if(error)throw new Error("This interdisciplinary check could not be loaded. Please refresh.");
   const revision=data as InterdisciplinaryRevision;
   const base=`/app/${organisationId}/projects/${projectId}/interdisciplinary`;
+  const search=await searchParams??{};
+  const page=Math.max(1,Math.min(Number.parseInt(search.page??"1",10)||1,40000));
+  const folderUrl=`${base}?${new URLSearchParams({discipline:revision.discipline,q:(search.q??"").slice(0,200),page:String(page)})}`;
   const file=`/api/v1/organisations/${organisationId}/projects/${projectId}/interdisciplinary/${revisionId}/file`;
   return <div className="mx-auto min-w-0 max-w-[1250px]">
-    <Link href={base} className="text-sm font-semibold text-[#0c5b45]">← Approved documents</Link>
+    <Link href={folderUrl} className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#0c5b45]">← {revision.discipline} folder</Link>
     <header className="ev-card mt-5 min-w-0 break-words p-5 sm:p-6">
       <p className="text-xs font-bold text-[#e8733f]">{revision.documentNumber} · Rev {revision.revisionCode}</p>
       <h1 className="mt-3 text-2xl font-semibold">{revision.title}</h1>
