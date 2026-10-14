@@ -34,7 +34,9 @@ button:not(:disabled), summary { cursor: pointer; }
 :where(button, input, select, textarea):disabled { cursor: not-allowed; }
 .ev-skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 1100; padding: .75rem 1rem; border-radius: .75rem; background: white; color: #10243e; font-weight: 600; }
 .ev-skip-link:focus { top: .5rem; }
-.workspace-shell :is(aside a, aside button, [aria-label="Mobile workspace"] a, button[aria-label="Toggle workspace navigation"]):focus-visible { outline: 3px solid white; outline-offset: 3px; }
+.workspace-shell > aside :is(a, button):focus-visible,
+.workspace-shell [aria-label="Mobile workspace"] a:focus-visible,
+.workspace-shell button[aria-label="Toggle workspace navigation"]:focus-visible { outline: 3px solid white; outline-offset: 3px; }
 .workspace-main :is(.text-\[\#e8733f\], .text-\[\#ed7138\]),
 .workspace-header-inner .text-\[\#e8733f\] { color: var(--brand-text); }
 .workspace-header-inner summary { min-height: 44px; }
