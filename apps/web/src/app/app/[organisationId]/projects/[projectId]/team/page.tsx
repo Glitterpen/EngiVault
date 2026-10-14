@@ -59,7 +59,7 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
     <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Users/> {workspaceTitle}</h1>
     <HelpTip label="Project team and resources guidance">{isDcc?"View discipline engineers already appointed by the Project Manager, then allocate their discipline deliverables from the Master Document Register. Document Control cannot create project invitations.":isOrganisationAdmin?"Appoint only the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Plan discipline requirements, invite one work email for one or more disciplines, follow pending invitations and manage active project resources. For existing engineers, add authorised disciplines below without creating another account."}</HelpTip>
 
-    <section className={`mt-6 grid gap-3 sm:grid-cols-2 ${role==="project_admin"?"xl:grid-cols-4":"xl:grid-cols-2"}`}>
+    <section className={`ev-compact-metrics mt-4 grid grid-cols-2 gap-3 ${role==="project_admin"?"xl:grid-cols-4":"xl:grid-cols-2"}`}>
       <TeamMetric label="Active members" value={members.length} icon={<UserCheck size={18}/>}/>
       <TeamMetric label="Pending invitations" value={pending.length} icon={<Clock3 size={18}/>} warn={pending.length>0}/>
       {role==="project_admin"&&<><TeamMetric label="Planned positions" value={requiredPositions} icon={<Target size={18}/>}/><TeamMetric label="Unfilled positions" value={vacancies} icon={<AlertTriangle size={18}/>} warn={vacancies>0}/></>}
