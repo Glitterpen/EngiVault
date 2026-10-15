@@ -65,8 +65,10 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
   const planned=points.filter(point=>point.planned!==null),actual=points.filter(point=>point.actual!==null);
   const plannedPath=plannedStepPath(planned,x,y),actualPath=linePath(actual,"actual",x,y);
   const hasLine=planned.length>1||actual.length>1,animate=hasLine&&!animationFinished&&!reducedMotion;
-  const tickCount=Math.min(points.length,width<600?3:5);
-  const ticks=[...new Set(Array.from({length:tickCount},(_,tick)=>Math.round(tick*(points.length-1)/Math.max(1,tickCount-1))))];
+  // Axis labels follow the continuous UTC date domain, not clustered report
+  // indices. They do not add observations to the slider, paths or data table.
+  const tickCount=span?Math.min(width<600?3:5,Math.floor(span/86_400_000)+1):1;
+  const ticks=Array.from({length:tickCount},(_,tick)=>first+span*tick/Math.max(1,tickCount-1));
   const select=(next:number)=>setSelectedDate(points[Math.max(0,Math.min(points.length-1,next))].date);
   const selectAtPointer=(event:PointerEvent<HTMLDivElement>)=>{
     const rect=event.currentTarget.getBoundingClientRect();
@@ -90,7 +92,7 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
         <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
           <rect x={LEFT} y={TOP} width={plotWidth} height={plotHeight} rx={8} fill="#f7faf9"/>
           {[0,25,50,75,100].map(value=><g key={value}><line x1={LEFT} x2={width-RIGHT} y1={y(value)} y2={y(value)} stroke="#e1e9e5"/><text x={LEFT-9} y={y(value)+4} textAnchor="end" fill="#526675" fontSize={11}>{value}%</text></g>)}
-          {ticks.map(tick=><text key={points[tick].date} x={x(points[tick].date)} y={height-10} textAnchor={tick===0?"start":tick===points.length-1?"end":"middle"} fill="#526675" fontSize={11}>{dateLabel(points[tick].date,true)}</text>)}
+          {ticks.map((time,tick)=><text key={time} x={span?LEFT+(time-first)/span*plotWidth:LEFT+plotWidth/2} y={height-10} textAnchor={ticks.length===1?"middle":tick===0?"start":tick===ticks.length-1?"end":"middle"} fill="#526675" fontSize={11}>{dateLabel(new Date(time).toISOString().slice(0,10),true)}</text>)}
         </svg>
         <div key={replay} data-curve-traces data-animating={animate} className={`${styles.traceLayer} ${animate?styles.reveal:""}`} onAnimationEnd={()=>setAnimationFinished(true)}>
           <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">

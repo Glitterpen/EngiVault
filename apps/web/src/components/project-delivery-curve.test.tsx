@@ -144,6 +144,39 @@ describe("date exploration and data alternative",()=>{
     act(()=>observers[0].resize(900));expect(svg.getAttribute("viewBox")).toBe("0 0 900 264");
     expect(svg.querySelectorAll("text")).toHaveLength(10);
   });
+  it.each([320,390])("spaces date-axis labels across time instead of clustered report indices at %spx",width=>{
+    measuredWidth=width;
+    const dates=["2026-09-07","2026-09-08","2026-09-09","2026-09-11","2026-09-15","2026-09-18","2026-10-09","2026-10-15"];
+    const points=dates.map((date,index)=>point(date,null,index?index*5:null,index===7?"live":index?"report":null));
+    const original=structuredClone(points);
+    const result=workspace({points,plannedToday:null,variance:null,plannedCoverage:0,undatedCount:3,historyCount:6,actualToday:35});
+    const svg=screen.getByRole("img",{name:"Project delivery S-curve"}).querySelector("svg")!;
+    const labels=[...svg.querySelectorAll("text")].filter(text=>!text.textContent?.includes("%"));
+    expect(labels.map(text=>Number(text.getAttribute("x")))).toEqual([44,(44+width-18)/2,width-18]);
+    expect(labels.map(text=>text.textContent)).toEqual(["07 Sept 26","26 Sept 26","15 Oct 26"]);
+    expect(labels.map(text=>text.getAttribute("text-anchor"))).toEqual(["start","middle","end"]);
+    expect((screen.getByRole("slider") as HTMLInputElement).max).toBe("7");expect(selectedValue("Actual · live MDR")).toBe("35%");
+    expect(path(result.container,"actual")!.getAttribute("d")!.match(/L/g)).toHaveLength(6);expect(path(result.container,"planned")).toBeNull();
+    const table=showData();expect(within(table).getAllByRole("rowheader")).toHaveLength(8);
+    expect(within(table).queryByRole("rowheader",{name:"26 Sept 2026"})).toBeNull();expect(points).toEqual(original);
+  });
+  it("uses five evenly positioned UTC-domain ticks on desktop even when real observations are clustered",()=>{
+    measuredWidth=900;
+    workspace({points:[point("2026-09-07",0,10,"report"),point("2026-09-08",10,15,"report"),point("2026-09-09",20,20,"report"),point("2026-10-15",100,40,"live")]});
+    const svg=screen.getByRole("img",{name:"Project delivery S-curve"}).querySelector("svg")!;
+    const labels=[...svg.querySelectorAll("text")].filter(text=>!text.textContent?.includes("%"));
+    expect(labels.map(text=>Number(text.getAttribute("x")))).toEqual([44,253.5,463,672.5,882]);
+    expect(labels[0].textContent).toBe("07 Sept 26");expect(labels.at(-1)!.textContent).toBe("15 Oct 26");
+    expect((screen.getByRole("slider") as HTMLInputElement).max).toBe("3");
+  });
+  it("keeps short date ranges distinct and a single date centred without adding data points",()=>{
+    const result=workspace({points:[point("2026-10-14",50,30,"report"),point("2026-10-15",80,40,"live")]});
+    const labels=()=>[...screen.getByRole("img",{name:"Project delivery S-curve"}).querySelector("svg")!.querySelectorAll("text")].filter(text=>!text.textContent?.includes("%"));
+    expect(labels().map(text=>text.textContent)).toEqual(["14 Oct 26","15 Oct 26"]);
+    result.rerender(<ProjectDeliveryCurve curve={{...result.curve,points:[point("2026-10-15",80,40,"live")]}}/>);
+    expect(labels()).toHaveLength(1);expect(labels()[0].textContent).toBe("15 Oct 26");expect(labels()[0].getAttribute("text-anchor")).toBe("middle");
+    expect(Number(labels()[0].getAttribute("x"))).toBe((44+640-18)/2);
+  });
 });
 
 describe("motion preference and replay",()=>{
