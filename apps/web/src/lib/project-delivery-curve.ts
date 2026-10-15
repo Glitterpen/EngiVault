@@ -1,7 +1,7 @@
 export type DeliveryCurveDocument={document_id:string;progress_weight:number;progress_credit:number;planned_final_date?:string|null;planned_submission_date?:string|null;revision_cycle_days?:number|null};
 export type DeliveryCurveSubmissionProgress={version:1;captured_at:string;submitted_progress:number;accepted_progress:number;total_deliverables:number;total_weight:number};
 export type DeliveryCurveReport={id:string;period_end:string;generated_at:string;snapshot:unknown};
-export type DeliveryCurvePoint={date:string;submitted:number|null;accepted:number|null;submittedSource:"report"|"live"|null;acceptedSource:"report"|"live"|null};
+export type DeliveryCurvePoint={date:string;planned:number|null;submitted:number|null;accepted:number|null;submittedSource:"report"|"live"|null;acceptedSource:"report"|"live"|null};
 export type DeliveryCurveModel={
   points:DeliveryCurvePoint[];
   asOf:string;
@@ -14,12 +14,14 @@ export type DeliveryCurveModel={
   acceptedHistoryCount:number;
   invalidHistoryCount:number;
   timeline:{plannedStart:string|null;plannedEnd:string|null;status:"configured"|"missing"|"invalid";displayStart:string;displayEnd:string};
+  estimatedPlan:{basis:"timeline_linear_estimate";today:number|null;weeklyRate:number|null;acceptedVariance:number|null;submittedVariance:number|null};
 };
 
 type Input={documents:readonly DeliveryCurveDocument[];submissionProgress:DeliveryCurveSubmissionProgress|null;reports:readonly DeliveryCurveReport[];asOf:string;plannedStart:string|null;plannedEnd:string|null;historyAvailable:boolean};
 type Observation={date:string;generatedAt:number;id:string;submitted:number|null;accepted:number|null};
 const MAX_POINTS=300;
 const ACCEPTED_TOLERANCE=0.15;
+const DAY=86_400_000,WEEK=7*DAY;
 
 function dateTime(value:string):number|null{
   const match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -52,6 +54,22 @@ function evenly<T>(items:readonly T[],limit:number):T[]{
   if(items.length<=limit)return [...items];
   if(limit===1)return [items[items.length-1]];
   return Array.from({length:limit},(_,index)=>items[Math.round(index*(items.length-1)/(limit-1))]);
+}
+function oneDecimal(value:number):number{return Number(value.toFixed(1));}
+
+/** Sample only unused weekly dates, without allocating an unbounded calendar. */
+function addWeeklyPlanDates(dates:Set<string>,start:number,end:number){
+  const count=Math.ceil((end-start)/WEEK)-1;
+  const occupied=[...dates].map(date=>(dateTime(date)!-start)/WEEK)
+    .filter(index=>Number.isInteger(index)&&index>=1&&index<=count).sort((a,b)=>a-b);
+  const available=count-occupied.length,limit=Math.min(MAX_POINTS-dates.size,available);
+  if(limit<=0)return;
+  for(let index=0;index<limit;index++){
+    const rank=limit===1?available:1+Math.round(index*(available-1)/(limit-1));
+    let week=rank;
+    for(const blocked of occupied){if(blocked>week)break;week++;}
+    dates.add(new Date(start+week*WEEK).toISOString().slice(0,10));
+  }
 }
 
 /** The management RPC supplies only an aggregate, so never infer missing submitted credit. */
@@ -88,7 +106,7 @@ function reportObservation(snapshot:unknown,cutoff:string,now:number){
   return valid?{submitted,accepted,invalid:false}:{submitted:null,accepted:legacyAccepted,invalid:true};
 }
 
-/** Observed submitted and DCC-accepted progress; project dates set the timeline only. */
+/** A timeline-based estimate alongside independently observed submitted/accepted progress. */
 export function buildProjectDeliveryCurve({documents,submissionProgress,reports,asOf,plannedStart,plannedEnd,historyAvailable}:Input):DeliveryCurveModel{
   const now=timestampTime(asOf);
   if(now===null)throw new Error("A valid as-of timestamp is required for the delivery curve.");
@@ -109,6 +127,14 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
   const status:DeliveryCurveModel["timeline"]["status"]=(start!==null&&!startValid)||(end!==null&&!endValid)||(startValid&&endValid&&!configured)?"invalid":configured?"configured":"missing";
   let displayStart=configured&&start<today?start:today;
   const displayEnd=configured&&end>today?end:today;
+  const planStart=configured?dateTime(start)!:null,planEnd=configured?dateTime(end)!:null;
+  const plannedAt=(date:string):number|null=>{
+    if(planStart===null||planEnd===null)return null;
+    const time=dateTime(date)!;
+    if(planStart===planEnd)return time<planStart?0:100;
+    return oneDecimal(Math.max(0,Math.min(100,(time-planStart)/(planEnd-planStart)*100)));
+  };
+  const plannedToday=plannedAt(today);
   let invalidHistoryCount=0;
   const observations=new Map<string,Observation>();
   if(historyAvailable){
@@ -136,11 +162,13 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
   const history=evenly([...observations.values()].sort((a,b)=>a.date.localeCompare(b.date)),MAX_POINTS-dates.size);
   const retained=new Map(history.map(point=>[point.date,point]));
   for(const point of history)dates.add(point.date);
+  // Genuine report observations take priority over estimated weekly samples.
+  if(planStart!==null&&planEnd!==null)addWeeklyPlanDates(dates,planStart,planEnd);
   const points=[...dates].sort().map(date=>{
     const historic=retained.get(date),live=date===today;
     const submitted=live?submittedToday:historic?.submitted??null;
     const accepted=live?acceptedToday:historic?.accepted??null;
-    return {date,submitted,accepted,submittedSource:submitted===null?null:live?"live":"report",acceptedSource:accepted===null?null:live?"live":"report"} satisfies DeliveryCurvePoint;
+    return {date,planned:plannedAt(date),submitted,accepted,submittedSource:submitted===null?null:live?"live":"report",acceptedSource:accepted===null?null:live?"live":"report"} satisfies DeliveryCurvePoint;
   });
   return {
     points,asOf:normalizedAsOf,submittedToday,acceptedToday,gap:submittedToday===null?null:submittedToday-acceptedToday,
@@ -149,5 +177,9 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
     acceptedHistoryCount:history.filter(point=>point.accepted!==null).length,
     invalidHistoryCount,
     timeline:{plannedStart:start,plannedEnd:end,status,displayStart,displayEnd},
+    estimatedPlan:{basis:"timeline_linear_estimate",today:plannedToday,
+      weeklyRate:planStart!==null&&planEnd!==null&&planEnd>planStart?oneDecimal(WEEK/(planEnd-planStart)*100):null,
+      acceptedVariance:plannedToday===null?null:oneDecimal(acceptedToday-plannedToday),
+      submittedVariance:plannedToday===null||submittedToday===null?null:oneDecimal(submittedToday-plannedToday)},
   };
 }

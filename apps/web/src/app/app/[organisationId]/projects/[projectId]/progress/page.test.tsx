@@ -124,6 +124,7 @@ it("uses the Project Manager timeline, not first issue dates or revision cycles,
   render(await page());
   expect(props().curve.timeline).toMatchObject({status:"configured",plannedStart:"2026-10-01",plannedEnd:"2026-12-01",displayStart:"2026-10-01",displayEnd:"2026-12-01"});
   expect(props().curve).toMatchObject({submittedToday:67,acceptedToday:33});
+  expect(props().curve.estimatedPlan).toMatchObject({basis:"timeline_linear_estimate",today:23,weeklyRate:11.5,acceptedVariance:10,submittedVariance:44});
   expect(props().curve).not.toHaveProperty("planning");expect(props().curve).not.toHaveProperty("plannedToday");
 });
 
@@ -131,6 +132,7 @@ it("does not invent project dates when the Project Manager timeline is missing",
   data.project={...project,planned_start_date:null,planned_end_date:null};
   render(await page());expect(props().curve.timeline.status).toBe("missing");
   expect(props().curve).toMatchObject({submittedToday:67,acceptedToday:33});
+  expect(props().curve.estimatedPlan).toMatchObject({today:null,weeklyRate:null,acceptedVariance:null,submittedVariance:null});
 });
 
 it("keeps accepted progress available when the restricted submission aggregate is unavailable",async()=>{
@@ -141,5 +143,18 @@ it("keeps accepted progress available when the restricted submission aggregate i
 it("retains the PM end date while displaying real delivery after that date",async()=>{
   data.project={...project,planned_end_date:"2026-10-09"};render(await page());
   expect(props().curve.timeline).toMatchObject({plannedEnd:"2026-10-09",displayEnd:"2026-10-15"});
-  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({submitted:67,accepted:33});
+  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({planned:100,submitted:67,accepted:33});
+  expect(props().curve.estimatedPlan).toMatchObject({today:100,acceptedVariance:-67,submittedVariance:-33});
+});
+
+it("projects equal weekly progress from 7 September to 9 October and marks the live date without fabricating submissions",async()=>{
+  data.project={...project,planned_start_date:"2026-09-07",planned_end_date:"2026-10-09"};
+  data.rows=[{...document,progress_credit:47}];data.reports=[];
+  data.submissionProgress={...data.submissionProgress!,accepted_progress:47,submitted_progress:47};
+  render(await page());
+  expect(props().curve.estimatedPlan).toEqual({basis:"timeline_linear_estimate",today:100,weeklyRate:21.9,acceptedVariance:-53,submittedVariance:-53});
+  expect(props().curve.points.find(point=>point.date==="2026-09-07")).toMatchObject({planned:0,accepted:null,submitted:null});
+  expect(props().curve.points.find(point=>point.date==="2026-09-14")).toMatchObject({planned:21.9,accepted:null,submitted:null});
+  expect(props().curve.points.find(point=>point.date==="2026-10-09")).toMatchObject({planned:100,accepted:null,submitted:null});
+  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({planned:100,accepted:47,submitted:47,acceptedSource:"live",submittedSource:"live"});
 });

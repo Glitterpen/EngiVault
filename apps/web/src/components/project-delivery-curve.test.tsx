@@ -16,10 +16,11 @@ class MockResizeObserver implements ResizeObserver{
   disconnect(){this.disconnected=true;}
   resize(width:number){this.callback([{contentRect:{width}}] as ResizeObserverEntry[],this);}
 }
-function point(date:string,submitted:number|null,accepted:number|null,submittedSource:DeliveryCurvePoint["submittedSource"]=null,acceptedSource:DeliveryCurvePoint["acceptedSource"]=null):DeliveryCurvePoint{return {date,submitted,accepted,submittedSource,acceptedSource};}
+function point(date:string,submitted:number|null,accepted:number|null,submittedSource:DeliveryCurvePoint["submittedSource"]=null,acceptedSource:DeliveryCurvePoint["acceptedSource"]=null,planned:number|null=null):DeliveryCurvePoint{return {date,planned,submitted,accepted,submittedSource,acceptedSource};}
 function model(overrides:Partial<DeliveryCurveModel>={}):DeliveryCurveModel{
-  return {points:[point("2026-10-01",null,10,null,"report"),point("2026-10-05",null,null),point("2026-10-10",null,25,null,"report"),point("2026-10-15",65,40,"live","live"),point("2026-10-20",null,null)],
+  return {points:[point("2026-10-01",null,10,null,"report",0),point("2026-10-05",null,null,null,null,21.1),point("2026-10-10",null,25,null,"report",47.4),point("2026-10-15",65,40,"live","live",73.7),point("2026-10-20",null,null,null,null,100)],
     asOf:"2026-10-15T10:30:00.000Z",submittedToday:65,acceptedToday:40,gap:25,hasScope:true,historyAvailable:true,submittedHistoryCount:0,acceptedHistoryCount:2,invalidHistoryCount:0,
+    estimatedPlan:{basis:"timeline_linear_estimate",today:73.7,weeklyRate:36.8,acceptedVariance:-33.7,submittedVariance:-8.7},
     timeline:{plannedStart:"2026-10-01",plannedEnd:"2026-10-20",status:"configured",displayStart:"2026-10-01",displayEnd:"2026-10-20"},...overrides};
 }
 function workspace(overrides:Partial<DeliveryCurveModel>={}){const curve=model(overrides);return {...render(<ProjectDeliveryCurve curve={curve}/>),curve};}
@@ -27,10 +28,10 @@ function datum(label:string){return within(screen.getByRole("status")).getByText
 function selectedValue(label:string){return datum(label).firstElementChild!.textContent;}
 function trace(container:HTMLElement){return container.querySelector<HTMLElement>("[data-curve-traces]")!;}
 function path(container:HTMLElement,series:string){return container.querySelector<SVGPathElement>(`path[data-curve-series="${series}"]`);}
-function image(){return screen.getByRole("img",{name:"Submitted and DCC-accepted progress S-curve"});}
-function axisLabels(){return [...image().querySelector("svg")!.querySelectorAll("text")].filter(text=>!text.textContent?.includes("%"));}
+function image(){return screen.getByRole("img",{name:"Estimated plan, submitted and DCC-accepted progress S-curve"});}
+function axisLabels(){return [...image().querySelectorAll<SVGTextElement>("[data-axis-date]")];}
 function preference(value:boolean){act(()=>{reduced=value;motionListeners.forEach(listener=>listener());});}
-function showData(){fireEvent.click(screen.getByText("View curve data"));return screen.getByRole("table",{name:"Submitted and DCC-accepted progress data"});}
+function showData(){fireEvent.click(screen.getByText("View curve data"));return screen.getByRole("table",{name:"Estimated plan, submitted and DCC-accepted progress data"});}
 
 beforeEach(()=>{
   reduced=false;measuredWidth=640;motionListeners.clear();observers.length=0;fetchData.mockReset();
@@ -40,14 +41,14 @@ beforeEach(()=>{
 afterEach(()=>{expect(fetchData).not.toHaveBeenCalled();cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
 
 describe("observed submitted and accepted measures",()=>{
-  it("shows two distinct measures, exact live values and pending acceptance rather than a schedule-plan comparison",()=>{
+  it("keeps the two actual measures and pending acceptance distinct from the estimated plan",()=>{
     const result=workspace();
     expect(screen.getByRole("heading",{name:"Project delivery S-curve"})).toBeTruthy();expect(image().getAttribute("aria-describedby")).toBeTruthy();
     expect(screen.getByText("Overall submitted",{selector:"span"})).toBeTruthy();expect(screen.getByText("DCC accepted",{selector:"span"})).toBeTruthy();
     expect(selectedValue("Selected date")).toBe("15 Oct 2026");expect(selectedValue("Overall submitted")).toBe("65%");expect(selectedValue("DCC accepted")).toBe("40%");
     expect(datum("Overall submitted").textContent).toContain("Live MDR");expect(datum("DCC accepted").textContent).toContain("Live MDR");
     expect(screen.getByText("Current snapshot: 25 percentage points pending DCC acceptance.")).toBeTruthy();
-    expect(trace(result.container).getAttribute("data-animating")).toBe("true");expect(result.container.textContent).not.toMatch(/Calculated plan|Planned final issues|behind plan|final-issue dates/);
+    expect(trace(result.container).getAttribute("data-animating")).toBe("true");expect(result.container.textContent).not.toMatch(/Calculated plan|Planned final issues|final-issue dates/);
   });
   it("does not copy old accepted reports into an invented submitted trend",()=>{
     const result=workspace();
@@ -81,12 +82,12 @@ describe("observed submitted and accepted measures",()=>{
     expect(datum("Overall submitted").textContent).not.toContain("Live MDR");expect(path(result.container,"accepted")).toBeTruthy();
   });
   it("does not forecast future values or earn 100% at the PM completion date",()=>{
-    const values=model();values.points[4]=point("2026-10-20",100,100,"report","report");
+    const values=model();values.points[4]=point("2026-10-20",100,100,"report","report",100);
     const result=workspace(values);
     expect(path(result.container,"accepted")!.getAttribute("d")).not.toContain("622");expect(path(result.container,"submitted")).toBeNull();
     fireEvent.keyDown(screen.getByRole("slider"),{key:"End"});expect(selectedValue("Overall submitted")).toBe("Not observed");expect(selectedValue("DCC accepted")).toBe("Not observed");
     const table=showData(),row=within(table).getByRole("rowheader",{name:"20 Oct 2026"}).closest("tr")!;
-    expect(within(row).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["Not observed","Not observed","—","—"]);
+    expect(selectedValue("Estimated plan")).toBe("100%");expect(within(row).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["100%","Not observed","Not observed","—","—"]);
   });
   it("keeps genuinely observed zero values as zero",()=>{
     workspace({points:[point("2026-10-15",0,0,"live","live")],submittedToday:0,acceptedToday:0,gap:0});
@@ -94,6 +95,58 @@ describe("observed submitted and accepted measures",()=>{
   });
   it("does not silently clamp a negative comparison into a false pending-acceptance claim",()=>{
     workspace({gap:-2.5});expect(screen.getByText("Current snapshot: DCC-accepted progress is 2.5 percentage points above the submitted observation.")).toBeTruthy();
+  });
+});
+
+describe("timeline-linear estimated plan",()=>{
+  it("adds a distinctly labelled orange dashed estimate without changing either observed path",()=>{
+    const result=workspace();
+    expect(screen.getByText("Estimated plan",{selector:"span"})).toBeTruthy();expect(selectedValue("Estimated plan")).toBe("73.7%");
+    const estimate=path(result.container,"planned")!;expect(estimate.getAttribute("stroke")).toBe("#a4470b");expect(estimate.getAttribute("stroke-dasharray")).toBe("10 4");
+    expect(estimate.getAttribute("d")).toMatch(/^M 44 230 .* L 622 20$/);expect(result.container.querySelectorAll('[data-curve-series="planned-point"]')).toHaveLength(5);
+    expect(path(result.container,"accepted")!.getAttribute("d")).toBe("M 44 209 L 317.79 177.5 L 469.89 146");expect(path(result.container,"submitted")).toBeNull();
+    const original=structuredClone(result.curve);fireEvent.keyDown(screen.getByRole("slider"),{key:"End"});expect(selectedValue("Estimated plan")).toBe("100%");expect(selectedValue("DCC accepted")).toBe("Not observed");expect(result.curve).toEqual(original);
+  });
+  it("labels weekly plan-only dates as estimates and uses 21.9 percent per week for a 32-day PM timeline",()=>{
+    workspace({points:[point("2026-09-07",null,null,null,null,0),point("2026-09-14",null,null,null,null,21.9),point("2026-09-21",null,null,null,null,43.8),point("2026-09-28",null,null,null,null,65.6),point("2026-10-05",null,null,null,null,87.5),point("2026-10-09",null,null,null,null,100),point("2026-10-15",65,40,"live","live",100)],
+      estimatedPlan:{basis:"timeline_linear_estimate",today:100,weeklyRate:21.9,acceptedVariance:-60,submittedVariance:-35},
+      timeline:{plannedStart:"2026-09-07",plannedEnd:"2026-10-09",status:"configured",displayStart:"2026-09-07",displayEnd:"2026-10-15"}});
+    expect(screen.getByText("Linear estimate · approximately 21.9% per week")).toBeTruthy();expect(screen.queryByText(/approximately 25% per week/)).toBeNull();
+    fireEvent.change(screen.getByRole("slider"),{target:{value:"1"}});expect(selectedValue("Estimated plan")).toBe("21.9%");expect(selectedValue("Overall submitted")).toBe("Not observed");expect(selectedValue("DCC accepted")).toBe("Not observed");
+    const table=showData(),week=within(table).getByRole("rowheader",{name:"14 Sept 2026"}).closest("tr")!;
+    expect(within(week).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["21.9%","Not observed","Not observed","—","—"]);
+    fireEvent.focus(screen.getByRole("button",{name:"About the project delivery S-curve"}));expect(screen.getByRole("tooltip").textContent).toContain("a 32-day timeline is approximately 21.9% per week, not a fixed 25%");
+  });
+  it("keeps Today at the live observation when another date is selected",()=>{
+    const result=workspace(),marker=image().querySelector('[data-today-marker]')!,label=image().querySelector('[data-today-label]')!;
+    const currentX=marker.getAttribute("x1");expect(Number(currentX)).toBeCloseTo(469.894737);expect(label.textContent).toBe("Today");
+    expect(result.container.querySelector('[data-curve-series="accepted-point"][data-source="live"]')?.getAttribute("cx")).toBe(currentX);
+    fireEvent.keyDown(screen.getByRole("slider"),{key:"Home"});expect(selectedValue("Selected date")).toBe("01 Oct 2026");expect(marker.getAttribute("x1")).toBe(currentX);
+    expect(screen.getByText("DCC-accepted progress is 33.7 percentage points behind the estimated plan today.")).toBeTruthy();expect(screen.getByText("Current snapshot: 25 percentage points pending DCC acceptance.")).toBeTruthy();
+  });
+  it.each([
+    [-33.7,"DCC-accepted progress is 33.7 percentage points behind the estimated plan today."],
+    [7.5,"DCC-accepted progress is 7.5 percentage points ahead of the estimated plan today."],
+    [0,"DCC-accepted progress matches the estimated plan today."],
+  ] as const)("describes accepted variance %s separately from pending acceptance",(acceptedVariance,message)=>{
+    workspace({estimatedPlan:{...model().estimatedPlan,acceptedVariance}});expect(screen.getByText(message)).toBeTruthy();expect(screen.getByText("Current snapshot: 25 percentage points pending DCC acceptance.")).toBeTruthy();
+  });
+  it("shows a same-day completion estimate as a single milestone without inventing a weekly rate",()=>{
+    const result=workspace({points:[point("2026-10-15",65,40,"live","live",100)],
+      estimatedPlan:{basis:"timeline_linear_estimate",today:100,weeklyRate:null,acceptedVariance:-60,submittedVariance:-35},
+      timeline:{plannedStart:"2026-10-15",plannedEnd:"2026-10-15",status:"configured",displayStart:"2026-10-15",displayEnd:"2026-10-15"}});
+    expect(selectedValue("Estimated plan")).toBe("100%");expect(path(result.container,"planned")).toBeNull();expect(result.container.querySelectorAll('[data-curve-series="planned-point"]')).toHaveLength(1);
+    expect(screen.queryByText(/Linear estimate · approximately/)).toBeNull();expect(image().querySelector('[data-today-label]')?.getAttribute("text-anchor")).toBe("middle");expect((screen.getByRole("slider") as HTMLInputElement).disabled).toBe(true);
+  });
+  it.each([
+    {asOf:"2026-10-01",todayPlan:0,expected:"M 44 230 H 622 V 20",displayStart:"2026-10-01",displayEnd:"2026-10-15"},
+    {asOf:"2026-10-20",todayPlan:100,expected:"M 44 20 H 622",displayStart:"2026-10-15",displayEnd:"2026-10-20"},
+  ])("draws a same-day milestone without a false early ramp for snapshot $asOf",({asOf,todayPlan,expected,displayStart,displayEnd})=>{
+    const points=[point("2026-10-15",null,null,null,null,100),point(asOf,65,40,"live","live",todayPlan)];
+    const result=workspace({points,asOf:`${asOf}T10:30:00.000Z`,estimatedPlan:{basis:"timeline_linear_estimate",today:todayPlan,weeklyRate:null,acceptedVariance:40-todayPlan,submittedVariance:65-todayPlan},
+      timeline:{plannedStart:"2026-10-15",plannedEnd:"2026-10-15",status:"configured",displayStart,displayEnd}});
+    expect(path(result.container,"planned")?.getAttribute("d")).toBe(expected);expect(path(result.container,"accepted")).toBeNull();expect(path(result.container,"submitted")).toBeNull();
+    expect(selectedValue("Estimated plan")).toBe(`${todayPlan}%`);expect(selectedValue("DCC accepted")).toBe("40%");expect(screen.queryByText(/Linear estimate · approximately/)).toBeNull();
   });
 });
 
@@ -117,9 +170,10 @@ describe("Project Manager timeline context",()=>{
   });
   it.each(["missing","invalid"] as const)("asks the PM to fix %s dates without inventing a schedule or hiding live progress",status=>{
     const values=model();values.points=values.points.filter(value=>value.date<="2026-10-15");
-    workspace({...values,timeline:{plannedStart:status==="missing"?null:"not-a-date",plannedEnd:null,status,displayStart:"2026-10-01",displayEnd:"2026-10-15"}});
+    const result=workspace({...values,timeline:{plannedStart:status==="missing"?null:"not-a-date",plannedEnd:null,status,displayStart:"2026-10-01",displayEnd:"2026-10-15"}});
     expect(screen.getByText(status==="missing"?/PM timeline is not set\. Ask the Project Manager/:/PM timeline needs correction\. Ask the Project Manager/).textContent).toContain("no project schedule is assumed");
     expect(selectedValue("Overall submitted")).toBe("65%");expect(selectedValue("DCC accepted")).toBe("40%");expect(image().querySelector('[data-pm-completion]')).toBeNull();
+    expect(path(result.container,"planned")).toBeNull();expect(selectedValue("Estimated plan")).toBe("Unavailable");expect(screen.queryByText(/Linear estimate · approximately/)).toBeNull();expect(screen.queryByText(/the estimated plan today/)).toBeNull();
   });
   it("explains eligible observations and gap semantics only behind optional help",()=>{
     workspace();expect(screen.queryByRole("tooltip")).toBeNull();
@@ -127,14 +181,14 @@ describe("Project Manager timeline context",()=>{
     const text=screen.getByRole("tooltip").textContent!;
     expect(text).toContain("current DCC-accepted milestone");expect(text).toContain("completed submission awaiting DCC review");
     expect(text).toContain("same stage weights and MDR scope");expect(text).toContain("accepted values are never copied into submitted history");
-    expect(text).toContain("not an assumed progress target");expect(text).toContain("not a measure of schedule delay");expect(text).toContain("Project dates, operational deadlines and approvals are not changed");
+    expect(text).toContain("equal progress per calendar day");expect(text).toContain("not an approved MDR baseline");expect(text).toContain("percentage points, not days of delay");expect(text).toContain("Project dates, operational deadlines and approvals are not changed");
   });
 });
 
 describe("accessible exploration and exact data",()=>{
   it("supports the range, Arrow keys, Home/End and explicit unavailable values",()=>{
     workspace();const slider=screen.getByRole("slider",{name:"Explore curve dates"}) as HTMLInputElement;
-    expect(slider.min).toBe("0");expect(slider.max).toBe("4");expect(slider.value).toBe("3");expect(slider.getAttribute("aria-valuetext")).toBe("15 Oct 2026; overall submitted 65%; DCC accepted 40%");
+    expect(slider.min).toBe("0");expect(slider.max).toBe("4");expect(slider.value).toBe("3");expect(slider.getAttribute("aria-valuetext")).toBe("15 Oct 2026; estimated plan 73.7%; overall submitted 65%; DCC accepted 40%");
     fireEvent.keyDown(slider,{key:"Home"});expect(slider.value).toBe("0");expect(selectedValue("DCC accepted")).toBe("10%");expect(selectedValue("Overall submitted")).toBe("Not observed");
     fireEvent.keyDown(slider,{key:"ArrowRight"});expect(selectedValue("Selected date")).toBe("05 Oct 2026");expect(selectedValue("DCC accepted")).toBe("Not observed");
     fireEvent.keyDown(slider,{key:"End"});expect(slider.value).toBe("4");expect((screen.getByRole("button",{name:"Next curve date"}) as HTMLButtonElement).disabled).toBe(true);
@@ -161,10 +215,10 @@ describe("accessible exploration and exact data",()=>{
   });
   it("offers a captioned exact table with independent submitted/accepted sources and truthful nulls",()=>{
     workspace();const details=screen.getByText("View curve data").closest("details")!;expect(details.open).toBe(false);const table=showData();expect(details.open).toBe(true);
-    expect(within(table).getAllByRole("columnheader").map(value=>value.textContent)).toEqual(["Date","Overall submitted","DCC accepted","Submitted source","Accepted source"]);
+    expect(within(table).getAllByRole("columnheader").map(value=>value.textContent)).toEqual(["Date","Estimated plan","Overall submitted","DCC accepted","Submitted source","Accepted source"]);
     expect(within(table).getAllByRole("columnheader").every(value=>value.getAttribute("scope")==="col")).toBe(true);
-    const old=within(table).getByRole("rowheader",{name:"01 Oct 2026"}).closest("tr")!;expect(within(old).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["Not observed","10%","—","Saved report"]);
-    const live=within(table).getByRole("rowheader",{name:"15 Oct 2026"}).closest("tr")!;expect(within(live).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["65%","40%","Live MDR","Live MDR"]);
+    const old=within(table).getByRole("rowheader",{name:"01 Oct 2026"}).closest("tr")!;expect(within(old).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["0%","Not observed","10%","—","Saved report"]);
+    const live=within(table).getByRole("rowheader",{name:"15 Oct 2026"}).closest("tr")!;expect(within(live).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["73.7%","65%","40%","Live MDR","Live MDR"]);
     expect(screen.getByRole("region",{name:"S-curve data — scroll horizontally for all columns"}).tabIndex).toBe(0);
   });
   it.each([320,390])("keeps equal-time axis dates readable at %spx despite clustered accepted report dates",width=>{
