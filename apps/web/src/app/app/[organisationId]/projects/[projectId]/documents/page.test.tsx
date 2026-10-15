@@ -3,161 +3,165 @@ import {cleanup,render,screen,within} from "@testing-library/react";
 import DocumentsPage from "./page";
 import {requireProject} from "@/lib/auth";
 import {loadDisciplineAssignmentScopes} from "@/lib/load-discipline-assignment-scopes";
-import {loadDocumentSchedules,type DocumentSchedule} from "@/lib/document-schedule";
+import {cleanMdrSearch,loadMdrDisciplineIndex} from "@/lib/mdr-register-data";
+import type {MdrFilters} from "@/lib/mdr-register-types";
+
 vi.mock("@/lib/auth",()=>({requireProject:vi.fn()}));
 vi.mock("@/lib/load-discipline-assignment-scopes",()=>({loadDisciplineAssignmentScopes:vi.fn()}));
-vi.mock("@/lib/document-schedule",()=>({loadDocumentSchedules:vi.fn()}));
+vi.mock("@/lib/mdr-register-data",()=>({cleanMdrSearch:vi.fn((value:string)=>value),loadMdrDisciplineIndex:vi.fn()}));
 vi.mock("@/components/document-create-dialog",()=>({DocumentCreateDialog:()=><button>Register document</button>}));
 vi.mock("@/components/mdr-import-dialog",()=>({MdrImportDialog:()=><button>Import Excel</button>}));
-vi.mock("@/components/mdr-document-actions",()=>({MdrDocumentActions:({archived}:{archived:boolean})=><button>{archived?"Restore document":"Archive document"}</button>}));
-vi.mock("@/app/app/workflow-actions",()=>({assignDisciplineDocuments:vi.fn()}));
-vi.mock("next/navigation",()=>({redirect:vi.fn()}));
-afterEach(cleanup);
+vi.mock("@/components/mdr-document-actions",()=>({MdrDocumentActions:()=><button>Archive document</button>}));
+vi.mock("@/app/app/workflow-actions",()=>({assignDisciplineDocuments:vi.fn(),archiveDocument:vi.fn(),restoreDocument:vi.fn()}));
+vi.mock("next/navigation",()=>({redirect:vi.fn(),notFound:vi.fn(()=>{throw new Error("NEXT_NOT_FOUND");})}));
+
 const engineer={userId:"engineer",name:"Engineer",email:"engineer@example.test",disciplines:["Electrical"]};
-const document={id:"document",document_number:"EL-001",title:"Electrical load list",document_type:"List",discipline:"Electrical",status:"Registered",area:"Utilities",system:null,work_package:null,planned_submission_date:"2026-10-19",updated_at:"2026-10-15T09:00:00Z",lifecycle_status:"active",document_revisions:[]};
-type PageFilters={q?:string;page?:string;discipline?:string;documentType?:string;status?:string;area?:string;view?:string;records?:string};
-let role="document_controller",teamError:unknown=null,documentError:unknown=null,metadataError:unknown=null,preview:unknown=undefined;
-let records:typeof document[]=[],count=0;
-const queryCalls=vi.fn();
+let role="document_controller",teamError:unknown=null,categoryError:unknown=null,registrationError:unknown=null,preview:unknown=undefined;
+const rpc=vi.fn(),from=vi.fn(),request=vi.fn();
+
 beforeEach(()=>{
-  vi.clearAllMocks();role="document_controller";teamError=null;documentError=null;metadataError=null;preview=undefined;records=[];count=0;
-  const from=vi.fn(()=>{
-    let metadata=false;
-    const query:Record<string,unknown>={then:(resolve:(value:unknown)=>unknown)=>Promise.resolve(metadata?{data:metadataError?null:[document],count:null,error:metadataError}:{data:documentError?null:records,count:documentError?null:count,error:documentError}).then(resolve)};
-    query.select=vi.fn((columns:string)=>{metadata=columns==="discipline,document_type,status,area";return query;});
-    for(const method of ["eq","order","range","limit","or","in"])query[method]=vi.fn((...args:unknown[])=>{queryCalls(method,...args);return query;});
-    return query;
+  vi.clearAllMocks();
+  role="document_controller";teamError=null;categoryError=null;registrationError=null;preview=undefined;
+  vi.stubGlobal("fetch",request);
+  vi.mocked(cleanMdrSearch).mockImplementation(value=>value);
+  from.mockImplementation(()=>{throw new Error("The page must load the complete discipline index instead of a globally paged register");});
+  rpc.mockImplementation(async(name:string)=>{
+    if(name==="get_project_team")return {data:[{user_id:engineer.userId,display_name:engineer.name,email:engineer.email,role:"engineer",disciplines:engineer.disciplines}],error:teamError};
+    if(name==="get_project_document_categories")return {data:[{code:"EL",name:"Electrical",kind:"discipline"},{code:"LIST",name:"List",kind:"document_type"}],error:categoryError};
+    return {data:name==="can_register_documents"?true:[],error:registrationError};
   });
-  const rpc=vi.fn(async(name:string)=>name==="get_project_team"?{data:[{user_id:engineer.userId,display_name:engineer.name,email:engineer.email,role:"engineer",disciplines:engineer.disciplines},{user_id:"pm",display_name:"Manager",role:"project_admin",disciplines:[]}],error:teamError}:{data:name==="can_register_documents"?true:[],error:null});
   vi.mocked(requireProject).mockImplementation(async()=>({access:{role},supabase:{from,rpc},preview} as never));
+  vi.mocked(loadMdrDisciplineIndex).mockResolvedValue({disciplines:[{name:"Electrical",count:26},{name:"Mechanical",count:2}],total:28});
   vi.mocked(loadDisciplineAssignmentScopes).mockResolvedValue({available:true,scopes:[{name:"Electrical",documentCount:2,engineers:[{...engineer,assignedCount:2,remainingCount:0}]}]});
-  vi.mocked(loadDocumentSchedules).mockImplementation(async(_client,_organisation,_project,ids)=>new Map(ids.map(id=>[id,{document_id:id,planned_submission_date:"2026-10-19",next_submission_date:"2026-10-19",last_issue_date:null,revision_cycle_days:3,deadline_kind:"first_issue",overdue:false} satisfies DocumentSchedule])));
 });
-const page=(filters:PageFilters={})=>DocumentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve(filters)});
-it("uses live assignment status instead of MDR metadata to populate the form",async()=>{
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+const page=(filters:MdrFilters={})=>DocumentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve(filters)});
+
+it("lists the complete discipline index collapsed without eagerly loading document rows",async()=>{
+  render(await page({page:"99",view:"flat"}));
+  expect(screen.getByRole("heading",{name:"Master document register",level:1})).toBeTruthy();
+  for(const name of ["Electrical","Mechanical"]){
+    const disclosure=screen.getByRole("heading",{name}).closest("details");
+    expect(disclosure).toBeTruthy();
+    expect(disclosure!.open).toBe(false);
+  }
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledWith(expect.anything(),"org","project","active","");
+  expect(from).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  expect(screen.queryByRole("navigation",{name:"MDR pages"})).toBeNull();
+  expect(screen.queryByRole("navigation",{name:"Register layout"})).toBeNull();
+});
+
+it("offers one register search with no discipline, type, status, area or layout filters",async()=>{
+  render(await page({q:"EL",discipline:"Electrical",documentType:"List",status:"Registered",area:"Utilities",view:"flat",page:"8"}));
+  const form=screen.getByRole("form",{name:"Search the MDR"});
+  expect(within(form).getAllByRole("searchbox")).toHaveLength(1);
+  expect(within(form).queryByRole("combobox",{hidden:true})).toBeNull();
+  const names=[...form.querySelectorAll("input,select")].map(input=>input.getAttribute("name"));
+  expect(names).toContain("q");
+  for(const obsolete of ["discipline","documentType","status","area","view","page"])expect(names).not.toContain(obsolete);
+  expect(screen.queryByText(/^More filters/)).toBeNull();
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledWith(expect.anything(),"org","project","active","EL");
+  expect(screen.getByRole("heading",{name:"Mechanical"})).toBeTruthy();
+});
+
+it("uses the central sanitized search when loading the organisation and project scoped index",async()=>{
+  vi.mocked(cleanMdrSearch).mockReturnValueOnce("ELload");
+  render(await page({q:"EL,(%load)"}));
+  expect(requireProject).toHaveBeenCalledWith("org","project");
+  expect(cleanMdrSearch).toHaveBeenCalledWith("EL,(%load)");
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledWith(expect.anything(),"org","project","active","ELload");
+  expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("ELload");
+});
+
+it("keeps active and removed navigation while dropping obsolete global filters",async()=>{
+  render(await page({q:"EL",discipline:"Electrical",page:"3",view:"flat"}));
+  const nav=screen.getByRole("navigation",{name:"Register records"});
+  expect(within(nav).getByRole("link",{name:"Active MDR"}).getAttribute("aria-current")).toBe("page");
+  const removed=new URL(within(nav).getByRole("link",{name:"Removed deliverables"}).getAttribute("href")!,"https://engicite.test");
+  expect(Object.fromEntries(removed.searchParams)).toMatchObject({q:"EL",records:"removed"});
+  for(const obsolete of ["discipline","documentType","status","area","view","page"])expect(removed.searchParams.has(obsolete)).toBe(false);
+});
+
+it("uses live assignment status instead of register metadata to populate allocation history",async()=>{
   render(await page());
   expect(loadDisciplineAssignmentScopes).toHaveBeenCalledWith(expect.anything(),"org","project",[engineer]);
   expect(screen.getByText("View assigned allocations (1)")).toBeTruthy();
   expect(screen.queryByRole("combobox",{name:"MDR discipline"})).toBeNull();
+  expect(screen.getByText("Assign deliverables by discipline").closest("details")!.open).toBe(false);
 });
-it("does not show an assignment form if assignment status cannot be loaded",async()=>{
+
+it("does not show an assignment form when assignment status cannot be loaded",async()=>{
   vi.mocked(loadDisciplineAssignmentScopes).mockResolvedValue({available:false,scopes:[]});
   render(await page());
   expect(screen.getByRole("alert").textContent).toContain("Assignment status could not be loaded");
   expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
+  expect(screen.getByRole("heading",{name:"Mechanical"})).toBeTruthy();
 });
-it("does not treat a failed team read as no eligible engineers",async()=>{
-  teamError={code:"OFFLINE"};render(await page());
+
+it("does not treat a failed project-team read as no eligible engineers",async()=>{
+  teamError={code:"OFFLINE"};
+  render(await page());
   expect(loadDisciplineAssignmentScopes).not.toHaveBeenCalled();
   expect(screen.getByRole("alert")).toBeTruthy();
+  expect(loadMdrDisciplineIndex).toHaveBeenCalled();
 });
-it("keeps archived deliverables out of the assignment workflow",async()=>{
+
+it("loads archived discipline folders without active registration or assignment controls",async()=>{
   render(await page({records:"removed"}));
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledWith(expect.anything(),"org","project","archived","");
   expect(loadDisciplineAssignmentScopes).not.toHaveBeenCalled();
-  expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
   expect(screen.getByRole("heading",{name:"Removed deliverables",level:1})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
-});
-it("does not load assignment controls for a viewer",async()=>{
-  role="viewer";render(await page());
-  expect(loadDisciplineAssignmentScopes).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button",{name:"Import Excel"})).toBeNull();
   expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
+});
+
+it("does not expose removed records or registration and assignment controls to viewers",async()=>{
+  role="viewer";
+  render(await page({records:"removed"}));
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledWith(expect.anything(),"org","project","active","");
+  expect(loadDisciplineAssignmentScopes).not.toHaveBeenCalled();
+  expect(screen.queryByRole("link",{name:"Removed deliverables"})).toBeNull();
   expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
+  expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
 });
 
-it("keeps search and discipline visible while optional filters start collapsed",async()=>{
+it.each(["executive_viewer","unknown_role"])("rejects %s before any MDR data or RPC reads",async deniedRole=>{
+  role=deniedRole;
+  await expect(page()).rejects.toThrow("NEXT_NOT_FOUND");
+  expect(rpc).not.toHaveBeenCalled();
+  expect(from).not.toHaveBeenCalled();
+  expect(loadMdrDisciplineIndex).not.toHaveBeenCalled();
+  expect(loadDisciplineAssignmentScopes).not.toHaveBeenCalled();
+});
+
+it("preserves read-only allocation history but hides all write controls in audited preview",async()=>{
+  preview={id:"audited-preview"};
   render(await page());
-  expect(screen.getByRole("heading",{name:"Master document register",level:1})).toBeTruthy();
-  const search=screen.getByRole("searchbox",{name:"Document number or title"});
-  const discipline=screen.getByRole("combobox",{name:"Discipline"});
-  expect(search.closest("details")).toBeNull();
-  expect(discipline.closest("details")).toBeNull();
-  const moreFilters=screen.getByText(/^More filters/).closest("details");
-  expect(moreFilters?.open).toBe(false);
-  expect(within(moreFilters!).getByRole("combobox",{name:"Document type",hidden:true})).toBeTruthy();
-});
-
-it("expands optional filters when a document type, status or area filter is active",async()=>{
-  render(await page({documentType:"List",status:"Registered",area:"Utilities"}));
-  const moreFilters=screen.getByText(/^More filters/).closest("details");
-  expect(moreFilters?.open).toBe(true);
-  expect((screen.getByRole("combobox",{name:"Document type"}) as HTMLSelectElement).value).toBe("List");
-  expect((screen.getByRole("combobox",{name:"Status"}) as HTMLSelectElement).value).toBe("Registered");
-  expect((screen.getByRole("combobox",{name:"Area"}) as HTMLSelectElement).value).toBe("Utilities");
-});
-
-it("keeps the MDR table a named keyboard-scrollable region with column headers",async()=>{
-  records=[document];count=1;
-  render(await page({view:"flat"}));
-  const region=screen.getByRole("region",{name:/Master document register.*scroll horizontally/i});
-  expect(region.getAttribute("tabindex")).toBe("0");
-  for(const header of within(region).getAllByRole("columnheader"))expect(header.getAttribute("scope")).toBe("col");
-  expect(within(region).getByRole("link",{name:/^EL-001/}).getAttribute("href")).toBe("/app/org/projects/project/documents/document");
-});
-
-it("preserves all active filters in paging and register-view links",async()=>{
-  records=[document];count=26;
-  render(await page({q:"EL",discipline:"Electrical",documentType:"List",status:"Registered",area:"Utilities",view:"flat"}));
-  const next=screen.getByRole("link",{name:"Next"});
-  const nextQuery=new URL(next.getAttribute("href")!,"https://engicite.test").searchParams;
-  expect(Object.fromEntries(nextQuery)).toMatchObject({q:"EL",discipline:"Electrical",documentType:"List",status:"Registered",area:"Utilities",view:"flat",page:"2"});
-  const grouped=screen.getByRole("link",{name:"Group by discipline"});
-  const groupQuery=new URL(grouped.getAttribute("href")!,"https://engicite.test").searchParams;
-  expect(Object.fromEntries(groupQuery)).toMatchObject({q:"EL",discipline:"Electrical",documentType:"List",status:"Registered",area:"Utilities",view:"grouped"});
-  expect(groupQuery.get("page")).toBeNull();
-  expect(queryCalls).toHaveBeenCalledWith("or","document_number.ilike.%EL%,title.ilike.%EL%");
-  for(const [column,value] of [["discipline","Electrical"],["document_type","List"],["status","Registered"],["area","Utilities"]]){
-    expect(queryCalls).toHaveBeenCalledWith("eq",column,value);
-  }
-});
-
-it("names the record and layout navigation and identifies the current selections",async()=>{
-  render(await page({view:"flat"}));
-  const recordsNav=screen.getByRole("navigation",{name:"Register records"});
-  const layoutNav=screen.getByRole("navigation",{name:"Register layout"});
-  expect(within(recordsNav).getByRole("link",{name:"Active MDR"}).getAttribute("aria-current")).toBe("page");
-  expect(within(layoutNav).getByRole("link",{name:"Flat register"}).getAttribute("aria-current")).toBe("page");
-  expect(within(layoutNav).getByRole("link",{name:"Group by discipline"}).getAttribute("aria-current")).toBeNull();
-});
-
-it("does not expose register, archive or allocation mutation controls during audited preview",async()=>{
-  preview={id:"audited-preview"};records=[document];count=1;
-  render(await page({view:"flat"}));
   expect(loadDisciplineAssignmentScopes).toHaveBeenCalled();
   expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
   expect(screen.queryByRole("button",{name:"Import Excel"})).toBeNull();
-  expect(screen.queryByRole("button",{name:"Archive document"})).toBeNull();
-  expect(screen.queryByRole("button",{name:/Assign remaining/})).toBeNull();
+  expect(screen.queryByRole("button",{name:/Assign remaining/,hidden:true})).toBeNull();
   expect(screen.queryByRole("combobox",{name:"MDR discipline",hidden:true})).toBeNull();
   expect(screen.getByText("View assigned allocations (1)")).toBeTruthy();
+  expect(screen.getByText("Read-only preview. Assignment changes are unavailable.")).toBeTruthy();
 });
 
-it("preserves removed-record restoration without offering active-registration controls",async()=>{
-  records=[{...document,lifecycle_status:"archived"}];count=1;
-  render(await page({records:"removed",view:"flat"}));
-  const region=screen.getByRole("region",{name:/Master document register.*scroll horizontally/i});
-  expect(within(region).getByRole("button",{name:"Restore document"})).toBeTruthy();
-  expect(screen.queryByRole("button",{name:"Archive document"})).toBeNull();
+it.each(["category","registration"])("does not offer registration when %s authority or options are unavailable",async failure=>{
+  if(failure==="category")categoryError={code:"OFFLINE"};else registrationError={code:"OFFLINE"};
+  render(await page());
+  expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
   expect(screen.queryByRole("button",{name:"Import Excel"})).toBeNull();
-  expect(queryCalls).toHaveBeenCalledWith("eq","lifecycle_status","archived");
+  expect(screen.getByRole("heading",{name:"Electrical"})).toBeTruthy();
 });
 
-it("does not turn a failed register query into a misleading empty or zero-count register",async()=>{
-  documentError={code:"OFFLINE"};
+it("does not turn a failed discipline index into an empty or zero-count register",async()=>{
+  vi.mocked(loadMdrDisciplineIndex).mockRejectedValue(new Error("Backend connection unavailable"));
   render(await page());
-  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("could not be loaded");
   expect(screen.getByRole("link",{name:"Retry register"})).toBeTruthy();
+  expect(screen.queryByText(/0 (matching )?documents/)).toBeNull();
   expect(screen.queryByText("No documents match this register view.")).toBeNull();
-  expect(screen.queryByText(/0 matching documents/)).toBeNull();
   expect(screen.queryByRole("table")).toBeNull();
-});
-
-it("keeps unavailable issue schedules out of a seemingly healthy register",async()=>{
-  records=[document];count=1;
-  vi.mocked(loadDocumentSchedules).mockRejectedValue(new Error("Schedule connection unavailable"));
-  render(await page());
-  expect(screen.getByRole("alert")).toBeTruthy();
-  expect(screen.getByRole("link",{name:"Retry register"})).toBeTruthy();
-  expect(screen.queryByRole("table")).toBeNull();
-  expect(screen.queryByText(/0 matching documents/)).toBeNull();
 });
