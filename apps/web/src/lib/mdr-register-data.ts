@@ -6,7 +6,7 @@ import type {MdrDocument,MdrDisciplineSummary,MdrFolderPage} from "@/lib/mdr-reg
 const INDEX_PAGE_SIZE=500;
 const FOLDER_PAGE_SIZE=25;
 const UNAVAILABLE="The MDR could not be loaded. Refresh to try again.";
-const DOCUMENT_SELECTION="id,document_number,title,document_type,discipline,status,area,system,work_package,planned_submission_date,updated_at,lifecycle_status,document_revisions(state)";
+const DOCUMENT_SELECTION="id,document_number,title,document_type,discipline,status,area,system,work_package,planned_submission_date,updated_at,lifecycle_status,document_revisions(id,revision_code,issue_status,created_at,state,control_status)";
 type Records="active"|"archived";
 type IndexRow={id:string;discipline:string};
 type DocumentRow=Omit<MdrDocument,"schedule">;

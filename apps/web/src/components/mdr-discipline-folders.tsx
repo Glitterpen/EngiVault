@@ -4,6 +4,7 @@ import {useEffect,useRef,useState} from "react";
 import {ChevronDown,Folder,FolderOpen,FoldVertical,ArrowLeft} from "lucide-react";
 import {MdrDocumentRows} from "@/components/mdr-document-rows";
 import type {MdrDisciplineSummary,MdrFolderPage} from "@/lib/mdr-register-types";
+import {disciplineFolderColour} from "@/lib/discipline-folder-colour";
 
 type Props={organisationId:string;projectId:string;disciplines:MdrDisciplineSummary[];search:string;records:string;canManage:boolean;refreshKey?:string};
 export function MdrDisciplineFolders(props:Props){
@@ -19,7 +20,7 @@ function DisciplineFolder({discipline,open,onOpenChange,...props}:Props&{discipl
   const Icon=open?FolderOpen:Folder;
   return <details open={open} onToggle={event=>onOpenChange(event.currentTarget.open)} className="ev-card min-w-0 overflow-hidden">
     <summary ref={summary} className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-      <Icon size={19} aria-hidden="true" className="shrink-0 text-[#0c5b45]"/>
+      <Icon size={19} aria-hidden="true" className="shrink-0" style={{color:disciplineFolderColour(discipline.name)}}/>
       <h3 className="min-w-0 flex-1 break-words text-sm font-semibold text-[#24384f]">{discipline.name}</h3>
       <span className="shrink-0 text-xs text-[#617083]">{discipline.count}<span className="sr-only sm:not-sr-only"> document{discipline.count===1?"":"s"}</span></span>
       <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[#617083] ${open?"rotate-180":""}`}/>

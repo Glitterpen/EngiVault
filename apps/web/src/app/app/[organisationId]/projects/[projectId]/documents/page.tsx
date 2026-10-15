@@ -42,7 +42,8 @@ export default async function DocumentsPage({params,searchParams}:{params:Promis
     filters={filters} disciplines={indexResult.data.disciplines} total={indexResult.data.total} canManage={canManage} canSeeRemoved={can(role,"document:write")} canUseAi={can(role,"ai:use")} refreshKey={new Date().toISOString()}
     registerAction={canRegister&&lifecycle==="active"?<DocumentCreateDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} documentTypes={types}/>:undefined}
     importAction={canRegister&&lifecycle==="active"?<MdrImportDialog organisationId={organisationId} projectId={projectId}/>:undefined}
-    assignmentPanel={canAssign?assignments.available&&assignments.scopes.length?<DisciplineAssignmentManager organisationId={organisationId} projectId={projectId} disciplines={assignments.scopes} readOnly={Boolean(preview)}/>:!assignments.available?<p className="ev-card p-4 text-sm text-[#8b3d1f]" role="alert">Assignment status could not be loaded. Refresh this page before assigning deliverables.</p>:undefined:undefined}
+    assignmentPanel={canAssign&&assignments.available&&assignments.scopes.length?<DisciplineAssignmentManager organisationId={organisationId} projectId={projectId} disciplines={assignments.scopes} readOnly={Boolean(preview)} embedded/>:undefined}
+    assignmentNotice={canAssign&&!assignments.available?<p className="ev-card p-4 text-sm text-[#8b3d1f]" role="alert">Assignment status could not be loaded. Refresh this page before assigning deliverables.</p>:undefined}
     notice={!canRegister&&!preview&&role==="document_controller"&&lifecycle==="active"?<p role="status" className="ev-card p-4 text-sm text-[#617083]">Document registration permission or options could not be confirmed. Refresh or <Link href={`${base}/team`} className="font-semibold text-[#0c5b45] underline">review project access</Link>.</p>:undefined}/>;
 }
 function RegisterUnavailable({href}:{href:string}){

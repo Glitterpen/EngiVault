@@ -6,11 +6,13 @@ import {loadDocumentSchedules} from "@/lib/document-schedule";
 import type {DocumentSchedule} from "@/lib/document-schedule";
 import {createMemberPreviewClient} from "@/lib/member-preview-client";
 import type {AdminPreview} from "@/lib/admin-preview";
+import type {MdrRevision} from "./mdr-register-types";
+import {latestMdrSubmission} from "./mdr-submission-status";
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/document-schedule",()=>({loadDocumentSchedules:vi.fn()}));
 vi.mock("@/lib/env",()=>({publicEnv:()=>({NEXT_PUBLIC_SUPABASE_URL:"https://preview.example.test",NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:"public-placeholder-key-for-test"})}));
 
-type Row={id:string;discipline:string;document_number:string;title:string;document_type:string};
+type Row={id:string;discipline:string;document_number:string;title:string;document_type:string;document_revisions?:MdrRevision[]};
 type Read={selection:string;head:boolean;filters:{column:string;value:unknown}[];orders:string[];range:[number,number]|null;or:string|null};
 type Result={data:Row[]|null;count:number|null;error:unknown};
 function document(id:number,discipline="Electrical"):Row{
@@ -117,6 +119,7 @@ describe("MDR folder pages",()=>{
     expect(data.reads[0].head).toBe(true);
     expect(data.reads[1].orders).toEqual(["document_number","id"]);
     expect(data.reads[1].range).toEqual([25,49]);
+    expect(data.reads[1].selection).toContain("document_revisions(id,revision_code,issue_status,created_at,state,control_status)");
     for(const read of data.reads){expectScoped(read,"archived");expect(read.filters).toContainEqual({column:"discipline",value:"Electrical"});}
     expect(loadDocumentSchedules).toHaveBeenCalledExactlyOnceWith(data.client,"org","project",result.documents.map(row=>row.id));
     expect(result.documents[0].schedule.document_id).toBe("00025");
@@ -170,14 +173,18 @@ describe("MDR folder pages",()=>{
 
 it("supports actual audited-preview transport for index paging, OR search and HEAD folder counts",async()=>{
   const rows=[document(0),document(1),document(2,"Process")];
+  const revision={id:"revision",revision_code:"R01",issue_status:"Issued for Review (IFR)",created_at:"2026-10-10T12:00:00Z",state:"ready",control_status:"accepted"};
   const rpc=vi.fn().mockResolvedValueOnce({data:{rows:rows.slice(0,2),total:3},error:null})
     .mockResolvedValueOnce({data:{rows:rows.slice(2),total:3},error:null})
     .mockResolvedValueOnce({data:{rows:rows.slice(0,2),total:2},error:null})
-    .mockResolvedValueOnce({data:{rows:rows.slice(0,2).map(row=>({...row,document_revisions:[{state:"ready"}]})),total:2},error:null});
+    .mockResolvedValueOnce({data:{rows:rows.slice(0,2).map(row=>({...row,document_revisions:[revision]})),total:2},error:null});
   const preview:AdminPreview={sessionId:"preview-session",organisationId:"org",projectId:"project",memberId:"member",role:"document_controller",displayName:"DCC",email:"dcc@example.test",disciplines:[],expiresAt:"2026-11-01T00:00:00Z"};
   const client=createMemberPreviewClient({rpc} as unknown as SupabaseClient,preview);
   expect((await loadMdrDisciplineIndex(client,"org","project","active","Electrical")).total).toBe(3);
-  expect((await loadMdrFolderPage(client,"org","project","active","Electrical","Electrical",1)).documents).toHaveLength(2);
+  const folder=await loadMdrFolderPage(client,"org","project","active","Electrical","Electrical",1);
+  expect(folder.documents).toHaveLength(2);
+  expect(folder.documents[0].document_revisions).toEqual([revision]);
+  expect(latestMdrSubmission(folder.documents[0])).toEqual({code:"IFR",label:"Issued for Review (IFR)",revisionCode:"R01",submittedAt:"2026-10-10T12:00:00Z",controlStatus:"accepted"});
   expect(rpc).toHaveBeenCalledTimes(4);
   for(const [name,args] of rpc.mock.calls){
     expect(name).toBe("read_project_member_preview");

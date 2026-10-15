@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {cleanup,render,screen,within} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import DocumentsPage from "./page";
 import {requireProject} from "@/lib/auth";
 import {loadDisciplineAssignmentScopes} from "@/lib/load-discipline-assignment-scopes";
@@ -21,6 +21,8 @@ const rpc=vi.fn(),from=vi.fn(),request=vi.fn();
 
 beforeEach(()=>{
   vi.clearAllMocks();
+  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
+  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;this.dispatchEvent(new Event("close"));}});
   role="document_controller";teamError=null;categoryError=null;registrationError=null;preview=undefined;
   vi.stubGlobal("fetch",request);
   vi.mocked(cleanMdrSearch).mockImplementation(value=>value);
@@ -86,9 +88,32 @@ it("keeps active and removed navigation while dropping obsolete global filters",
 it("uses live assignment status instead of register metadata to populate allocation history",async()=>{
   render(await page());
   expect(loadDisciplineAssignmentScopes).toHaveBeenCalledWith(expect.anything(),"org","project",[engineer]);
-  expect(screen.getByText("View assigned allocations (1)")).toBeTruthy();
+  expect(screen.queryByRole("dialog",{name:"Assign Deliverables"})).toBeNull();
+  const trigger=within(screen.getByRole("navigation",{name:"MDR actions"})).getByRole("button",{name:"Assign Deliverables"});
+  fireEvent.click(trigger);
+  const dialog=screen.getByRole("dialog",{name:"Assign Deliverables"});
+  expect(within(dialog).getByText("View assigned allocations (1)")).toBeTruthy();
   expect(screen.queryByRole("combobox",{name:"MDR discipline"})).toBeNull();
-  expect(screen.getByText("Assign deliverables by discipline").closest("details")!.open).toBe(false);
+  expect(within(dialog).getByRole("heading",{name:"Assign deliverables by discipline"}).closest("details")).toBeNull();
+});
+
+it("places assignment, search, AI and full-register download together above the MDR search",async()=>{
+  render(await page({q:"EL",discipline:"Electrical",page:"3"}));
+  const toolbar=screen.getByRole("navigation",{name:"MDR actions"});
+  expect(within(toolbar).getByRole("button",{name:"Assign Deliverables"})).toBeTruthy();
+  expect(within(toolbar).getByRole("link",{name:"Engineering Search"}).getAttribute("href")).toBe("/app/org/projects/project/search");
+  expect(within(toolbar).getByRole("link",{name:"Ask EngiCite"}).getAttribute("href")).toBe("/app/org/projects/project/chat");
+  const download=within(toolbar).getByRole("link",{name:"Download MDR"});
+  expect(download.getAttribute("href")).toBe("/api/v1/organisations/org/projects/project/documents/export");
+  expect(screen.queryByRole("navigation",{name:"Register reference tools"})).toBeNull();
+  expect(toolbar.compareDocumentPosition(screen.getByRole("form",{name:"Search the MDR"}))&Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+});
+
+it("exports removed records without applying a partial search or discipline",async()=>{
+  render(await page({records:"removed",q:"EL",discipline:"Electrical",page:"4"}));
+  const toolbar=screen.getByRole("navigation",{name:"MDR actions"});
+  expect(within(toolbar).getByRole("link",{name:"Download MDR"}).getAttribute("href")).toBe("/api/v1/organisations/org/projects/project/documents/export?records=removed");
+  expect(within(toolbar).queryByRole("button",{name:"Assign Deliverables"})).toBeNull();
 });
 
 it("does not show an assignment form when assignment status cannot be loaded",async()=>{
@@ -96,6 +121,7 @@ it("does not show an assignment form when assignment status cannot be loaded",as
   render(await page());
   expect(screen.getByRole("alert").textContent).toContain("Assignment status could not be loaded");
   expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Assign Deliverables"})).toBeNull();
   expect(screen.getByRole("heading",{name:"Mechanical"})).toBeTruthy();
 });
 
@@ -115,6 +141,7 @@ it("loads archived discipline folders without active registration or assignment 
   expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
   expect(screen.queryByRole("button",{name:"Import Excel"})).toBeNull();
   expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Assign Deliverables"})).toBeNull();
 });
 
 it("does not expose removed records or registration and assignment controls to viewers",async()=>{
@@ -125,6 +152,11 @@ it("does not expose removed records or registration and assignment controls to v
   expect(screen.queryByRole("link",{name:"Removed deliverables"})).toBeNull();
   expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
   expect(screen.queryByText("Assign deliverables by discipline")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Assign Deliverables"})).toBeNull();
+  const toolbar=screen.getByRole("navigation",{name:"MDR actions"});
+  expect(within(toolbar).queryByRole("link",{name:"Ask EngiCite"})).toBeNull();
+  expect(within(toolbar).getByRole("link",{name:"Engineering Search"})).toBeTruthy();
+  expect(within(toolbar).getByRole("link",{name:"Download MDR"}).getAttribute("href")).toBe("/api/v1/organisations/org/projects/project/documents/export");
 });
 
 it.each(["executive_viewer","unknown_role"])("rejects %s before any MDR data or RPC reads",async deniedRole=>{
@@ -142,6 +174,8 @@ it("preserves read-only allocation history but hides all write controls in audit
   expect(loadDisciplineAssignmentScopes).toHaveBeenCalled();
   expect(screen.queryByRole("button",{name:"Register document"})).toBeNull();
   expect(screen.queryByRole("button",{name:"Import Excel"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Assign Deliverables"}));
+  expect(screen.getByRole("dialog",{name:"Assign Deliverables"})).toBeTruthy();
   expect(screen.queryByRole("button",{name:/Assign remaining/,hidden:true})).toBeNull();
   expect(screen.queryByRole("combobox",{name:"MDR discipline",hidden:true})).toBeNull();
   expect(screen.getByText("View assigned allocations (1)")).toBeTruthy();

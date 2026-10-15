@@ -71,3 +71,26 @@ it("preserves allocation information but removes every mutation control in read-
   expect(screen.queryByRole("button",{name:/Assign remaining/,hidden:true})).toBeNull();
   expect(container.querySelector("form")).toBeNull();
 });
+
+it("shows embedded assignment controls immediately without a second outer disclosure",()=>{
+  const {container}=render(<DisciplineAssignmentManager organisationId="org" projectId="project" disciplines={[scope("Electrical",2)]} embedded/>);
+  const heading=screen.getByRole("heading",{name:"Assign deliverables by discipline"});
+  expect(heading.closest("section")).toBeTruthy();
+  expect(heading.closest("details")).toBeNull();
+  expect(screen.getByRole("combobox",{name:"MDR discipline"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Assign remaining 2"})).toBeTruthy();
+  const form=container.querySelector("form")!;
+  expect((form.querySelector('[name="organisationId"]') as HTMLInputElement).value).toBe("org");
+  expect((form.querySelector('[name="projectId"]') as HTMLInputElement).value).toBe("project");
+});
+
+it("keeps embedded audited previews read-only while exposing allocation history",()=>{
+  const {container}=render(<DisciplineAssignmentManager organisationId="org" projectId="project" disciplines={[scope("Electrical",2)]} embedded readOnly/>);
+  expect(screen.getByRole("heading",{name:"Assign deliverables by discipline"}).closest("details")).toBeNull();
+  expect(screen.getByText("Read-only preview. Assignment changes are unavailable.")).toBeTruthy();
+  expect(screen.getByText(/Engineer: 2 remaining/)).toBeTruthy();
+  expect(screen.getByText("View assigned allocations (1)")).toBeTruthy();
+  expect(screen.queryByRole("combobox",{hidden:true})).toBeNull();
+  expect(screen.queryByRole("button",{name:/Assign remaining/,hidden:true})).toBeNull();
+  expect(container.querySelector("form")).toBeNull();
+});

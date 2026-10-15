@@ -1,22 +1,23 @@
 import type {ReactNode} from "react";
 import Link from "next/link";
-import {ArrowLeft,Search} from "lucide-react";
+import {ArrowLeft,Download,MessageSquare,Search} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import {MdrDisciplineFolders} from "@/components/mdr-discipline-folders";
+import {MdrAssignmentDialog} from "@/components/mdr-assignment-dialog";
 import type {MdrFilters,MdrDisciplineSummary} from "@/lib/mdr-register-types";
 export type {MdrFilters,MdrDocument} from "@/lib/mdr-register-types";
 
 type Props={
   organisationId:string;projectId:string;backHref:string;backLabel:string;filters:MdrFilters;
   disciplines:MdrDisciplineSummary[];total:number;canManage:boolean;canSeeRemoved:boolean;canUseAi:boolean;
-  refreshKey?:string;registerAction?:ReactNode;importAction?:ReactNode;assignmentPanel?:ReactNode;notice?:ReactNode;
+  refreshKey?:string;registerAction?:ReactNode;importAction?:ReactNode;assignmentPanel?:ReactNode;assignmentNotice?:ReactNode;notice?:ReactNode;
 };
 export function mdrFilterUrl(filters:MdrFilters,changes:Partial<MdrFilters>={}){
   const values={...filters,...changes};
   const query=new URLSearchParams(Object.entries({q:values.q,records:values.records}).filter((entry):entry is [string,string]=>Boolean(entry[1]))).toString();
   return query?`?${query}`:"?";
 }
-export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabel,filters,disciplines,total,canManage,canSeeRemoved,canUseAi,refreshKey,registerAction,importAction,assignmentPanel,notice}:Props){
+export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabel,filters,disciplines,total,canManage,canSeeRemoved,canUseAi,refreshKey,registerAction,importAction,assignmentPanel,assignmentNotice,notice}:Props){
   const base=`/app/${organisationId}/projects/${projectId}`,archived=filters.records==="removed";
   const tab="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-[#617083] hover:bg-[#f3f7f5]";
   const active="bg-[#edf3f0] font-semibold text-[#0c5b45]";
@@ -25,10 +26,17 @@ export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabe
       <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16} aria-hidden="true"/>{backLabel}</Link>
       <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-3">
         <h1 className="flex min-w-0 flex-wrap items-center gap-x-2 text-3xl font-semibold tracking-tight">{archived?"Removed deliverables":"Master document register"}<HelpTip label="Master document register guidance">All disciplines with MDR documents appear as folders, collapsed on arrival. Open a folder to browse its documents, or search by document number, title, discipline or type. Each folder has its own pages. Due dates stay visible; the details icon holds schedule history and other metadata. Removed records retain revision and audit history.</HelpTip></h1>
-        {(registerAction||importAction)&&<div className="flex flex-wrap gap-2">{registerAction}{importAction}</div>}
       </div>
+      <nav aria-label="MDR actions" className="mt-3 flex flex-wrap gap-2">
+        {assignmentPanel&&<MdrAssignmentDialog>{assignmentPanel}</MdrAssignmentDialog>}
+        <a href={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/export${archived?"?records=removed":""}`} className="ev-button-secondary"><Download size={16} aria-hidden="true"/>Download MDR</a>
+        <Link href={`${base}/search`} className="ev-button-secondary"><Search size={16} aria-hidden="true"/>Engineering Search</Link>
+        {canUseAi&&<Link href={`${base}/chat`} className="ev-button-secondary"><MessageSquare size={16} aria-hidden="true"/>Ask EngiCite</Link>}
+        {registerAction}{importAction}
+      </nav>
     </header>
     {notice}
+    {assignmentNotice}
     <form method="get" aria-label="Search the MDR" className="ev-card flex min-w-0 flex-wrap items-end gap-3 p-3 sm:p-4">
       {archived&&<input type="hidden" name="records" value="removed"/>}
       <label className="min-w-0 flex-1 basis-56"><span className="ev-label">Search the MDR</span><input className="ev-input" name="q" type="search" maxLength={100} defaultValue={filters.q??""} placeholder="Document number, title, discipline or type"/></label>
@@ -43,10 +51,5 @@ export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabe
       <p className="text-xs text-[#617083]">{total} {filters.q?"matching ":""}document{total===1?"":"s"} · {disciplines.length} discipline{disciplines.length===1?"":"s"}</p>
     </div>
     <MdrDisciplineFolders key={`${organisationId}:${projectId}:${archived}:${filters.q??""}`} organisationId={organisationId} projectId={projectId} disciplines={disciplines} search={filters.q??""} records={archived?"removed":""} canManage={canManage} refreshKey={refreshKey}/>
-    {assignmentPanel}
-    <nav aria-label="Register reference tools" className="flex flex-wrap gap-4 text-xs font-semibold text-[#526675]">
-      <Link href={`${base}/search`} className="inline-flex min-h-11 items-center rounded-lg">Engineering search</Link>
-      {canUseAi&&<Link href={`${base}/chat`} className="inline-flex min-h-11 items-center rounded-lg">Ask EngiCite</Link>}
-    </nav>
   </div>;
 }
