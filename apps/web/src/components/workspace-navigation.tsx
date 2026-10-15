@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import {usePathname} from "next/navigation";
-import {useEffect,useId,useRef,useState} from "react";
-import {Bell,Building2,ChartNoAxesColumnIncreasing,ClipboardCheck,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,Menu,MessageSquareText,Package,Settings,ShieldCheck,UserCheck,Users,X} from "lucide-react";
+import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState} from "react";
+import {Bell,Building2,ChartNoAxesColumnIncreasing,ClipboardCheck,Eye,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,Menu,MessageSquareText,Package,PanelLeftClose,PanelLeftOpen,Settings,ShieldCheck,UserCheck,Users,X} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import {ProjectLogo} from "@/components/project-logo";
 import {scopedRoleLabel,workspacePersona} from "@/lib/role-experience";
@@ -35,6 +35,8 @@ export function WorkspaceNavigation({unreadCount=0,previewScope}:{unreadCount?:n
   const previewRole=previewScope?.role;
   const scopeKey=`${organisationId??""}:${projectId??""}:${previewRole??"workspace"}`;
   const [scopedContext,setScopedContext]=useState<{key:string;value:WorkspaceNavigationContext|null}|null>(null);
+  // Keep desktop density independent of the route-keyed mobile drawer.
+  const [collapsed,setCollapsed]=useState(false);
   useEffect(()=>{
     if(!organisationId||!projectId)return;
     const controller=new AbortController();let request=0;
@@ -57,7 +59,7 @@ export function WorkspaceNavigation({unreadCount=0,previewScope}:{unreadCount?:n
   const context=fetched??(previewScope?{role:previewScope.role,roleLabel:scopedRoleLabel(previewScope.role,previewScope.disciplines),persona:workspacePersona(previewScope.role),project:{code:"",name:""},pendingReviewCount:0,preview:true}:null);
   const navigation=buildWorkspaceNavigation({pathname,organisationId,projectId,context,unreadCount});
   // Route changes unmount an open drawer instead of retaining an old page's overlay.
-  return <WorkspaceSidebar key={pathname} organisationId={organisationId} projectId={projectId} context={context} navigation={navigation}/>;
+  return <WorkspaceSidebar key={pathname} organisationId={organisationId} projectId={projectId} context={context} navigation={navigation} collapsed={collapsed} onToggleCollapsed={()=>setCollapsed(value=>!value)}/>;
 }
 
 function ProjectIdentity({organisationId,projectId,context}:IdentityProps){
@@ -65,36 +67,68 @@ function ProjectIdentity({organisationId,projectId,context}:IdentityProps){
   return <div className={styles.identity}>
     <span className={styles.logo} aria-hidden="true">{organisationId&&projectId?<ProjectLogo organisationId={organisationId} projectId={projectId} name={name} size={44} className="size-full object-contain"/>:<FolderKanban size={23}/>}</span>
     <div className={styles.identityText}><p className={styles.projectCode}>{context?.project.code||(projectId?"Project":"EngiCite")}</p><p className={styles.projectName} title={name}>{name}</p></div>
-    <div className={styles.roleRow}><span className={styles.role}>{context?.roleLabel??"Secure workspace"}</span>{context?.preview&&<span className={styles.preview}>Read-only preview</span>}</div>
+    <div className={styles.roleRow}><span className={styles.role}>{context?.roleLabel??"Secure workspace"}</span>{context?.preview&&<span className={styles.preview} title="Read-only preview"><Eye size={14} aria-hidden="true" className={styles.previewIcon}/><span className={styles.previewLabel}>Read-only preview</span></span>}</div>
   </div>;
 }
 
-function NavigationLink({item,activeKey,onNavigate}:{item:WorkspaceNavItem;activeKey:string;onNavigate?:()=>void}){
+function NavigationLink({item,activeKey,onNavigate,compact=false}:{item:WorkspaceNavItem;activeKey:string;onNavigate?:()=>void;compact?:boolean}){
   const Icon=icons[item.icon];const selected=activeKey===item.key;
-  return <Link href={item.href} onClick={onNavigate} aria-current={selected?"page":undefined} className={`${styles.link} ${selected?styles.active:""}`}>
+  const id=useId(),anchor=useRef<HTMLAnchorElement>(null),popup=useRef<HTMLSpanElement>(null);
+  const closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const [tooltipOpen,setTooltipOpen]=useState(false);
+  const cancelClose=useCallback(()=>{if(closeTimer.current)clearTimeout(closeTimer.current);},[]);
+  const close=useCallback(()=>{cancelClose();setTooltipOpen(false);},[cancelClose]);
+  const show=()=>{if(compact&&window.innerWidth>=768){cancelClose();setTooltipOpen(true);}};
+  const leave=()=>{cancelClose();closeTimer.current=setTimeout(()=>{if(document.activeElement!==anchor.current)setTooltipOpen(false);},150);};
+  useEffect(()=>()=>{if(closeTimer.current)clearTimeout(closeTimer.current);},[]);
+  useLayoutEffect(()=>{
+    if(!tooltipOpen)return;
+    const tip=popup.current;if(!tip)return;
+    // A top-layer tooltip is not clipped by the sidebar's scrolling link list.
+    if(typeof tip.showPopover==="function")tip.showPopover();else tip.removeAttribute("popover");
+    const position=()=>{
+      if(window.innerWidth<768){close();return;}
+      const box=anchor.current?.getBoundingClientRect();if(!box)return;
+      const bounds=tip.getBoundingClientRect();
+      tip.style.left=`${Math.max(8,Math.min(box.right+12,window.innerWidth-bounds.width-8))}px`;
+      tip.style.top=`${Math.max(8,Math.min(box.top+(box.height-bounds.height)/2,window.innerHeight-bounds.height-8))}px`;
+    };
+    position();
+    const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!anchor.current?.contains(event.target)&&!tip.contains(event.target))close();};
+    const escape=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();close();}};
+    document.addEventListener("pointerdown",outside);document.addEventListener("keydown",escape,true);
+    window.addEventListener("resize",position);window.addEventListener("scroll",position,true);
+    return()=>{
+      document.removeEventListener("pointerdown",outside);document.removeEventListener("keydown",escape,true);
+      window.removeEventListener("resize",position);window.removeEventListener("scroll",position,true);
+    };
+  },[tooltipOpen,close]);
+  return <><Link ref={anchor} href={item.href} onClick={onNavigate} aria-current={selected?"page":undefined} aria-describedby={tooltipOpen?id:undefined} className={`${styles.link} ${selected?styles.active:""}`}
+    onMouseEnter={show} onMouseLeave={leave} onFocus={show} onBlur={close}>
     <Icon size={18} strokeWidth={1.7} aria-hidden="true" className={styles.linkIcon}/><span className={styles.linkLabel}>{item.label}</span>
     {Boolean(item.badge)&&<><span aria-hidden="true" className={styles.badge}>{item.badge!>99?"99+":item.badge}</span><span className="sr-only">{`, ${item.badge} ${item.key==="reviews"?"pending":"unread"}`}</span></>}
-  </Link>;
+  </Link>{tooltipOpen&&<span ref={popup} id={id} role="tooltip" popover="manual" className={styles.railTooltip} onMouseEnter={show} onMouseLeave={leave}>{item.label}</span>}</>;
 }
 
-function NavigationContents({navigation,onNavigate,label}:{navigation:Navigation;onNavigate?:()=>void;label:string}){
+function NavigationContents({navigation,onNavigate,label,id:navId,compact=false}:{navigation:Navigation;onNavigate?:()=>void;label:string;id?:string;compact?:boolean}){
   const id=useId();const workspaceLinks=navigation.workspaceLinks.filter(item=>item.key!=="notifications");
   const notifications=navigation.workspaceLinks.find(item=>item.key==="notifications");
-  return <nav aria-label={label} className={styles.navigation}>
+  return <nav id={navId} aria-label={label} className={styles.navigation}>
     <div className={styles.scrollArea}>
-      {workspaceLinks.length>0&&<div className={styles.workspaceLinks}>{workspaceLinks.map(item=><NavigationLink key={item.key} item={item} activeKey={navigation.activeKey} onNavigate={onNavigate}/>)}</div>}
+      {workspaceLinks.length>0&&<div className={styles.workspaceLinks}>{workspaceLinks.map(item=><NavigationLink key={`${item.key}-${compact}`} item={item} activeKey={navigation.activeKey} onNavigate={onNavigate} compact={compact}/>)}</div>}
       {navigation.groups.map(group=><section key={group.key} aria-labelledby={`${id}-${group.key}`} className={styles.group}>
         <h2 id={`${id}-${group.key}`} className={styles.groupTitle}>{group.label}</h2>
-        <div className={styles.groupLinks}>{group.items.map(item=><NavigationLink key={item.key} item={item} activeKey={navigation.activeKey} onNavigate={onNavigate}/>)}</div>
+        <div className={styles.groupLinks}>{group.items.map(item=><NavigationLink key={`${item.key}-${compact}`} item={item} activeKey={navigation.activeKey} onNavigate={onNavigate} compact={compact}/>)}</div>
       </section>)}
     </div>
-    <div className={styles.footer}><div className={styles.footerLink}>{notifications&&<NavigationLink item={notifications} activeKey={navigation.activeKey} onNavigate={onNavigate}/>}</div><HelpTip label="Workspace role guidance">This workspace shows only the responsibilities assigned to your current role.</HelpTip></div>
+    <div className={styles.footer}><div className={styles.footerLink}>{notifications&&<NavigationLink key={`${notifications.key}-${compact}`} item={notifications} activeKey={navigation.activeKey} onNavigate={onNavigate} compact={compact}/>}</div><HelpTip label="Workspace role guidance">This workspace shows only the responsibilities assigned to your current role.</HelpTip></div>
   </nav>;
 }
 
-function WorkspaceSidebar({navigation,...identity}:IdentityProps&{navigation:Navigation}){
+function WorkspaceSidebar({navigation,collapsed,onToggleCollapsed,...identity}:IdentityProps&{navigation:Navigation;collapsed:boolean;onToggleCollapsed:()=>void}){
   const [open,setOpen]=useState(false);const dialog=useRef<HTMLDialogElement>(null);const trigger=useRef<HTMLButtonElement>(null);
-  const closeButton=useRef<HTMLButtonElement>(null);const desktop=useRef<HTMLElement>(null);const menuId=useId();
+  const closeButton=useRef<HTMLButtonElement>(null);const desktop=useRef<HTMLElement>(null);const menuId=useId(),desktopNavId=useId();
+  const CollapseIcon=collapsed?PanelLeftOpen:PanelLeftClose;
   useEffect(()=>{
     if(!open)return;
     const modal=dialog.current;if(!modal)return;
@@ -128,7 +162,11 @@ function WorkspaceSidebar({navigation,...identity}:IdentityProps&{navigation:Nav
     <div className={`sticky top-16 ${styles.mobileBar}`}><button ref={trigger} type="button" data-preview-safe aria-label="Toggle workspace navigation" aria-haspopup="dialog" aria-expanded={open} aria-controls={menuId} onClick={()=>setOpen(value=>!value)} className={styles.mobileTrigger}>
       <Menu size={21} aria-hidden="true"/><span className={styles.mobileTitle}><span className={styles.mobileProject}>{identity.context?.project.code||"Workspace"}</span><span className={styles.currentPage}>{navigation.currentLabel}</span></span><span className={styles.mobileOpenLabel} aria-hidden="true">Menu</span>
     </button></div>
-    <aside ref={desktop} className={styles.sidebar} aria-label="Project sidebar"><ProjectIdentity {...identity}/><NavigationContents navigation={navigation} label="Workspace"/></aside>
+    <aside ref={desktop} className={styles.sidebar} data-collapsed={collapsed} aria-label="Project sidebar"><ProjectIdentity {...identity}/><NavigationContents navigation={navigation} label="Workspace" id={desktopNavId} compact={collapsed}/>
+      <button type="button" data-preview-safe className={styles.collapseToggle} onClick={onToggleCollapsed} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"} aria-expanded={!collapsed} aria-controls={desktopNavId} title={collapsed?"Expand sidebar":"Collapse sidebar"}>
+        <CollapseIcon size={19} aria-hidden="true"/><span className={styles.collapseLabel}>{collapsed?"Expand sidebar":"Collapse sidebar"}</span>
+      </button>
+    </aside>
     <dialog ref={dialog} id={menuId} role="dialog" aria-modal="true" aria-label="Project navigation" className={styles.drawer}
       onCancel={event=>{event.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}
       onClick={event=>{if(event.target!==event.currentTarget)return;const box=event.currentTarget.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)setOpen(false);}}>

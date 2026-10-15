@@ -8,6 +8,7 @@
 .roleRow{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;}
 .role,.preview{display:inline-flex;max-width:100%;align-items:center;border:1px solid var(--nav-line);border-radius:7px;padding:3px 7px;color:#d0dbe8;font-size:11px;line-height:1.5;overflow-wrap:anywhere;}
 .preview{color:#ffd2bd;border-color:rgba(255,172,134,.25);}
+.previewIcon{display:none;flex:none;}
 .navigation{display:flex;flex:1;min-height:0;flex-direction:column;}
 .scrollArea{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#576c85 transparent;padding:4px;}
 .workspaceLinks{padding-bottom:14px;border-bottom:1px solid var(--nav-line);margin-bottom:18px;}
@@ -25,6 +26,11 @@
 .footer{display:flex;align-items:center;gap:2px;margin-top:14px;border-top:1px solid var(--nav-line);padding:9px 4px 0;}
 .footerLink{min-width:0;flex:1;}
 .footer :global(.ev-help-trigger){color:#b8c5d5;}
+.collapseToggle{display:flex;flex:none;align-items:center;gap:11px;min-height:44px;margin:6px 4px 0;border-radius:9px;padding:10px 12px;color:#b8c5d5;text-align:left;font-size:12px;line-height:1.5;}
+.collapseToggle:hover{background:rgba(255,255,255,.07);color:#fff;}
+.collapseToggle svg{flex:none;}
+.railTooltip{position:fixed;inset:auto;margin:0;width:max-content;max-width:min(260px,calc(100vw - 16px));border:1px solid #40546e;border-radius:8px;background:#10243e;color:#fff;padding:9px 12px;box-shadow:0 6px 20px rgba(9,23,41,.18);font-size:13px;line-height:1.5;overflow-wrap:anywhere;z-index:60;}
+.workspaceFrame{min-width:0;}
 .sidebar :is(a,button):focus-visible,.drawer :is(a,button):focus-visible{outline:3px solid #fff;outline-offset:2px;}
 .mobileBar{z-index:30;border-bottom:1px solid #dce3eb;background:#fff;padding:4px 16px;}
 .mobileTrigger{display:flex;width:100%;min-height:56px;align-items:center;gap:13px;border-radius:9px;color:#10243e;text-align:left;padding:6px 2px;}
@@ -39,8 +45,26 @@
 .drawerHeading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 4px 14px 8px;color:var(--nav-muted);font-size:12px;}
 .closeButton{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:9px;color:#e0e8f3;}
 .closeButton:hover{background:rgba(255,255,255,.07);}
-@media(min-width:768px){.sidebar{display:flex;}.mobileBar{display:none;}}
-@media(min-width:1536px){.sidebar{width:264px;padding:24px 16px 16px;}}
+@media(min-width:768px){
+  .sidebar{display:flex;transition:width 180ms ease,padding 180ms ease;}.mobileBar{display:none;}
+  .workspaceFrame{margin-left:248px;transition:margin-left 180ms ease;}
+  .sidebar[data-collapsed="true"]{width:76px;padding:18px 11px 12px;}
+  :global(.workspace-shell):has(> .sidebar[data-collapsed="true"])>.workspaceFrame{margin-left:76px;}
+  .sidebar[data-collapsed="true"] .identity{position:relative;grid-template-columns:44px;justify-content:center;gap:0;padding:0 0 18px;}
+  .sidebar[data-collapsed="true"] :is(.identityText,.role,.previewLabel,.groupTitle,.linkLabel,.collapseLabel){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  .sidebar[data-collapsed="true"] .roleRow{position:absolute;top:30px;right:0;display:block;max-height:none;overflow:visible;}
+  .sidebar[data-collapsed="true"] .preview{display:grid;place-items:center;width:23px;height:23px;padding:0;border-radius:50%;background:#10243e;}
+  .sidebar[data-collapsed="true"] .previewIcon{display:block;}
+  .sidebar[data-collapsed="true"] .scrollArea{padding:4px;margin-right:-10px;overflow-x:hidden;}
+  .sidebar[data-collapsed="true"] .workspaceLinks{padding-bottom:10px;margin-bottom:10px;}
+  .sidebar[data-collapsed="true"] .group+.group{margin-top:10px;border-top:1px solid var(--nav-line);padding-top:10px;}
+  .sidebar[data-collapsed="true"] .link{justify-content:center;min-width:44px;width:44px;min-height:44px;padding:10px;gap:0;}
+  .sidebar[data-collapsed="true"] .badge{position:absolute;top:1px;right:0;min-width:17px;height:17px;border-radius:5px;padding:0 3px;font-size:9px;}
+  .sidebar[data-collapsed="true"] .footer{display:block;padding:8px 4px 0;margin-top:8px;}
+  .sidebar[data-collapsed="true"] .footer :global(.ev-help){display:none;}
+  .sidebar[data-collapsed="true"] .collapseToggle{justify-content:center;width:44px;padding:10px;gap:0;}
+}
+@media(min-width:1536px){.sidebar:not([data-collapsed="true"]){width:264px;padding:24px 16px 16px;}.workspaceFrame{margin-left:264px;}}
 @media(max-height:520px){.identity{gap:8px;padding-bottom:12px;}.projectName{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}.roleRow{max-height:48px;overflow-y:auto;}.drawerHeading{padding-top:2px;padding-bottom:4px;}.footer{margin-top:8px;padding-top:4px;}}
-@media(prefers-reduced-motion:reduce){.link{transition:none;}}
-@media print{.sidebar,.mobileBar,.drawer{display:none!important;}}
+@media(prefers-reduced-motion:reduce){.link,.sidebar,.workspaceFrame{transition:none;}}
+@media print{.sidebar,.mobileBar,.drawer,.railTooltip{display:none!important;}.workspaceFrame{margin-left:0!important;}}
