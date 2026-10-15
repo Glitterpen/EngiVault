@@ -12,9 +12,9 @@ type Base={organisationId:string;projectId:string};
 type Discipline={code:string;name:string};
 type ProjectBriefProps=Base&{introduction:string;objectives:string[];startDate:string;endDate:string;deliveryStage:ProjectDeliveryStage|null};
 
-export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,dccCount,editable=true}:ProjectBriefProps&{dccCount:number;editable?:boolean}){
+export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,dccCount,editable=true,embedded=false}:ProjectBriefProps&{dccCount:number|null;editable?:boolean;embedded?:boolean}){
   const [editing,setEditing]=useState(false);
-  return <article className="ev-card p-5 sm:p-6">
+  return <article className={embedded?"min-w-0":"ev-card p-5 sm:p-6"}>
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><p className="ev-label">Project brief</p><h2 className="mt-1 text-lg font-semibold">Introduction and key objectives</h2></div>
       {editable&&<button className="ev-button-secondary" type="button" onClick={()=>setEditing(value=>!value)} aria-expanded={editing}>
@@ -30,7 +30,7 @@ export function EditableProjectBrief({organisationId,projectId,introduction,obje
         </div>
         <ShieldCheck className="shrink-0 text-[#0c5b45]" aria-hidden="true"/>
       </div>
-      <div className="mt-5 grid gap-3 border-t border-[#edf1ef] pt-5 sm:grid-cols-2 xl:grid-cols-4"><BriefDatum label="Delivery stage" value={projectDeliveryStageLabel(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="100% issue milestone" value={projectTerminalIssueStatus(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="Planned start" value={formatDisplayDate(startDate)}/><BriefDatum label="Planned completion" value={formatDisplayDate(endDate)}/><BriefDatum label="DCC appointed" value={dccCount?`${dccCount} active`:"Not appointed"} warn={!dccCount}/></div>
+      <div className="mt-5 grid gap-3 border-t border-[#edf1ef] pt-5 sm:grid-cols-2 xl:grid-cols-4"><BriefDatum label="Delivery stage" value={projectDeliveryStageLabel(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="100% issue milestone" value={projectTerminalIssueStatus(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="Planned start" value={formatDisplayDate(startDate)}/><BriefDatum label="Planned completion" value={formatDisplayDate(endDate)}/><BriefDatum label="DCC appointed" value={dccCount===null?"Unavailable":dccCount?`${dccCount} active`:"Not appointed"} warn={dccCount===0}/></div>
     </>}
   </article>;
 }
@@ -62,4 +62,4 @@ function Hidden({organisationId,projectId}:Base){return <><input type="hidden" n
 function Date({name,label,value}:{name:string;label:string;value:string}){return <label><span className="ev-label">{label}</span><input className="ev-input" name={name} type="date" defaultValue={value}/></label>}
 function Status({state}:{state:WorkflowState}){return state?.message?<p className={`mt-4 text-xs ${state.ok?"text-[#0c5b45]":"text-[#a5452f]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
 function BriefDatum({label,value,warn=false}:{label:string;value:string;warn?:boolean}){return <div><p className="ev-label">{label}</p><p className={`mt-1 text-sm font-semibold ${warn?"text-[#a5452f]":""}`}>{value}</p></div>}
-function formatDisplayDate(value:string){return value?new globalThis.Date(`${value}T00:00:00`).toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"}):"Not planned"}
+function formatDisplayDate(value:string){if(!value)return "Not planned";const date=new globalThis.Date(`${value}T00:00:00Z`);return Number.isNaN(date.getTime())?"Not planned":date.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"})}

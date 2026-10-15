@@ -1,14 +1,15 @@
 "use client";
 
-import {useActionState} from "react";
+import {useActionState,useId} from "react";
 import {HelpTip} from "@/components/help-tip";
 import {updateRevisionCycle} from "@/app/app/revision-cycle-actions";
 
-export function RevisionCycleForm({organisationId,projectId,days,readOnly=false}:{organisationId:string;projectId:string;days:number|null;readOnly?:boolean}){
+export function RevisionCycleForm({organisationId,projectId,days,readOnly=false,embedded=false}:{organisationId:string;projectId:string;days:number|null;readOnly?:boolean;embedded?:boolean}){
   const [state,action,pending]=useActionState(updateRevisionCycle,{});
-  return <section className="ev-card p-5 sm:p-6">
+  const id=useId();
+  return <section aria-labelledby={`${id}-heading`} className={embedded?"min-w-0":"ev-card p-5 sm:p-6"}>
     <div className="relative flex items-center gap-2">
-      <h2 className="font-semibold">MDR revision cycle</h2>
+      <h2 id={`${id}-heading`} className="font-semibold">MDR revision cycle</h2>
       <HelpTip label="About the MDR revision cycle">
         <span className="block">After the first issue, each next revision is due this many working days after the previous issue date. Monday–Friday only; public holidays are counted. The issue day is day zero.</span>
         <span className="mt-2 block">A 3-day cycle after Friday is due Wednesday and overdue Thursday. The first-issue plan stays unchanged.</span>
@@ -17,9 +18,9 @@ export function RevisionCycleForm({organisationId,projectId,days,readOnly=false}
     </div>
     {readOnly?<p className="mt-3 text-sm font-semibold">{days?`${days} working days`:"Not yet set by the Project Manager"}</p>:<form action={action} className="mt-4">
       <input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/>
-      <label className="block"><span className="ev-label">Revision cycle (working days)</span><input className="ev-input max-w-xs" name="workingDays" type="number" min={1} max={365} step={1} required defaultValue={days??""} placeholder="e.g. 3"/></label>
+      <label className="block" htmlFor={`${id}-working-days`}><span className="ev-label">Revision cycle (working days)</span><input id={`${id}-working-days`} className="ev-input max-w-xs" name="workingDays" type="number" min={1} max={365} step={1} required defaultValue={days??""} placeholder="e.g. 3"/></label>
       {state.message&&<p role={state.ok?"status":"alert"} className={`mt-3 text-sm ${state.ok?"text-[#0c5b45]":"text-[#a5452f]"}`}>{state.message}</p>}
-      <button className="ev-button mt-4" disabled={pending}>{pending?"Saving…":"Save revision cycle"}</button>
+      <button type="submit" className="ev-button mt-4" disabled={pending}>{pending?"Saving…":"Save revision cycle"}</button>
     </form>}
   </section>;
 }

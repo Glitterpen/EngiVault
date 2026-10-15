@@ -53,7 +53,10 @@ function setup({ disciplines = ["Process"], role = "project_admin", preview = fa
 }
 
 function readiness() {
-  return within(screen.getByRole("heading", { name: /^Discipline resource readiness/ }).closest("article")!);
+  const teamHeading = screen.queryByRole("heading", { name: /^Discipline resource readiness/ });
+  return teamHeading
+    ? within(teamHeading.closest("article")!)
+    : within(screen.getByRole("region", { name: /^Resource readiness/ }));
 }
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -79,14 +82,14 @@ describe("discipline removal reflected in live resource readiness", () => {
     render(await ProjectOverview({ params }));
     expect(readiness().queryByRole("heading", { name: "Mechanical" })).toBeNull();
     expect(readiness().getByRole("heading", { name: "Process" })).toBeTruthy();
-    expect(screen.getByText("2 engineers")).toBeTruthy();
+    expect(screen.getByText("Engineers", { selector: "dt" }).nextElementSibling?.textContent).toBe("2");
   });
 
   it("uses the same filtered readiness in the live PM preview", async () => {
     setup({ preview: true });
     render(await ProjectOverview({ params }));
-    expect(readiness().queryByText("Retained mechanical plan")).toBeNull();
-    expect(readiness().getByText("Current process plan")).toBeTruthy();
+    expect(readiness().queryByText(/Retained mechanical plan$/)).toBeNull();
+    expect(readiness().getByText(/Current process plan$/)).toBeTruthy();
   });
 
   for (const [name, Page] of [["team", TeamPage], ["overview", ProjectOverview]] as const) {
@@ -97,7 +100,7 @@ describe("discipline removal reflected in live resource readiness", () => {
       setup({ disciplines: ["Mechanical", "Process"] });
       view.rerender(await Page({ params }));
       expect(readiness().getByRole("heading", { name: "Mechanical" })).toBeTruthy();
-      expect(readiness().getByText("Retained mechanical plan")).toBeTruthy();
+      expect(readiness().getByText(/Retained mechanical plan$/)).toBeTruthy();
     });
 
     it(`shows no stale readiness on ${name} after all disciplines are removed`, async () => {
@@ -110,7 +113,17 @@ describe("discipline removal reflected in live resource readiness", () => {
 
     it.each(["get_project_document_categories", "project_resource_plans"])(`does not report misleading readiness on ${name} when %s fails`, async failed => {
       setup({ failed });
-      await expect(Page({ params })).rejects.toThrow("Project resource readiness could not be loaded");
+      if (name === "team") {
+        await expect(Page({ params })).rejects.toThrow("Project resource readiness could not be loaded");
+      } else {
+        render(await Page({ params }));
+        expect(screen.getByRole("alert").textContent).toContain("Some project summary data could not be loaded");
+        expect(readiness().getByText("Status unavailable")).toBeTruthy();
+        expect(readiness().getByText(/Resource requirements are unavailable/)).toBeTruthy();
+        expect(readiness().queryByText(/No discipline resource requirements/)).toBeNull();
+        expect(readiness().queryByText(/Retained mechanical plan$/)).toBeNull();
+        expect(readiness().queryByText(/Current process plan$/)).toBeNull();
+      }
     });
   }
 });
