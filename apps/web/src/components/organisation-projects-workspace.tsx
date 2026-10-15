@@ -33,6 +33,9 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
   const base=`/app/${organisationId}`;
   const title=isAdmin?"Projects":"My project assignments";
   const selectedLabel=statuses.find(item=>item.value===status)!.label.toLowerCase();
+  const engineeringWorkspace=!isAdmin&&projects.length>0&&projects.every(project=>project.role==="engineer");
+  const activeEngineeringProjects=engineeringWorkspace?projects.filter(project=>project.status==="active"):[];
+  const assignedDisciplineCount=activeEngineeringProjects.reduce((total,project)=>total+(disciplines[project.project_id]?.length??0),0);
 
   return <div className="mx-auto min-w-0 max-w-[1450px] space-y-4">
     <header className="min-w-0">
@@ -46,6 +49,12 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
     </header>
 
     {notice}
+    {engineeringWorkspace&&<section aria-label="Your engineering work" className="rounded-2xl border border-[#dde4eb] bg-white">
+      <dl className="grid grid-cols-2 divide-x divide-[#e5ebe8]">
+        <PortfolioMetric label="Active projects" value={activeEngineeringProjects.length}/>
+        <PortfolioMetric label="Discipline assignments" value={disciplinesAvailable?assignedDisciplineCount:null}/>
+      </dl>
+    </section>}
     {isAdmin&&metrics&&<section aria-label="Active portfolio summary" className="rounded-2xl border border-[#dde4eb] bg-white">
       <dl className="grid grid-cols-2 lg:grid-cols-4">
         <PortfolioMetric label="Active projects" value={metrics.activeProjects}/>
@@ -66,7 +75,7 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
       </div>
 
       <div ref={results} id={`${searchId}-results`} role="region" aria-label="Project results" tabIndex={-1} className="min-w-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45]">
-      {visible.length?<ul className="min-w-0 space-y-3" aria-label={isAdmin?"Projects":"Project assignments"}>{visible.map(project=><li key={project.project_id}><ProjectCard project={project} organisationId={organisationId} isAdmin={isAdmin} disciplines={disciplines[project.project_id]??[]} disciplinesAvailable={disciplinesAvailable}/></li>)}</ul>:<div className="rounded-2xl border border-dashed border-[#cbd6df] bg-white px-4 py-5 text-center sm:px-5 sm:py-6">
+      {visible.length?<ul className={engineeringWorkspace?"grid min-w-0 gap-3 xl:grid-cols-2":"min-w-0 space-y-3"} aria-label={isAdmin?"Projects":"Project assignments"}>{visible.map(project=><li key={project.project_id} className="min-w-0"><ProjectCard project={project} organisationId={organisationId} isAdmin={isAdmin} disciplines={disciplines[project.project_id]??[]} disciplinesAvailable={disciplinesAvailable}/></li>)}</ul>:<div className="rounded-2xl border border-dashed border-[#cbd6df] bg-white px-4 py-5 text-center sm:px-5 sm:py-6">
         <FolderKanban size={24} aria-hidden="true" className="mx-auto text-[#617083]"/>
         <h3 className="mt-3 text-base font-semibold">{query?"No matching projects":`No ${selectedLabel} projects`}</h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#526675]">{query?"Try another project code or name, or choose a different project status.":status==="active"?isAdmin?"Create a project when you are ready to begin. Archived and deleted records remain in their own views.":"Your project workspaces will appear here when you are appointed to a project.":status==="archived"?"Archived projects will appear here. They remain separate from active work.":"Deleted projects will appear here while they can still be recovered."}</p>
@@ -90,6 +99,7 @@ function ProjectCard({project,organisationId,isAdmin,disciplines,disciplinesAvai
   const href=deleted?`/app/${organisationId}/projects/${project.project_id}/administration`:projectHomePath(organisationId,project.project_id,project.role);
   const headingId=useId();
   const action=deleted?"Manage deleted project":"Open project";
+  if(!isAdmin&&project.role==="engineer")return <EngineerProjectCard project={project} organisationId={organisationId} href={href} headingId={headingId} action={action} disciplines={disciplines} disciplinesAvailable={disciplinesAvailable}/>;
   return <article aria-labelledby={headingId} className="relative min-w-0 rounded-2xl border border-[#dde4eb] bg-white p-4 transition-colors hover:border-[#b6c9c0] sm:p-5">
     <div className="flex min-w-0 items-start gap-3 sm:gap-4">
       <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#e1e8e5] bg-[#fbfcfc] p-1.5 sm:size-12"><ProjectLogo organisationId={organisationId} projectId={project.project_id} name={project.name} size={48} className="size-full object-contain"/></span>
@@ -103,7 +113,25 @@ function ProjectCard({project,organisationId,isAdmin,disciplines,disciplinesAvai
           <div><div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-sm"><span className="text-[#526675]">MDR completion</span><span className="font-semibold tabular-nums text-[#10243e]">{summary.completion===null?"Unavailable":`${summary.completion}%`}</span></div>{summary.completion!==null&&<div role="progressbar" aria-label={`${project.code} MDR completion`} aria-valuenow={summary.completion} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-[#e5ece8]"><div className="h-full rounded-full bg-[#0c5b45]" style={{width:`${summary.completion}%`}}/></div>}</div>
           <dl className="grid grid-cols-3 gap-3 text-sm"><ProjectMetric label="Deliverables" value={summary.deliverables}/><ProjectMetric label="Overdue" value={summary.overdue} warn={summary.overdue!==null&&summary.overdue>0}/><ProjectMetric label="Open issues" value={summary.openIssues}/></dl>
         </div>}
-        {!isAdmin&&project.role==="engineer"&&<div className="mt-3 flex flex-wrap items-center gap-2 sm:ml-16"><p className="text-xs text-[#526675]">Authorised disciplines</p>{disciplinesAvailable?disciplines.length?disciplines.map(discipline=><span key={discipline} className="rounded-md bg-[#edf3f0] px-2 py-1 text-xs font-medium text-[#0c5b45]">{discipline}</span>):<p className="text-xs text-[#8b3d1f]">Awaiting discipline assignment</p>:<p className="text-xs text-[#526675]">Discipline details unavailable</p>}</div>}
+  </article>;
+}
+
+function EngineerProjectCard({project,organisationId,href,headingId,action,disciplines,disciplinesAvailable}:{project:Project;organisationId:string;href:string;headingId:string;action:string;disciplines:string[];disciplinesAvailable:boolean}){
+  const active=project.status==="active",deleted=project.status==="trashed";
+  return <article aria-labelledby={headingId} className="flex h-full min-w-0 flex-col rounded-2xl border border-[#dde4eb] bg-white p-4 sm:p-5">
+    <div className="flex min-w-0 items-start gap-3">
+      <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#e1e8e5] bg-[#fbfcfc] p-1.5"><ProjectLogo organisationId={organisationId} projectId={project.project_id} name={project.name} size={44} className="size-full object-contain"/></span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><p className="break-words text-xs font-medium text-[#526675]">{project.code}</p>{!active&&<span className="inline-flex items-center gap-1 rounded-full bg-[#eef1f4] px-2.5 py-1 text-xs font-medium text-[#526675]"><Archive size={12} aria-hidden="true"/>{deleted?"Deleted":"Archived"}</span>}</div>
+        <h3 id={headingId} className="mt-1 break-words text-base font-semibold leading-6 text-[#10243e] sm:text-lg"><Link href={href} aria-label={`${action}: ${project.code} — ${project.name}`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#0c5b45] hover:underline">{project.name}</Link></h3>
+        <p className="text-sm text-[#526675]">{roleLabel(project.role)}</p>
+      </div>
+    </div>
+    <div className="mt-4 min-w-0 border-t border-[#e5ebe8] pt-3">
+      <p className="text-sm font-medium text-[#526675]">Authorised disciplines</p>
+      {disciplinesAvailable?disciplines.length?<ul aria-label={`Authorised disciplines for ${project.code}`} className="mt-2 flex min-w-0 flex-wrap gap-1.5">{disciplines.map(discipline=><li key={discipline} className="max-w-full break-words rounded-lg bg-[#f0f4f3] px-2.5 py-1.5 text-sm text-[#24384f]">{discipline}</li>)}</ul>:<p className="mt-2 text-sm text-[#8b3d1f]">Awaiting discipline assignment</p>:<p className="mt-2 text-sm text-[#526675]">Discipline details unavailable</p>}
+    </div>
+    <div className="mt-auto pt-4"><Link href={href} aria-label={`${deleted?"Manage deleted project":"My Deliverables"}: ${project.code} — ${project.name}`} className="ev-button-secondary w-full justify-center gap-2 sm:w-auto">{deleted?"Manage deleted project":"My Deliverables"}<ArrowRight size={16} aria-hidden="true"/></Link></div>
   </article>;
 }
 

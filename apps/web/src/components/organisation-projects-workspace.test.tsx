@@ -186,6 +186,53 @@ describe("member workspace boundaries and routes",()=>{
   });
 });
 
+describe("discipline engineer project dashboard",()=>{
+  it("shows a compact active scope summary and direct deliverable actions without portfolio data",()=>{
+    workspace({isAdmin:false,projects:[project("first","active","engineer"),project("second","active","engineer"),project("old","archived","engineer")],disciplines:{first:["Electrical","Instrumentation"],second:["Electrical"],old:["Process"]}});
+    const scope=screen.getByRole("region",{name:"Your engineering work"});
+    expect(within(scope).getByText("Active projects").nextElementSibling?.textContent).toBe("2");
+    expect(within(scope).getByText("Discipline assignments").nextElementSibling?.textContent).toBe("3");
+    const first=screen.getByRole("article",{name:projectName("Project first")});
+    expect(within(first).getByRole("link",{name:"My Deliverables: PRJ-first — Project first"}).getAttribute("href")).toBe("/app/org/projects/first/assignments");
+    expect(within(first).getByRole("list",{name:"Authorised disciplines for PRJ-first"}).textContent).toBe("ElectricalInstrumentation");
+    expect(within(first).getByRole("link",{name:"Open project: PRJ-first — Project first"}).className).toContain("min-h-11");
+    expect(within(first).queryByRole("progressbar")).toBeNull();
+    expect(within(first).queryByText("MDR completion")).toBeNull();
+    expect(screen.queryByRole("region",{name:"Active portfolio summary"})).toBeNull();
+    expect(screen.queryByRole("button",{name:"New project"})).toBeNull();
+  });
+
+  it("keeps failed scope reads unknown and does not display a fabricated zero",()=>{
+    workspace({isAdmin:false,projects:[project("engineer","active","engineer")],disciplinesAvailable:false});
+    const scope=screen.getByRole("region",{name:"Your engineering work"});
+    expect(within(scope).getByText("Discipline assignments").nextElementSibling?.textContent).toBe("Unavailable");
+    expect(screen.getByText("Discipline details unavailable")).toBeTruthy();
+    expect(screen.queryByText("Awaiting discipline assignment")).toBeNull();
+    expect(screen.getByRole("link",{name:"My Deliverables: PRJ-engineer — Project engineer"}).getAttribute("href")).toBe("/app/org/projects/engineer/assignments");
+  });
+
+  it("does not add engineer summary counters to mixed-role or administrator portfolios",()=>{
+    const {rerender}=workspace({isAdmin:false,projects:[project("engineer","active","engineer"),project("pm","active","project_admin")]});
+    expect(screen.queryByRole("region",{name:"Your engineering work"})).toBeNull();
+    expect(screen.getByRole("link",{name:"Open project: PRJ-pm — Project pm"}).getAttribute("href")).toBe("/app/org/projects/pm/overview");
+    expect(screen.getByRole("link",{name:"My Deliverables: PRJ-engineer — Project engineer"})).toBeTruthy();
+    rerender(<OrganisationProjectsWorkspace organisationId="org" organisationName="Example Engineering" projects={[project("admin")]} isAdmin/>);
+    expect(screen.queryByRole("region",{name:"Your engineering work"})).toBeNull();
+    expect(screen.queryByRole("link",{name:/^My Deliverables:/})).toBeNull();
+  });
+
+  it("retains full long names and discipline labels with safe mobile wrapping",()=>{
+    const name="A very long engineering project name with multiple areas and facilities";
+    const discipline="Telecommunications and complex instrumentation engineering";
+    workspace({isAdmin:false,projects:[{...project("long","active","engineer"),name}],disciplines:{long:[discipline]}});
+    const card=screen.getByRole("article",{name:projectName(name)});
+    expect(within(card).getByRole("heading",{level:3}).className).toContain("break-words");
+    expect(within(card).getByText(discipline).className).toContain("break-words");
+    expect(within(card).getByRole("link",{name:`My Deliverables: PRJ-long — ${name}`}).textContent).toBe("My Deliverables");
+    expect(within(card).getByRole("link",{name:`My Deliverables: PRJ-long — ${name}`}).className).toContain("w-full");
+  });
+});
+
 describe("portfolio metrics and accessible project cards",()=>{
   it("shows administrator actions and gives the real progressbar a project-specific name and numeric range",()=>{
     workspace({projects:[project("1")],metrics:{activeProjects:1,averageCompletion:40,attentionProjects:1,openIssues:1}});

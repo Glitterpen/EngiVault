@@ -6,20 +6,15 @@ import {DocumentIssueSchedule} from "@/components/document-issue-schedule";
 import {redirect} from "next/navigation";
 import {
   Activity,
-  AlertCircle,
   ArrowLeft,
   BarChart3,
   Bell,
   CheckCircle2,
-  CircleDot,
+  ChevronDown,
   Clock3,
   FileCheck2,
   FileUp,
-  ListChecks,
   MessageSquareWarning,
-  ShieldCheck,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 import {requireProject} from "@/lib/auth";
 import {disciplineMatches} from "@/lib/discipline-access";
@@ -37,8 +32,8 @@ type DeliverableItem={schedule:DocumentSchedule;document:DocumentRow;latest:Revi
 type ProjectImpactRow={project_actual_percent:number;project_planned_percent:number;project_variance_points:number;project_total_documents:number;project_total_weight:number;engineer_actual_percent:number;engineer_planned_percent:number;engineer_variance_points:number;engineer_share_percent:number;engineer_project_contribution_percent:number;engineer_project_expected_contribution_percent:number;engineer_project_delay_impact_points:number;engineer_total_documents:number;engineer_completed_documents:number;engineer_overdue_documents:number};
 type View="all"|"action"|"review"|"accepted";
 
-export default async function AssignmentsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{view?:string}>}){
-  const [{organisationId,projectId},{view:requestedView}]=await Promise.all([params,searchParams]);
+export default async function AssignmentsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{view?:string;q?:string}>}){
+  const [{organisationId,projectId},{view:requestedView,q:requestedSearch}]=await Promise.all([params,searchParams]);
   const {supabase,user,access}=await requireProject(organisationId,projectId);
   const isEngineer=String(access.role)==="engineer";
   if(!isEngineer)redirect(projectHomePath(organisationId,projectId,String(access.role)));
@@ -78,7 +73,9 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     return {document,latest,credit,schedule,status:engineerDeliverableState({plannedSubmissionDate:schedule.next_submission_date,submissionOverdue:schedule.overdue,controlStatus:latest?.control_status??null,progressCredit:credit})};
   });
   const view:View=requestedView==="action"||requestedView==="review"||requestedView==="accepted"?requestedView:"all";
-  const filtered=deliverables.filter(item=>view==="all"||(view==="action"&&requiresEngineerAction(item.status))||(view==="review"&&item.status==="in_review")||(view==="accepted"&&item.status==="accepted"));
+  const search=(typeof requestedSearch==="string"?requestedSearch:"").trim().slice(0,180);
+  const searchKey=search.toLocaleLowerCase();
+  const filtered=deliverables.filter(item=>(view==="all"||(view==="action"&&requiresEngineerAction(item.status))||(view==="review"&&item.status==="in_review")||(view==="accepted"&&item.status==="accepted"))&&(!searchKey||[item.document.document_number,item.document.title,item.document.discipline,item.document.document_type,item.latest?.revision_code,item.latest?.issue_status].some(value=>value?.toLocaleLowerCase().includes(searchKey))));
   const actionCount=deliverables.filter(item=>requiresEngineerAction(item.status)).length;
   const reviewCount=deliverables.filter(item=>item.status==="in_review").length;
   const acceptedCount=deliverables.filter(item=>item.status==="accepted").length;
@@ -103,14 +100,39 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const base=`/app/${organisationId}/projects/${projectId}/assignments`;
 
   return <div className="mx-auto min-w-0 max-w-[1450px]">
-    <Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]"><ArrowLeft size={16} aria-hidden="true"/> My project assignments</Link>
-    <header className="mt-1 grid min-w-0 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-      <div className="min-w-0 max-w-3xl"><WorkspacePageHeading title="My deliverables" context={<>{project?.code} · {project?.name}</>} help={<HelpTip label="My deliverables and submission workflow"><span className="block">Your DCC-assigned MDR deliverables, deadlines, submissions and Document Controller feedback.</span><span className="mt-2 block">1. Open the MDR deliverable assigned to your discipline.</span><span className="mt-2 block">2. Upload the correct document revision and issue details.</span><span className="mt-2 block">3. Document Control accepts it or returns it with a comment.</span></HelpTip>}/><details className="mt-4 rounded-2xl border border-[#dfe7e3] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#0c5b45]">Project brief, objectives and dates</summary><div className="px-3 pb-3"><ProjectBrief project={project}/></div></details><div className="mt-3 flex flex-wrap items-center gap-2"><span className="w-full text-xs font-medium text-[#526675] sm:w-auto">Project Manager-authorised disciplines</span>{disciplines.length?disciplines.map(discipline=><span key={discipline} className="rounded-full bg-[#e8f1ed] px-3 py-1 text-xs font-semibold text-[#0c5b45]"><ShieldCheck size={12} aria-hidden="true" className="mr-1 inline"/>{discipline}</span>):<span className="rounded-full bg-[#fff0e9] px-3 py-1 text-xs font-semibold text-[#a5452f]">Not assigned</span>}</div></div>
-      <div className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 rounded-2xl border border-[#dfe7e3] bg-white px-4 py-3 shadow-sm lg:block"><span className="row-span-2 text-2xl font-semibold text-[#0c5b45] lg:text-3xl">{completion}%</span><p className="text-xs font-bold text-[#526171] lg:mt-1">Stage-weighted progress</p><p className="mt-0.5 text-xs text-[#617083]">100% at {projectTerminalIssueStatus(deliveryStage)}</p><div className="col-span-2 mt-2 h-1.5 overflow-hidden rounded-full bg-[#e5ece8]"><div className="h-full rounded-full bg-[#0c5b45]" style={{width:`${completion}%`}}/></div></div>
+    <nav aria-label="Deliverable actions" className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1"><Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16} aria-hidden="true"/>My projects</Link><Link className="ev-button-secondary" aria-label="Create request: date change or additional deliverable" href={`/app/${organisationId}/projects/${projectId}/requests`}>Create request</Link></nav>
+    <header className="mt-1 min-w-0">
+      <WorkspacePageHeading title="My deliverables" context={<>{project?.code} · {project?.name}</>} help={<HelpTip label="My deliverables and submission workflow">Your DCC-assigned MDR deliverables, deadlines and feedback. Open a deliverable to upload a revision. Document Control accepts it or returns it with a comment. Create a request for a date change or an additional deliverable.</HelpTip>}/>
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2"><span className="w-full text-xs font-medium text-[#526675] sm:w-auto">Project Manager-authorised disciplines</span>{disciplines.length?disciplines.map(discipline=><span key={discipline} className="max-w-full break-words rounded-md bg-[#edf3f0] px-2 py-1 text-xs font-medium text-[#0c5b45]">{discipline}</span>):<span className="text-xs font-medium text-[#a5452f]">Not assigned</span>}</div>
     </header>
 
-    <section aria-label="Assignment summary" className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4"><Metric label="My deliverables" value={deliverables.length} icon={<FileUp size={18}/>}/><Metric label="Action required" value={actionCount} icon={<AlertCircle size={18}/>} warn={actionCount>0}/><Metric label="With Document Control" value={reviewCount} icon={<Clock3 size={18}/>}/><Metric label="Accepted" value={acceptedCount} icon={<CheckCircle2 size={18}/>}/></section>
+    <section aria-label="Assignment summary" className="mt-4 min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
+      <div className="min-w-0 px-4 py-3 sm:px-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">My progress</h2>{impactAvailable&&<span className={`rounded-full px-2 py-0.5 text-xs font-medium ${healthConfig[health].badge}`}>{healthConfig[health].label}</span>}</div><div className="mt-2 flex flex-wrap items-baseline justify-between gap-2"><p className="text-3xl font-semibold tabular-nums">{completion}%</p><span className="text-xs text-[#526675]">100% at {projectTerminalIssueStatus(deliveryStage)}</span></div><div role="progressbar" aria-label="Stage-weighted progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion} className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e5ece8]"><div className="h-full rounded-full bg-[#0c5b45]" style={{width:`${completion}%`}}/></div></div>
+    </section>
 
+      <section id="deliverables" aria-label="My deliverables" className="mt-5 min-w-0">
+        <form action={base} method="get" role="search" aria-label="Search my deliverables" className="flex min-w-0 flex-wrap items-end gap-2">
+          {view!=="all"&&<input type="hidden" name="view" value={view}/>}
+          <label className="block min-w-0 flex-1 basis-52"><span className="ev-label">Search deliverables</span><input key={search} className="ev-input w-full min-w-0" type="search" name="q" maxLength={180} defaultValue={search} placeholder="Document number, title or discipline"/></label>
+          <button className="ev-button-secondary" type="submit">Search</button>
+          {search&&<Link href={filterHref(base,view,"")} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-[#0c5b45]">Clear search</Link>}
+        </form>
+        <nav aria-label="Deliverable status" className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-[#dde4eb] bg-white p-1 sm:flex sm:flex-wrap">
+          <Filter href={filterHref(base,"all",search)} active={view==="all"} label="All" count={deliverables.length}/>
+          <Filter href={filterHref(base,"action",search)} active={view==="action"} label="Action required" count={actionCount}/>
+          <Filter href={filterHref(base,"review",search)} active={view==="review"} label="In DCC review" count={reviewCount}/>
+          <Filter href={filterHref(base,"accepted",search)} active={view==="accepted"} label="Accepted" count={acceptedCount}/>
+        </nav>
+        <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-x-3"><h2 className="text-sm font-semibold">Submissions by issue purpose <HelpTip label="Submission grouping">Grouped by the latest submitted revision’s issue purpose, not the next required stage. Search and status apply across all groups. Open Details &amp; schedule for revision requirements and deadlines.</HelpTip></h2><p role="status" className="text-xs text-[#526675]">{filtered.length} of {deliverables.length} deliverables</p></div>
+        <section aria-label="Submissions by issue purpose" className="mt-3 grid min-w-0 gap-3">
+          {filtered.length?groupSubmissions(filtered).map(group=><details key={`${view}-${search}-${group.label}`} open className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
+            <summary className="min-h-11 cursor-pointer break-words bg-[#f6f8fa] px-4 py-3 text-sm font-semibold text-[#24384f] sm:px-5">
+              {group.label} <span className="ml-2 inline-block text-xs font-normal text-[#526675]">{group.items.length} {group.items.length===1?"deliverable":"deliverables"}</span>
+            </summary>
+            <div className="min-w-0 divide-y divide-[#e7ecef]">{group.items.map(item=><DeliverableCard key={item.document.id} item={item} organisationId={organisationId} projectId={projectId}/>)}</div>
+          </details>):<div className="rounded-2xl border border-[#dde4eb] bg-white px-4 py-8 text-center text-sm text-[#526675]">{!deliverables.length?<><p>No MDR deliverables assigned yet.</p><p className="mt-1">Your assigned work will appear here when Document Control allocates it.</p></>:<><p>No deliverables match this status.</p>{search&&<p className="mt-1">Try a different search or clear it to see this status.</p>}</>}</div>}
+        </section>
+      </section>
     {impactAvailable?<EngineerProjectImpact
       health={health}
       impactAvailable={impactAvailable}
@@ -122,34 +144,12 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
       contribution={numberValue(impact.engineer_project_contribution_percent,completion)}
       expectedContribution={numberValue(impact.engineer_project_expected_contribution_percent,plannedCompletion)}
       delayImpact={numberValue(impact.engineer_project_delay_impact_points,Math.max(0,plannedCompletion-completion))}
-    />:<section role="status" className="ev-card mt-4 p-4"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-1 text-sm text-[#617083]">Your assigned deliverables remain available below. Refresh to retry the project summary.</p></section>}
-
-    <div className="mt-4"><Link className="ev-button-secondary" href={`/app/${organisationId}/projects/${projectId}/requests`}>Request a date change or additional deliverable</Link></div>
+    />:<section role="status" className="ev-card mt-4 p-4"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-1 text-sm text-[#617083]">Your assigned deliverables remain available above. Refresh to retry the project summary.</p></section>}
     <CloseOutActions actions={closeOutActions} organisationId={organisationId} projectId={projectId} projectTotalWeight={projectTotalWeight}/>
-
-    <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <section id="deliverables" aria-label="My deliverables">
-        <nav aria-label="Deliverable status" className="grid grid-cols-2 gap-2 rounded-2xl border border-[#dfe7e3] bg-white p-2 shadow-sm sm:flex sm:flex-wrap">
-          <Filter href={base} active={view==="all"} label="All" count={deliverables.length}/>
-          <Filter href={`${base}?view=action`} active={view==="action"} label="Action required" count={actionCount}/>
-          <Filter href={`${base}?view=review`} active={view==="review"} label="In DCC review" count={reviewCount}/>
-          <Filter href={`${base}?view=accepted`} active={view==="accepted"} label="Accepted" count={acceptedCount}/>
-        </nav>
-        <h2 className="mt-5 font-semibold">Submissions by issue purpose <HelpTip label="Submission grouping">Deliverables are grouped by their latest submitted revision’s issue purpose, not the next required stage. Expand a group to view its deliverables and revision codes. Status filters apply across all groups.</HelpTip></h2>
-        <section aria-label="Submissions by issue purpose" className="mt-4 grid min-w-0 gap-4">
-          {filtered.length?groupSubmissions(filtered).map(group=><details key={`${view}-${group.label}`} open className="min-w-0 rounded-2xl border border-[#dfe7e3] bg-[#f3f8f6]">
-            <summary className="min-h-12 cursor-pointer break-words rounded-2xl px-4 py-4 font-semibold text-[#0c5b45] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45] sm:px-5">
-              {group.label} <span className="ml-2 inline-block rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#526171]">{group.items.length} {group.items.length===1?"deliverable":"deliverables"}</span>
-            </summary>
-            <div className="grid min-w-0 gap-3 px-2 pb-2 sm:px-3 sm:pb-3">{group.items.map(item=><DeliverableCard key={item.document.id} item={item} organisationId={organisationId} projectId={projectId}/>)}</div>
-          </details>):<div className="ev-card p-10 text-center text-[#617083]">No deliverables match this status.</div>}
-        </section>
-      </section>
-      <aside className="space-y-5">
-        <section className="ev-card p-5"><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#e8733f]">Recent notices</p><h2 className="mt-1 font-semibold">Engineer notifications</h2></div><Bell size={18} className="text-[#0c5b45]"/></div><div className="mt-4 space-y-3">{notices.length?notices.map(notice=><Link key={notice.id} href={`/app/notifications/${notice.id}`} className="block rounded-xl border border-[#e5ebe8] p-3 transition hover:border-[#e8733f]"><div className="flex gap-2"><CircleDot size={13} className={`mt-0.5 shrink-0 ${notice.read_at?"text-[#9aa6b2]":"text-[#e8733f]"}`}/><div><p className="text-xs font-bold">{notice.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-[#617083]">{notice.body}</p></div></div></Link>):<p className="text-sm text-[#617083]">No project notifications yet.</p>}</div><Link href="/app/notifications" className="mt-4 inline-flex text-xs font-bold text-[#0c5b45] hover:text-[#e8733f]">View all notifications</Link></section>
-
-      </aside>
-    </div>
+      <div className="mt-4 grid min-w-0 items-start gap-3 lg:grid-cols-2">
+        <details className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">Project brief, objectives and dates</summary><ProjectBrief project={project}/></details>
+        <details className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold"><Bell size={15} aria-hidden="true" className="mr-2 inline"/>Engineer notifications <span className="ml-1 font-normal text-[#526675]">({notices.length} recent)</span></summary><div className="border-t border-[#e7ecef] px-4 py-2">{notices.length?<ul className="divide-y divide-[#e7ecef]">{notices.map(notice=><li key={notice.id}><Link href={`/app/notifications/${notice.id}`} className="block min-h-11 rounded-lg py-3"><p className="break-words text-sm font-semibold">{notice.title}{!notice.read_at&&<span className="ml-2 text-xs font-medium text-[#0c5b45]">Unread</span>}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#526675]">{notice.body}</p></Link></li>)}</ul>:<p className="py-3 text-sm text-[#526675]">No project notifications yet.</p>}<Link href="/app/notifications" className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#0c5b45]">View all notifications</Link></div></details>
+      </div>
   </div>;
 }
 
@@ -164,9 +164,9 @@ function AssignmentsUnavailable({retryPath}:{retryPath:string}){
 
 function EngineerProjectImpact({health,impactAvailable,projectActual,projectPlanned,engineerActual,engineerPlanned,engineerShare,contribution,expectedContribution,delayImpact}:{health:EngineerProgressHealth;impactAvailable:boolean;projectActual:number;projectPlanned:number;engineerActual:number;engineerPlanned:number;engineerShare:number;contribution:number;expectedContribution:number;delayImpact:number}){
   const config=healthConfig[health];
-  return <details className="mt-4 overflow-hidden rounded-2xl border border-[#dfe7e3] bg-white shadow-sm">
-    <summary className={`min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold ${config.banner}`}>
-      <span>My project impact</span><span className={`ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-bold ${config.badge}`}>{config.label}</span>
+  return <details className="mt-3 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
+    <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">
+      <span>My project impact</span><span className={`ml-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${config.badge}`}>{config.label}</span>
     </summary>
     <div className={`border-t px-4 py-3 ${config.banner}`}>
       <h2 className="font-semibold">{config.title}</h2><p className="mt-1 max-w-3xl text-sm leading-6">{health==="no_scope"?"Your discipline is authorised by the Project Manager, but the Document Controller has not assigned any MDR deliverables to you yet.":health==="lagging"?`Your open discipline gap is holding back overall project progress by approximately ${formatPercent(delayImpact)} percentage points. Complete the priority actions below to recover it.`:health==="at_risk"?"Your discipline is currently meeting plan, but deliverables due within seven days could create a project delay if they are not submitted.":"Your discipline is meeting its current planned position and is not creating a negative project schedule impact."}</p>
@@ -174,21 +174,21 @@ function EngineerProjectImpact({health,impactAvailable,projectActual,projectPlan
     <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
       <ProgressPosition label="Overall project" actual={projectActual} planned={projectPlanned} icon={<BarChart3 size={18}/>}/>
       <ProgressPosition label="My disciplines" actual={engineerActual} planned={engineerPlanned} icon={<Activity size={18}/>}/>
-      <article className="rounded-xl border border-[#e2e8e5] p-4"><span className="text-[#e8733f]"><TrendingUp size={18}/></span><p className="mt-3 text-2xl font-semibold text-[#10243e]">{formatPercent(contribution)} pts</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.1em] text-[#617083]">Contribution earned</p><p className="mt-2 text-xs leading-5 text-[#617083]">Expected now: {formatPercent(expectedContribution)} pts · Your scope is {formatPercent(engineerShare)}% of project weight.</p></article>
-      <article className={`rounded-xl border p-4 ${delayImpact>0?"border-[#efc6b4] bg-[#fff8f4]":"border-[#c9ded5] bg-[#f3f8f6]"}`}><span className={delayImpact>0?"text-[#a5452f]":"text-[#0c5b45]"}>{delayImpact>0?<TrendingDown size={18}/>:<CheckCircle2 size={18}/>}</span><p className={`mt-3 text-2xl font-semibold ${delayImpact>0?"text-[#a5452f]":"text-[#0c5b45]"}`}>{formatPercent(delayImpact)} pts</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.1em] text-[#617083]">Project delay influence</p><p className="mt-2 text-xs leading-5 text-[#617083]">{delayImpact>0?"Recoverable by closing overdue and incomplete stage deliverables.":"No negative discipline impact on the current project plan."}</p></article>
+      <article className="rounded-xl border border-[#e2e8e5] p-4"><p className="text-xs font-medium text-[#526675]">Contribution earned</p><p className="mt-2 text-2xl font-semibold tabular-nums">{formatPercent(contribution)} pts</p><p className="mt-2 text-xs leading-5 text-[#526675]">Expected now: {formatPercent(expectedContribution)} pts · Your scope is {formatPercent(engineerShare)}% of project weight.</p></article>
+      <article className="rounded-xl border border-[#e2e8e5] p-4"><p className="text-xs font-medium text-[#526675]">Project delay influence</p><p className={`mt-2 text-2xl font-semibold tabular-nums ${delayImpact>0?"text-[#a5452f]":"text-[#0c5b45]"}`}>{formatPercent(delayImpact)} pts</p><p className="mt-2 text-xs leading-5 text-[#526675]">{delayImpact>0?"Recoverable by closing overdue and incomplete stage deliverables.":"No negative discipline impact on the current project plan."}</p></article>
     </div>
-    <p className="border-t border-[#edf1ef] px-5 py-3 text-[10px] font-semibold uppercase tracking-[.08em] text-[#7b8998] sm:px-6">{impactAvailable?"Live aggregate project position · Other disciplines remain private":"Discipline position shown temporarily · Refresh after project aggregates are enabled"}</p>
+    <p className="border-t border-[#edf1ef] px-4 py-3 text-xs text-[#526675]">{impactAvailable?"Live aggregate project position · Other disciplines remain private":"Discipline position shown temporarily · Refresh after project aggregates are enabled"}</p>
   </details>;
 }
 
 function ProgressPosition({label,actual,planned,icon}:{label:string;actual:number;planned:number;icon:React.ReactNode}){
   const variance=actual-planned;
-  return <article className="rounded-xl border border-[#e2e8e5] p-4"><div className="flex items-center justify-between text-[#e8733f]"><span>{icon}</span><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${variance<0?"bg-[#fde8e4] text-[#9b2f28]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{variance>0?"+":""}{variance} pts</span></div><p className="mt-3 text-2xl font-semibold text-[#10243e]">{actual}%</p><div className="mt-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[.1em] text-[#617083]"><span>{label} actual</span><span>Plan {planned}%</span></div><div className="relative mt-3 h-2 rounded-full bg-[#e5ece8]"><div className="h-full rounded-full bg-[#0c5b45]" style={{width:`${Math.max(0,Math.min(100,actual))}%`}}/><span className="absolute -top-1 h-4 w-px bg-[#e8733f]" style={{left:`${Math.max(0,Math.min(100,planned))}%`}}/></div></article>;
+  return <article className="min-w-0 rounded-xl border border-[#e2e8e5] p-4"><div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#526675]"><span className="inline-flex items-center gap-2"><span aria-hidden="true">{icon}</span>{label} actual</span><span className={variance<0?"text-[#9b2f28]":"text-[#0c5b45]"}>{variance>0?"+":""}{variance} pts</span></div><div className="mt-2 flex flex-wrap items-baseline justify-between gap-2"><p className="text-2xl font-semibold tabular-nums">{actual}%</p><span className="text-xs text-[#526675]">Plan {planned}%</span></div><div role="progressbar" aria-label={`${label} actual progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0,Math.min(100,actual))} className="relative mt-3 h-2 rounded-full bg-[#e5ece8]"><div className="h-full rounded-full bg-[#0c5b45]" style={{width:`${Math.max(0,Math.min(100,actual))}%`}}/><span aria-hidden="true" className="absolute -top-1 h-4 w-px bg-[#a5452f]" style={{left:`${Math.max(0,Math.min(100,planned))}%`}}/></div></article>;
 }
 
 function CloseOutActions({actions,organisationId,projectId,projectTotalWeight}:{actions:DeliverableItem[];organisationId:string;projectId:string;projectTotalWeight:number}){
   const visible=actions.slice(0,8);
-  return <details className="mt-3 rounded-2xl border border-[#dfe7e3] bg-white shadow-sm">
+  return <details className="mt-3 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
     <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#0c5b45]">Priority close-out actions <span className={`ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-bold ${actions.length?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{actions.length} outstanding</span></summary>
     <div className="border-t border-[#edf1ef] p-3 sm:p-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">Gap recovery plan <HelpTip label="Closing delivery gaps">Work these items from the top down to recover the largest immediate delivery gaps.</HelpTip></h2>{actions.length>0&&<Link href={`?view=action#deliverables`} className="inline-flex min-h-11 items-center text-xs font-bold text-[#0c5b45] hover:text-[#e8733f]">View all {actions.length} actions</Link>}</div>
@@ -196,17 +196,17 @@ function CloseOutActions({actions,organisationId,projectId,projectTotalWeight}:{
       const due=actionDueDate(item);
       const recovery=recoverableProjectImpact(Number(item.document.progress_weight),item.credit,projectTotalWeight);
       const config=statusConfig[item.status];
-      return <article className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center" key={item.document.id}><span className="grid size-8 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{index+1}</span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-extrabold text-[#e8733f]">{item.document.document_number}</p><span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${config.tone}`}>{config.label}</span></div><h3 className="mt-1 line-clamp-2 font-semibold sm:truncate">{item.document.title}</h3><p className="mt-1 text-xs leading-5 text-[#617083]">{engineerActionInstruction(item.status)}</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold uppercase tracking-[.06em] text-[#7b8998]"><span>Due {formatDate(due)}</span><span>Potential project recovery {formatPercent(recovery)} pts</span></div></div><Link className="ev-button-secondary col-span-2 w-full sm:col-span-1 sm:w-auto sm:justify-self-end" href={`/app/${organisationId}/projects/${projectId}/documents/${item.document.id}#submit-revision`}><FileUp size={15}/>Open action</Link></article>;
+      return <article className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-4" key={item.document.id}><span className="grid size-7 place-items-center rounded-full bg-[#edf1f4] text-xs font-semibold">{index+1}</span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-semibold">{item.document.document_number}</p><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.tone}`}>{config.label}</span></div><h3 className="mt-1 break-words text-sm font-semibold">{item.document.title}</h3><p className="mt-1 text-xs leading-5 text-[#526675]">{engineerActionInstruction(item.status)}</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#526675]"><span>Due {formatDate(due)}</span><span>Potential project recovery {formatPercent(recovery)} pts</span></div></div><Link className="ev-button-secondary col-span-2 w-full sm:col-span-1 sm:w-auto sm:justify-self-end" href={`/app/${organisationId}/projects/${projectId}/documents/${item.document.id}#submit-revision`}><FileUp size={15} aria-hidden="true"/>Open action</Link></article>;
     })}</div>:<div className="mt-2 rounded-xl border border-[#c9ded5] bg-[#f3f8f6] p-3 text-sm text-[#0c5b45]"><CheckCircle2 size={18} className="mr-2 inline"/>No engineer close-out actions are currently outstanding.</div>}
     </div>
   </details>;
 }
 
-const healthConfig:Record<EngineerProgressHealth,{label:string;title:string;banner:string;badge:string;iconTone:string;icon:React.ReactNode}>={
-  no_scope:{label:"Awaiting MDR scope",title:"No deliverables are assigned to your discipline",banner:"border-[#dce2e9] bg-[#f6f8fa] text-[#526171]",badge:"bg-[#617083] text-white",iconTone:"bg-[#e8ecef] text-[#526171]",icon:<ListChecks size={19}/>},
-  lagging:{label:"Lagging",title:"Your discipline is behind the current plan",banner:"border-[#efc6b4] bg-[#fff8f4] text-[#7c3526]",badge:"bg-[#a5452f] text-white",iconTone:"bg-[#fde8e4] text-[#9b2f28]",icon:<TrendingDown size={19}/>},
-  at_risk:{label:"At risk",title:"Upcoming deadlines need attention",banner:"border-[#ead8a6] bg-[#fffbeb] text-[#705518]",badge:"bg-[#8b6a18] text-white",iconTone:"bg-[#fff2c7] text-[#7a5a00]",icon:<AlertCircle size={19}/>},
-  on_track:{label:"On track",title:"Your discipline is supporting the project plan",banner:"border-[#c9ded5] bg-[#f3f8f6] text-[#0c5b45]",badge:"bg-[#0c5b45] text-white",iconTone:"bg-[#dcece5] text-[#0c5b45]",icon:<TrendingUp size={19}/>},
+const healthConfig:Record<EngineerProgressHealth,{label:string;title:string;banner:string;badge:string}>={
+  no_scope:{label:"Awaiting MDR scope",title:"No deliverables are assigned to your discipline",banner:"border-[#dce2e9] bg-[#f6f8fa] text-[#526171]",badge:"bg-[#617083] text-white"},
+  lagging:{label:"Lagging",title:"Your discipline is behind the current plan",banner:"border-[#efc6b4] bg-[#fff8f4] text-[#7c3526]",badge:"bg-[#a5452f] text-white"},
+  at_risk:{label:"At risk",title:"Upcoming deadlines need attention",banner:"border-[#ead8a6] bg-[#fffbeb] text-[#705518]",badge:"bg-[#8b6a18] text-white"},
+  on_track:{label:"On track",title:"Your discipline is supporting the project plan",banner:"border-[#c9ded5] bg-[#f3f8f6] text-[#0c5b45]",badge:"bg-[#0c5b45] text-white"},
 };
 
 function compareEngineerActions(left:DeliverableItem,right:DeliverableItem){
@@ -226,11 +226,10 @@ function DeliverableCard({item,organisationId,projectId}:{item:DeliverableItem;o
   const config=statusConfig[status];
   const href=`/app/${organisationId}/projects/${projectId}/documents/${document.id}#submit-revision`;
   const action=status==="returned"?"Upload corrected revision":status==="next_revision"?"Upload next revision":latest?"Open deliverable":"Submit first revision";
-  return <article className={`ev-card overflow-hidden border-l-4 ${config.border}`}><div className="p-3 sm:p-4"><div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-extrabold text-[#ac4316]">{document.document_number}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[.06em] ${config.tone}`}>{config.label}</span></div><h3 className="mt-1 break-words text-base font-semibold">{document.title}</h3><p className="mt-1 text-xs leading-5 text-[#617083]">{document.discipline} · {document.document_type}{document.responsible_party?` · ${document.responsible_party}`:""}</p></div><Link href={href} className="ev-button w-full shrink-0 sm:w-auto"><FileUp size={16}/>{action}</Link></div>
-    {item.schedule.next_submission_date&&<Link className="inline-flex min-h-11 items-center text-xs font-semibold text-[#0c5b45]" href={`/app/${organisationId}/projects/${projectId}/requests?document=${document.id}#new-request`}>Request submission date change</Link>}
-    {latest?.review_comment&&<div className="mt-4 flex gap-3 rounded-xl border border-[#f1c9b8] bg-[#fff6f2] p-3.5"><MessageSquareWarning size={17} className="mt-0.5 shrink-0 text-[#a5452f]"/><div><p className="text-xs font-bold text-[#a5452f]">Document Controller feedback</p><p className="mt-1 text-sm leading-6 text-[#754333]">{latest.review_comment}</p></div></div>}
-    <div className="mt-4 grid gap-3 border-t border-[#edf1ef] pt-4 text-xs text-[#617083] sm:grid-cols-2 xl:grid-cols-4"><DocumentIssueSchedule schedule={item.schedule}/><span className="inline-flex items-center gap-1.5"><ShieldCheck size={14}/> Required: {document.required_issue_status||"To be confirmed"}</span><span className="inline-flex items-center gap-1.5"><FileCheck2 size={14}/>{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</span><span className="inline-flex items-center gap-1.5 font-bold text-[#0c5b45]"><CheckCircle2 size={14}/> Progress credit: {item.credit}%</span></div>
-  </div></article>;
+  return <article className="min-w-0 p-4 sm:px-5"><div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-semibold text-[#526675]">{document.document_number}</p><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.tone}`}>{config.label}</span></div><h3 className="mt-1 break-words text-base font-semibold">{document.title}</h3><p className="mt-1 break-words text-xs leading-5 text-[#526675]">{document.discipline} · {document.document_type}{document.responsible_party?` · ${document.responsible_party}`:""}</p><div className="mt-2 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-[#526675]"><span className="inline-flex items-center gap-1.5"><Clock3 size={14} aria-hidden="true"/>{item.schedule.next_submission_date?`Next due: ${formatDate(item.schedule.next_submission_date)}`:"No next submission scheduled"}</span><span className="inline-flex min-w-0 items-start gap-1.5 break-words"><FileCheck2 size={14} aria-hidden="true" className="mt-0.5 shrink-0"/>{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</span></div></div><div className="flex min-w-0 flex-col items-stretch sm:items-end"><Link href={href} className={`${requiresEngineerAction(status)?"ev-button":"ev-button-secondary"} w-full sm:w-auto`}><FileUp size={16} aria-hidden="true"/>{action}</Link>{item.schedule.next_submission_date&&<Link className="inline-flex min-h-11 items-center justify-center rounded-lg text-xs font-semibold text-[#0c5b45]" href={`/app/${organisationId}/projects/${projectId}/requests?document=${document.id}#new-request`}>Request submission date change</Link>}</div></div>
+    {latest?.review_comment&&<div className="mt-3 flex gap-2 rounded-lg border border-[#efc6b4] bg-[#fff8f4] p-3"><MessageSquareWarning size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-[#a5452f]"/><div className="min-w-0"><p className="text-xs font-semibold text-[#a5452f]">Document Controller feedback</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-[#754333]">{latest.review_comment}</p></div></div>}
+    <details className="group/schedule mt-1 min-w-0"><summary className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg text-xs font-semibold text-[#0c5b45]">Details &amp; schedule<span className="sr-only"> for {document.document_number}</span><ChevronDown size={14} aria-hidden="true" className="shrink-0 group-open/schedule:rotate-180"/></summary><div className="grid min-w-0 gap-3 rounded-xl bg-[#f6f8fa] p-3 text-xs leading-5 text-[#526675] sm:grid-cols-3"><DocumentIssueSchedule schedule={item.schedule}/><span className="break-words">Required: {document.required_issue_status||"To be confirmed"}</span><span>Progress credit: {item.credit}%</span></div></details>
+  </article>;
 }
 
 const statusConfig:Record<EngineerDeliverableState,{label:string;tone:string;border:string}>={
@@ -244,6 +243,6 @@ const statusConfig:Record<EngineerDeliverableState,{label:string;tone:string;bor
 };
 
 function Filter({href,active,label,count}:{href:string;active:boolean;label:string;count:number}){return <Link href={href} aria-current={active?"page":undefined} className={`inline-flex min-h-11 items-center justify-center rounded-xl px-2 py-2 text-center text-xs font-bold transition sm:px-3 ${active?"bg-[#10243e] text-white":"text-[#617083] hover:bg-[#f2f5f7] hover:text-[#10243e]"}`}>{label} <span className={`ml-1 rounded-full px-1.5 py-0.5 ${active?"bg-white/15":"bg-[#e8ecef]"}`}>{count}</span></Link>;}
-function ProjectBrief({project}:{project:ProjectRow|null}){return <section className="mt-4 rounded-2xl border border-[#dfe7e3] border-l-4 border-l-[#e8733f] bg-white p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#e8733f]">Project brief</p><div className="mt-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]"><div><h2 className="font-semibold">Project introduction</h2><p className="mt-1 text-sm leading-6 text-[#617083]">{project?.project_introduction||"The Project Manager has not added the project introduction yet."}</p><div className="mt-4"><p className="text-[10px] font-bold uppercase tracking-[.1em] text-[#617083]">Key objectives</p>{project?.key_objectives?.length?<ol className="mt-2 space-y-1.5 text-sm text-[#24384f]">{project.key_objectives.map((objective,index)=><li className="flex gap-2" key={`${index}-${objective}`}><span className="font-bold text-[#e8733f]">{index+1}.</span><span>{objective}</span></li>)}</ol>:<p className="mt-1 text-sm text-[#617083]">No key objectives have been recorded yet.</p>}</div></div><div className="grid grid-cols-2 gap-5 text-xs lg:min-w-72"><div className="col-span-2 rounded-xl bg-[#fff7f2] p-3"><p className="font-bold uppercase tracking-[.08em] text-[#e8733f]">Delivery stage</p><p className="mt-1 font-semibold">{projectDeliveryStageLabel(project?.delivery_stage)}</p><p className="mt-1 text-[#617083]">100% at {projectTerminalIssueStatus(project?.delivery_stage)}</p></div><div><p className="font-bold uppercase tracking-[.08em] text-[#617083]">Start</p><p className="mt-1 font-semibold">{formatDate(project?.planned_start_date)}</p></div><div><p className="font-bold uppercase tracking-[.08em] text-[#617083]">Completion</p><p className="mt-1 font-semibold">{formatDate(project?.planned_end_date)}</p></div></div></div></section>;}
-function Metric({label,value,icon,warn=false}:{label:string;value:number;icon:React.ReactNode;warn?:boolean}){return <article className="ev-card flex min-w-0 items-start gap-2.5 px-3 py-3"><span aria-hidden="true" className={`mt-1 shrink-0 ${warn?"text-[#a5452f]":"text-[#0c5b45]"}`}>{icon}</span><div className="min-w-0"><p className={`text-xl font-semibold leading-none ${warn?"text-[#a5452f]":""}`}>{value}</p><p className="mt-1 break-words text-xs font-semibold leading-4 text-[#617083]">{label}</p></div></article>;}
+function ProjectBrief({project}:{project:ProjectRow|null}){return <section className="min-w-0 border-t border-[#e7ecef] p-4"><h2 className="text-sm font-semibold">Project introduction</h2><p className="mt-1 break-words text-sm leading-6 text-[#526675]">{project?.project_introduction||"The Project Manager has not added the project introduction yet."}</p><h3 className="mt-4 text-xs font-semibold">Key objectives</h3>{project?.key_objectives?.length?<ol className="mt-2 list-inside list-decimal space-y-1.5 text-sm leading-6 text-[#526675]">{project.key_objectives.map((objective,index)=><li className="break-words" key={`${index}-${objective}`}>{objective}</li>)}</ol>:<p className="mt-1 text-sm text-[#526675]">No key objectives have been recorded yet.</p>}<dl className="mt-4 grid grid-cols-2 gap-4 border-t border-[#e7ecef] pt-3 text-xs"><div className="col-span-2"><dt className="text-[#526675]">Delivery stage</dt><dd className="mt-1 font-semibold">{projectDeliveryStageLabel(project?.delivery_stage)} · 100% at {projectTerminalIssueStatus(project?.delivery_stage)}</dd></div><div><dt className="text-[#526675]">Start</dt><dd className="mt-1 font-semibold">{formatDate(project?.planned_start_date)}</dd></div><div><dt className="text-[#526675]">Completion</dt><dd className="mt-1 font-semibold">{formatDate(project?.planned_end_date)}</dd></div></dl></section>;}
+function filterHref(base:string,view:View,search:string){const query=new URLSearchParams();if(view!=="all")query.set("view",view);if(search)query.set("q",search);return `${base}${query.size?`?${query}`:""}`;}
 function formatDate(value:string|null|undefined){if(!value)return "Not scheduled";return new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));}
