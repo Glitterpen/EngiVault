@@ -1,7 +1,7 @@
 import type {SupabaseClient} from "@supabase/supabase-js";
 import type {DocumentSchedule} from "@/lib/document-schedule";
 import type {ProjectDeliveryStage} from "@/lib/project-delivery-stage";
-import type {DeliveryCurveReport} from "@/lib/project-delivery-curve";
+import type {DeliveryCurveReport,DeliveryCurveSubmissionProgress} from "@/lib/project-delivery-curve";
 
 export type ProgressProject={code:string;name:string;delivery_stage:ProjectDeliveryStage|null;planned_start_date:string|null;planned_end_date:string|null};
 export type ProgressDeliveryRow=DocumentSchedule&{document_id:string;document_number:string;title:string;discipline:string;progress_weight:number;progress_credit:number;uploaded:boolean;issue_status:string|null;planned_final_date:string|null};
@@ -37,11 +37,26 @@ export async function loadProjectProgressData(client:SupabaseClient,organisation
       return !error&&data&&typeof data.code==="string"&&typeof data.name==="string"?data as ProgressProject:null;
     }catch{return null;}
   };
-  const [project,rows,reports,issues]=await Promise.all([
+  const submissionRead=async():Promise<DeliveryCurveSubmissionProgress|null>=>{
+    try{
+      const {data,error}=await client.rpc("get_project_submission_progress",{target_organisation:organisationId,target_project:projectId});
+      if(error||!data||typeof data!=="object"||Array.isArray(data))return null;
+      const {version,captured_at,submitted_progress,accepted_progress,total_deliverables,total_weight}=data;
+      if(version!==1||typeof captured_at!=="string"||!Number.isFinite(Date.parse(captured_at))
+        ||typeof submitted_progress!=="number"||!Number.isFinite(submitted_progress)||submitted_progress<0||submitted_progress>100
+        ||typeof accepted_progress!=="number"||!Number.isFinite(accepted_progress)||accepted_progress<0||accepted_progress>submitted_progress
+        ||!Number.isSafeInteger(total_deliverables)||total_deliverables<0
+        ||typeof total_weight!=="number"||!Number.isFinite(total_weight)||total_weight<0)return null;
+      // Only aggregate observations cross this boundary, never revision/file data.
+      return {version:1,captured_at,submitted_progress,accepted_progress,total_deliverables,total_weight};
+    }catch{return null;}
+  };
+  const [project,rows,reports,issues,submissionProgress]=await Promise.all([
     projectRead(),
     allRows<ProgressDeliveryRow>((from,to)=>scope("project_document_progress","document_id,document_number,title,discipline,progress_weight,progress_credit,uploaded,overdue,issue_status,planned_submission_date,planned_final_date,next_submission_date,last_issue_date,revision_cycle_days,deadline_kind").eq("lifecycle_status","active").order("document_id").range(from,to),"document_id"),
     includeHistory?allRows<DeliveryCurveReport>((from,to)=>scope("project_weekly_reports","id,period_end,generated_at,snapshot").order("id").range(from,to),"id"):Promise.resolve(null),
     allRows<ProgressIssue>((from,to)=>scope("project_issues","id,severity,status").neq("status","resolved").order("id").range(from,to),"id"),
+    includeHistory?submissionRead():Promise.resolve(null),
   ]);
-  return {project,rows,reports,issues};
+  return {project,rows,reports,issues,submissionProgress};
 }

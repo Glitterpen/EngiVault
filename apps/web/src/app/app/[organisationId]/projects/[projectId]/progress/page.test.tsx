@@ -24,7 +24,7 @@ let role:string,preview:unknown,data:Data;
 beforeEach(()=>{
   vi.clearAllMocks();vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
   role="project_admin";preview=undefined;
-  data={project,rows:[document],reports:[report],issues:[{id:"issue",severity:"high",status:"open"}]};
+  data={project,rows:[document],reports:[report],issues:[{id:"issue",severity:"high",status:"open"}],submissionProgress:{version:1,captured_at:"2026-10-15T11:59:59Z",submitted_progress:67,accepted_progress:33,total_deliverables:1,total_weight:1}};
   vi.mocked(requireProject).mockImplementation(async()=>({supabase:preview?delegatedClient:ordinaryClient,access:{role},preview} as never));
   vi.mocked(loadProjectProgressData).mockImplementation(async()=>data);
 });
@@ -39,8 +39,8 @@ it.each(["organisation_admin","project_admin","document_controller"])("loads %s 
   expect(loadProjectProgressData).toHaveBeenCalledWith(ordinaryClient,"org","project",{includeHistory:true});
   expect(props()).toMatchObject({organisationId:"org",projectId:"project",role:allowedRole,includeHistory:true});
   expect(props().rows).toBe(data.rows);expect(props().project).toBe(project);
-  expect(props().curve).toMatchObject({actualToday:33,historyAvailable:true,historyCount:1});
-  expect(props().curve.points.find(point=>point.date==="2026-10-08")).toMatchObject({actual:20,actualSource:"report"});
+  expect(props().curve).toMatchObject({submittedToday:67,acceptedToday:33,gap:34,historyAvailable:true,acceptedHistoryCount:1,submittedHistoryCount:0});
+  expect(props().curve.points.find(point=>point.date==="2026-10-08")).toMatchObject({submitted:null,accepted:20,acceptedSource:"report"});
 });
 
 it.each(["engineer","viewer","executive_viewer"])("preserves %s delegated access without fetching whole-project report history",async scopedRole=>{
@@ -48,9 +48,9 @@ it.each(["engineer","viewer","executive_viewer"])("preserves %s delegated access
   render(await page());
   expect(loadProjectProgressData).toHaveBeenCalledWith(ordinaryClient,"org","project",{includeHistory:false});
   expect(props().role).toBe(scopedRole);expect(props().includeHistory).toBe(false);
-  expect(props().curve).toMatchObject({historyAvailable:false,historyCount:0,actualToday:33});
+  expect(props().curve).toMatchObject({historyAvailable:false,acceptedHistoryCount:0,acceptedToday:33,submittedToday:null});
   // Even unexpected saved rows cannot bypass the role-controlled history flag.
-  expect(props().curve.points.filter(point=>point.actualSource==="report")).toEqual([]);
+  expect(props().curve.points.filter(point=>point.acceptedSource==="report")).toEqual([]);
 });
 
 it.each(["project_admin","document_controller","engineer"])("uses only the audited member client for a %s preview",async previewRole=>{
@@ -89,27 +89,27 @@ it("treats a successfully loaded empty MDR as real empty scope rather than a fai
   render(await page());
   expect(screen.queryByRole("alert")).toBeNull();
   expect(props().rows).toEqual([]);
-  expect(props().curve).toMatchObject({hasScope:false,actualToday:0,historyCount:0});
+  expect(props().curve).toMatchObject({hasScope:false,acceptedToday:0,acceptedHistoryCount:0});
 });
 
 it("continues with the real live observation when saved report history is unavailable",async()=>{
   data.reports=null;
   render(await page());
-  expect(props().curve).toMatchObject({historyAvailable:false,historyCount:0,actualToday:33});
-  expect(props().curve.points.filter(point=>point.actual!==null)).toEqual([expect.objectContaining({date:"2026-10-15",actual:33,actualSource:"live"})]);
+  expect(props().curve).toMatchObject({historyAvailable:false,acceptedHistoryCount:0,acceptedToday:33});
+  expect(props().curve.points.filter(point=>point.accepted!==null)).toEqual([expect.objectContaining({date:"2026-10-15",accepted:33,acceptedSource:"live"})]);
 });
 
 it("passes unknown issues through as null instead of inventing healthy zero issues",async()=>{
   data.issues=null;
   render(await page());
-  expect(props().issues).toBeNull();expect(props().curve.actualToday).toBe(33);
+  expect(props().issues).toBeNull();expect(props().curve.acceptedToday).toBe(33);
 });
 
 it("does not backfill today's earned credit onto historical baseline dates",async()=>{
   data.reports=[];
   render(await page());
-  expect(props().curve.points.find(point=>point.date==="2026-10-01")).toMatchObject({actual:null,actualSource:null});
-  expect(props().curve.points.filter(point=>point.actual!==null)).toEqual([expect.objectContaining({date:"2026-10-15",actual:33,actualSource:"live"})]);
+  expect(props().curve.points.find(point=>point.date==="2026-10-01")).toMatchObject({submitted:null,accepted:null,acceptedSource:null});
+  expect(props().curve.points.filter(point=>point.accepted!==null)).toEqual([expect.objectContaining({date:"2026-10-15",accepted:33,acceptedSource:"live"})]);
 });
 
 it("timestamps the observation after scoped reads finish rather than at request start",async()=>{
@@ -117,4 +117,29 @@ it("timestamps the observation after scoped reads finish rather than at request 
   render(await page());
   expect(props().asOf).toBe("2026-10-15T12:02:00.000Z");
   expect(props().curve.asOf).toBe(props().asOf);
+});
+
+it("uses the Project Manager timeline, not first issue dates or revision cycles, as the chart basis",async()=>{
+  data.rows=[{...document,planned_submission_date:null,planned_final_date:null,revision_cycle_days:null}];
+  render(await page());
+  expect(props().curve.timeline).toMatchObject({status:"configured",plannedStart:"2026-10-01",plannedEnd:"2026-12-01",displayStart:"2026-10-01",displayEnd:"2026-12-01"});
+  expect(props().curve).toMatchObject({submittedToday:67,acceptedToday:33});
+  expect(props().curve).not.toHaveProperty("planning");expect(props().curve).not.toHaveProperty("plannedToday");
+});
+
+it("does not invent project dates when the Project Manager timeline is missing",async()=>{
+  data.project={...project,planned_start_date:null,planned_end_date:null};
+  render(await page());expect(props().curve.timeline.status).toBe("missing");
+  expect(props().curve).toMatchObject({submittedToday:67,acceptedToday:33});
+});
+
+it("keeps accepted progress available when the restricted submission aggregate is unavailable",async()=>{
+  data.submissionProgress=null;render(await page());
+  expect(props().curve).toMatchObject({submittedToday:null,acceptedToday:33,gap:null});
+});
+
+it("retains the PM end date while displaying real delivery after that date",async()=>{
+  data.project={...project,planned_end_date:"2026-10-09"};render(await page());
+  expect(props().curve.timeline).toMatchObject({plannedEnd:"2026-10-09",displayEnd:"2026-10-15"});
+  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({submitted:67,accepted:33});
 });

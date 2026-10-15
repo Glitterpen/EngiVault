@@ -11,6 +11,18 @@ const rpc=vi.fn();
 const actor={rpc} as unknown as SupabaseClient;
 beforeEach(()=>rpc.mockReset());
 describe('member preview Supabase transport',()=>{
+ it('scopes submitted progress to the validated DCC preview rather than actor administrator access',async()=>{
+   rpc.mockResolvedValue({data:{version:1,submitted_progress:67,accepted_progress:33},error:null});
+   const client=createMemberPreviewClient(actor,{...preview,role:'document_controller'});
+   const result=await client.rpc('get_project_submission_progress',{target_organisation:'org-id',target_project:'project-id',target_preview:'forged'});
+   expect(result.error).toBeNull();expect(rpc).toHaveBeenCalledExactlyOnceWith('get_project_submission_progress',{target_organisation:'org-id',target_project:'project-id',target_preview:'session-id'});
+ });
+ it('fails closed when a submitted-progress preview is denied or attempts another project',async()=>{
+   const client=createMemberPreviewClient(actor,preview);
+   expect((await client.rpc('get_project_submission_progress',{target_project:'foreign'})).error).not.toBeNull();expect(rpc).not.toHaveBeenCalled();
+   rpc.mockResolvedValue({data:null,error:{code:'42501'}});
+   expect((await client.rpc('get_project_submission_progress',{target_project:'project-id'})).data).toBeNull();expect(rpc).toHaveBeenCalledTimes(1);
+ });
  it('loads the transmittal history through audited DCC scope, including multiple pages',async()=>{
    const pack={id:'package',state:'ready',package_number:'TR-001',manifest:{kind:'document_transmittal'},created_at:'2026-09-12T00:00:00Z'};
    const row={revision_id:'revision',document_id:'document',document_number:'E-001',revision_code:'A',discipline:'Electrical',issue_status:'IFR',work_packages:pack};

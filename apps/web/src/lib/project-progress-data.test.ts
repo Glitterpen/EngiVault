@@ -15,6 +15,7 @@ const project={code:"PRJ-001",name:"Refinery FEED",delivery_stage:"feed",planned
 const delivery=(id="document-1")=>({document_id:id,document_number:`EL-${id}`,title:`Deliverable ${id}`,discipline:"Electrical",progress_weight:1,progress_credit:33,uploaded:true,overdue:false,issue_status:"Issued for Review (IFR)",planned_submission_date:"2026-10-20",planned_final_date:"2026-11-20",delivery_stage:"feed",terminal_issue_status:"Issued for Design (IFD)",revision_id:"revision-1",revision_code:"R01",issue_date:"2026-10-15",next_submission_date:"2026-10-20",last_issue_date:"2026-10-15",revision_cycle_days:3,deadline_kind:"next_revision"});
 const report=(id="report-1")=>({id,period_end:"2026-10-11",generated_at:"2026-10-12T10:00:00Z",snapshot:{overview:{completion:20}}});
 const issue=(id="issue-1")=>({id,severity:"high",status:"open"});
+const observation={version:1,captured_at:"2026-10-15T12:00:00Z",submitted_progress:67,accepted_progress:33,total_deliverables:1,total_weight:1};
 const sources:Source[]=["project_document_progress","project_weekly_reports","project_issues"];
 let reads:Read[],reader:Reader;
 const rpc=vi.fn(),mutation=vi.fn();
@@ -43,7 +44,7 @@ const load=(includeHistory=true)=>loadProjectProgressData(client,"org","project"
 const offset=(read:Read)=>read.calls.find(call=>call.method==="range")?.args[0] as number;
 const key=(source:Source)=>source==="project_document_progress"?"rows":source==="project_weekly_reports"?"reports":"issues";
 const row=(source:Source,id:string)=>source==="project_document_progress"?delivery(id):source==="project_weekly_reports"?report(id):issue(id);
-beforeEach(()=>{vi.clearAllMocks();reads=[];reader=defaultRead;mutation.mockImplementation(()=>{throw new Error("Unexpected mutation");});rpc.mockImplementation(()=>{throw new Error("Progress reads do not call RPC mutations");});});
+beforeEach(()=>{vi.clearAllMocks();reads=[];reader=defaultRead;mutation.mockImplementation(()=>{throw new Error("Unexpected mutation");});rpc.mockResolvedValue({data:observation,error:null});});
 afterEach(()=>vi.restoreAllMocks());
 
 it("loads current project, active deliveries, persisted report snapshots and open issues without inventing history",async()=>{
@@ -52,7 +53,8 @@ it("loads current project, active deliveries, persisted report snapshots and ope
   expect(result.rows).toEqual([delivery()]);
   expect(result.reports).toEqual([report()]);
   expect(result.issues).toEqual([expect.objectContaining({severity:"high",status:"open"})]);
-  expect(mutation).not.toHaveBeenCalled();expect(rpc).not.toHaveBeenCalled();
+  expect(result.submissionProgress).toEqual(observation);
+  expect(mutation).not.toHaveBeenCalled();expect(rpc).toHaveBeenCalledExactlyOnceWith("get_project_submission_progress",{target_organisation:"org",target_project:"project"});
 });
 
 it("scopes every read to this organisation and exact project and requests explicit bounded selections",async()=>{
@@ -80,8 +82,34 @@ it("scopes every read to this organisation and exact project and requests explic
 it("does not query report snapshots or manufacture an empty history when history is not authorised",async()=>{
   const result=await load(false);
   expect(result.reports).toBeNull();
+  expect(result.submissionProgress).toBeNull();expect(rpc).not.toHaveBeenCalled();
   expect(from).not.toHaveBeenCalledWith("project_weekly_reports");
   expect(result.rows).toEqual([delivery()]);expect(result.issues).not.toBeNull();
+});
+
+describe("restricted submitted-progress aggregate",()=>{
+  it("never queries raw revisions and discards unexpected fields at the read boundary",async()=>{
+    rpc.mockResolvedValue({data:{...observation,secret:"TOP_SECRET",revisions:[{storage_key:"private/file"}]},error:null});
+    const result=await load();
+    expect(result.submissionProgress).toEqual(observation);expect(from).not.toHaveBeenCalledWith("document_revisions");
+    expect(JSON.stringify(result)).not.toContain("TOP_SECRET");expect(JSON.stringify(result)).not.toContain("private/file");
+  });
+  it.each([null,[],false,{...observation,version:2},{...observation,captured_at:"invalid"},{...observation,submitted_progress:"67"},{...observation,submitted_progress:101},{...observation,submitted_progress:NaN},{...observation,accepted_progress:68},{...observation,accepted_progress:-1},{...observation,total_deliverables:1.5},{...observation,total_deliverables:-1},{...observation,total_weight:-1},{...observation,total_weight:Infinity}])("does not turn a malformed aggregate %j into a zero",async data=>{
+    rpc.mockResolvedValue({data,error:null});
+    const result=await load();expect(result.submissionProgress).toBeNull();expect(result.rows).toEqual([delivery()]);expect(result.reports).toEqual([report()]);
+  });
+  it("isolates a denied aggregate without leaking diagnostics or falling back to revision reads",async()=>{
+    rpc.mockResolvedValue({data:observation,error:{message:"TOP_SECRET provider diagnostics"}});
+    const result=await load();expect(result.submissionProgress).toBeNull();expect(result.rows).toEqual([delivery()]);
+    expect(JSON.stringify(result)).not.toContain("TOP_SECRET");expect(from).not.toHaveBeenCalledWith("document_revisions");
+  });
+  it("isolates an aggregate transport exception",async()=>{
+    rpc.mockRejectedValue(new Error("offline"));expect((await load()).submissionProgress).toBeNull();
+  });
+  it("preserves a genuine zero-scope aggregate",async()=>{
+    rpc.mockResolvedValue({data:{...observation,submitted_progress:0,accepted_progress:0,total_deliverables:0,total_weight:0},error:null});
+    expect((await load()).submissionProgress).toMatchObject({submitted_progress:0,total_deliverables:0});
+  });
 });
 
 it("starts independent source reads in parallel rather than waiting for a project response",async()=>{

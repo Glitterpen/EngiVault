@@ -14,14 +14,14 @@
 .reveal {
   animation: delivery-curve-reveal 1.05s cubic-bezier(.22,.61,.36,1) both;
 }
-.actualKey,
-.plannedKey {
+.acceptedKey,
+.submittedKey {
   display: inline-block;
   width: 26px;
   flex-shrink: 0;
 }
-.actualKey { border-top: 3px solid #0c5b45; }
-.plannedKey { border-top: 2px dashed #24384f; }
+.acceptedKey { border-top: 3px solid #0c5b45; }
+.submittedKey { border-top: 2px dashed #24384f; }
 .range {
   width: 100%;
   min-width: 0;

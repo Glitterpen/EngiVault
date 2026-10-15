@@ -14,7 +14,7 @@ export default async function ProgressPage({params}:{params:Promise<{organisatio
   const data=await loadProjectProgressData(supabase,organisationId,projectId,{includeHistory});
   if(!data.project||data.rows===null)return <ProgressUnavailable organisationId={organisationId} projectId={projectId} role={role}/>;
   const asOf=new Date().toISOString();
-  const curve=buildProjectDeliveryCurve({documents:data.rows,reports:data.reports??[],asOf,plannedStart:data.project.planned_start_date,plannedEnd:data.project.planned_end_date,historyAvailable:includeHistory&&data.reports!==null});
+  const curve=buildProjectDeliveryCurve({documents:data.rows,submissionProgress:includeHistory?data.submissionProgress:null,reports:data.reports??[],asOf,plannedStart:data.project.planned_start_date,plannedEnd:data.project.planned_end_date,historyAvailable:includeHistory&&data.reports!==null});
   return <ProjectProgressWorkspace organisationId={organisationId} projectId={projectId} project={data.project} rows={data.rows} issues={data.issues} curve={curve} asOf={asOf} role={role} includeHistory={includeHistory}/>;
 }
 

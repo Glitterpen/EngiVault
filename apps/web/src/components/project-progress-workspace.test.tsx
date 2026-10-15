@@ -18,7 +18,7 @@ const project={code:"PRJ-100",name:"Terminal upgrade",delivery_stage:"feed" as c
 function row(id:string,overrides:Partial<ProgressDeliveryRow>={}):ProgressDeliveryRow{return {document_id:id,document_number:`DOC-${id}`,title:`Deliverable ${id}`,discipline:"Electrical",progress_weight:1,progress_credit:0,uploaded:false,overdue:false,issue_status:null,planned_submission_date:"2026-10-01",planned_final_date:"2026-12-31",next_submission_date:"2026-10-20",last_issue_date:null,revision_cycle_days:3,deadline_kind:"first_issue",...overrides};}
 const rows=[row("1",{progress_credit:100,uploaded:true,issue_status:"Issued for Design (IFD)"}),row("2",{progress_weight:3,progress_credit:20,uploaded:true,overdue:true,issue_status:"Issued for Interdiscipline Check (IDC)"}),row("3",{discipline:"Process",progress_weight:2}),row("4",{discipline:"Process",progress_weight:2,uploaded:true})];
 function workspace(overrides:Partial<Props>={}){
-  const data={organisationId:"org-A",projectId:"project-A",project,rows,issues:[],curve:buildProjectDeliveryCurve({documents:rows,reports:[],asOf,plannedStart:project.planned_start_date,plannedEnd:project.planned_end_date,historyAvailable:true}),asOf,role:"project_admin",includeHistory:true,...overrides};
+  const data={organisationId:"org-A",projectId:"project-A",project,rows,issues:[],curve:buildProjectDeliveryCurve({documents:rows,submissionProgress:{version:1,captured_at:asOf,submitted_progress:60,accepted_progress:20,total_deliverables:4,total_weight:8},reports:[],asOf,plannedStart:project.planned_start_date,plannedEnd:project.planned_end_date,historyAvailable:true}),asOf,role:"project_admin",includeHistory:true,...overrides};
   return {...render(<ProjectProgressWorkspace {...data}/>),props:data};
 }
 function summary(){return screen.getByRole("region",{name:"Delivery summary"});}
@@ -33,7 +33,8 @@ describe("compact progress and health summary",()=>{
     const result=workspace();
     expect(screen.getByRole("heading",{level:1,name:"Progress & health"})).toBeTruthy();
     expect(datum("Project health").textContent).toBe("Needs attention");
-    expect(datum("Accepted progress").textContent).toBe("20%");
+    expect(datum("DCC-accepted progress").textContent).toBe("20%");
+    expect(datum("Overall submitted").textContent).toBe("60%");
     expect(datum("MDR deliverables").textContent).toBe("4");
     expect(datum("Overdue").textContent).toBe("1");
     expect(summary().textContent).toContain("3 files uploaded");
@@ -51,7 +52,7 @@ describe("compact progress and health summary",()=>{
     workspace({rows:[row("one",{progress_credit:100,uploaded:true})],issues:null});
     expect(screen.getByRole("alert").textContent).toContain("Issue health could not be loaded");
     expect(datum("Project health").textContent).toBe("Unavailable");
-    expect(datum("Accepted progress").textContent).toBe("100%");
+    expect(datum("DCC-accepted progress").textContent).toBe("100%");
     expect(datum("MDR deliverables").textContent).toBe("1");
     expect(within(summary()).queryByText("On track")).toBeNull();
     expect(within(summary()).queryByText("Complete")).toBeNull();
@@ -60,20 +61,24 @@ describe("compact progress and health summary",()=>{
   it("keeps zero scope honest without hiding the real empty-state reason",()=>{
     workspace({rows:[]});
     expect(datum("Project health").textContent).toBe("Setup required");
-    expect(datum("Accepted progress").textContent).toBe("0%");
+    expect(datum("DCC-accepted progress").textContent).toBe("0%");
     expect(datum("MDR deliverables").textContent).toBe("0");
     expect(screen.getByText("No active MDR deliverables are available in your scope.")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
   it("aggregates each discipline separately and exposes its weighted percentage through a named progressbar",()=>{
     workspace();
-    const electrical=screen.getByRole("progressbar",{name:"Electrical stage-weighted progress"});
-    const process=screen.getByRole("progressbar",{name:"Process stage-weighted progress"});
+    const electrical=screen.getByRole("progressbar",{name:"Electrical DCC-accepted progress"});
+    const process=screen.getByRole("progressbar",{name:"Process DCC-accepted progress"});
     expect(electrical.getAttribute("aria-valuemin")).toBe("0");expect(electrical.getAttribute("aria-valuemax")).toBe("100");
     expect(electrical.getAttribute("aria-valuenow")).toBe("40");expect(process.getAttribute("aria-valuenow")).toBe("0");
     expect(electrical.querySelector("div")?.style.width).toBe("40%");
     expect(screen.getByText("2 deliverables · 1 terminal issued · 1 overdue")).toBeTruthy();
     expect(screen.getByText("2 deliverables · 0 terminal issued")).toBeTruthy();
+  });
+  it("shows unavailable rather than zero when submitted progress cannot be read",()=>{
+    workspace({curve:buildProjectDeliveryCurve({documents:rows,submissionProgress:null,reports:[],asOf,plannedStart:project.planned_start_date,plannedEnd:project.planned_end_date,historyAvailable:true})});
+    expect(datum("Overall submitted").textContent).toBe("Unavailable");expect(datum("DCC-accepted progress").textContent).toBe("20%");
   });
   it("keeps FEED terminal milestone explanation behind keyboard-accessible help",()=>{
     workspace();
