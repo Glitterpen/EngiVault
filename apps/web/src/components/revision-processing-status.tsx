@@ -54,12 +54,12 @@ export function RevisionProcessingStatus({endpoint,initialRevisionState,initialR
     } catch(error){setMessage(customerErrorMessage(error,"Retry failed."))}
     finally{setBusy(false)}
   }
-  return <div className="mt-2 flex flex-wrap items-center gap-2">
-    <span className="rounded-full bg-[#eef4f1] px-2.5 py-1 text-xs font-semibold capitalize">{(status.run?.state??status.revisionState).replaceAll("_"," ")}</span>
-    {active&&<span className="inline-flex items-center gap-1 text-xs text-[#617083]"><RefreshCw size={12} className="animate-spin"/> Updating automatically</span>}
-    <button type="button" onClick={()=>{void load();router.refresh()}} className="rounded-lg border border-[#d8e0dc] px-2.5 py-1 text-xs font-semibold">Refresh status</button>
-    {canRetry&&["failed","dead_letter"].includes(status.run?.state??"")&&<button type="button" onClick={retry} disabled={busy} className="rounded-lg border border-[#d8e0dc] px-2.5 py-1 text-xs font-semibold text-[#0c5b45] disabled:opacity-50">{busy?"Queueing…":"Retry processing"}</button>}
-    {status.run?.error_code&&<p className="w-full text-xs text-[#a5452f]">{processingFailureMessage(status.run.error_code)}{active&&" Another processing attempt is queued."}</p>}
-    {message&&<span className="text-xs text-[#617083]" role="status">{message}</span>}
+  return <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+    <span className="rounded-full bg-[#eef4f1] px-2.5 py-1 text-xs font-semibold capitalize text-[#294b3c]">{(status.run?.state??status.revisionState).replaceAll("_"," ")}</span>
+    {active&&<span className="inline-flex items-center gap-1.5 text-sm text-[#526675]"><RefreshCw size={14} aria-hidden="true" className="shrink-0 animate-spin motion-reduce:animate-none"/> Updating automatically</span>}
+    <button type="button" onClick={()=>{void load();router.refresh()}} className="ev-button-secondary min-h-11 w-full px-3 py-2 text-sm sm:w-auto">Refresh status</button>
+    {canRetry&&["failed","dead_letter"].includes(status.run?.state??"")&&<button type="button" onClick={retry} disabled={busy} className="ev-button-secondary min-h-11 w-full px-3 py-2 text-sm disabled:opacity-50 sm:w-auto">{busy?"Queueing…":"Retry processing"}</button>}
+    {status.run?.error_code&&<p className="w-full break-words text-sm leading-6 text-[#a5452f]">{processingFailureMessage(status.run.error_code)}{active&&" Another processing attempt is queued."}</p>}
+    {message&&<span className="w-full break-words text-sm leading-6 text-[#526675]" role="status">{message}</span>}
   </div>;
 }

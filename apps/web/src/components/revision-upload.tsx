@@ -2,9 +2,9 @@
 import { customerErrorMessage } from "@/lib/customer-messages";
 
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileCog, UploadCloud } from "lucide-react";
+import { FileCheck2, FileCog, UploadCloud } from "lucide-react";
 import { IssueStatusSelect } from "@/components/issue-status-select";
 import {
   projectDeliveryStage,
@@ -58,6 +58,7 @@ export function RevisionUpload({
   completedIssueStatuses: string[];
 }) {
   const router = useRouter();
+  const formId = useId();
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -247,123 +248,146 @@ export function RevisionUpload({
         event.preventDefault();
         startUpload(event.currentTarget);
       }}
-      className="ev-card p-6"
+      aria-labelledby={`${formId}-heading`}
+      aria-busy={busy}
+      className="ev-card min-w-0 overflow-visible p-4 sm:p-5 lg:p-6"
     >
-      <div className="flex items-center gap-2">
-        <UploadCloud size={18} className="text-[#e8733f]" />
-        <h2 className="font-semibold">Upload revision</h2>
-      </div>
-      <div className="mt-4 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-xs leading-5 text-[#617083]">
-        <strong className="text-[#0c5b45]">{projectDeliveryStageLabel(deliveryStage)} workflow:</strong>{" "}
-        {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.
-      </div>
-      <Field name="revisionCode" label="Revision" placeholder="C02" disabled={busy} onChange={clearOverride} />
-      <IssueStatusSelect
-        name="issueStatus"
-        disabled={busy}
-        disabledValues={unavailableIssueStatuses}
-        onChange={(event) => {
-          setIssueStatus(event.currentTarget.value);
-          clearOverride();
-          setFailed(false);
-          setStatus("");
-        }}
-      />
-      {(!hasSubmittedIfr || !hasSubmittedIfa) && (
-        <div className="mt-3 rounded-xl border border-[#e2e7e4] bg-[#fafbf9] p-3 text-xs leading-5 text-[#617083]">
-          <strong className="text-[#0c5b45]">Controlled issue sequence:</strong>{" "}
-          IFR must complete secure submission before IFA becomes available. IFA must then complete secure submission before IFD or IFC becomes available.
-          {!hasSubmittedIfr
-            ? " Submit IFR first for this document."
-            : !hasSubmittedIfa
-              ? " IFR is complete; submit IFA next."
-              : ""}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <UploadCloud size={19} aria-hidden="true" className="shrink-0 text-[#0c5b45]" />
+          <h2 id={`${formId}-heading`} className="text-base font-semibold text-[#14263d]">Upload revision</h2>
         </div>
-      )}
-      <label className="mt-4 block">
-        <span className="ev-label">Issue date</span>
-        <input className="ev-input" name="issueDate" type="date" disabled={busy} />
-      </label>
-      <label className="mt-4 block">
-        <span className="ev-label">Controlled issue file</span>
-        <input
-          className="block w-full cursor-pointer rounded-lg border border-dashed border-[#ced6df] bg-white p-3 text-sm text-[#617083] file:mr-4 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-4 file:py-2 file:text-sm file:font-bold file:text-[#10243e] hover:file:bg-[#f4f6f8]"
-          name="file"
-          type="file"
-          accept=".pdf,.docx,.xlsx,.dwg"
-          required
-          disabled={busy}
-          onChange={(event) => {
-            const file = event.currentTarget.files?.item(0) ?? null;
-            setSelectedFile(file);
-            setStatus(file ? `${file.name} is ready to upload.` : "");
-            setFailed(false);
-          }}
-        />
-      </label>
-      <p className="mt-2 text-xs text-[#617083]">PDF, DOCX, XLSX or DWG · maximum 250 MB</p>
+        <div className="flex items-center gap-1 text-xs font-medium text-[#526279]">
+          <span className="rounded-md bg-[#f1f5f3] px-2 py-1 text-[#36564a]">{projectDeliveryStageLabel(deliveryStage)}</span>
+          <HelpTip label="Revision workflow guidance">
+            {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.
+          </HelpTip>
+        </div>
+      </div>
 
-      {nativeRequired && (
-        <div className="mt-4 rounded-xl border border-[#efb394] bg-[#fff7f2] p-4">
-          <div className="flex items-start gap-3">
-            <FileCog size={18} className="mt-0.5 shrink-0 text-[#e8733f]" />
-            <div>
-              <p className="text-sm font-bold text-[#8b3d1f]">Editable native source required</p>
-              <p className="mt-1 text-xs leading-5 text-[#765044]">
-                This PDF is being issued at the project&apos;s final {projectDeliveryStageLabel(deliveryStage)} milestone. Attach its editable DWG, DOCX or XLSX source before submission.
-              </p>
-            </div>
+      <fieldset className="mt-4 min-w-0">
+        <legend className="sr-only">Revision details</legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field name="revisionCode" label="Revision" placeholder="e.g. R01" disabled={busy} onChange={clearOverride} />
+          <div className="min-w-0 [&>div]:mt-0 [&>div>div]:mb-1.5 [&>div>div]:min-h-8">
+            <IssueStatusSelect
+              name="issueStatus"
+              disabled={busy}
+              disabledValues={unavailableIssueStatuses}
+              onChange={(event) => {
+                setIssueStatus(event.currentTarget.value);
+                clearOverride();
+                setFailed(false);
+                setStatus("");
+              }}
+            />
           </div>
-          <label className="mt-3 block">
-            <span className="ev-label">Native source file</span>
+          <div className="min-w-0">
+            <div className="ev-label flex min-h-8 items-center gap-1.5"><label htmlFor={`${formId}-date`}>Issue date</label><span className="font-normal text-[#617083]">(optional)</span></div>
+            <input id={`${formId}-date`} className="ev-input min-w-0" name="issueDate" type="date" disabled={busy} />
+          </div>
+        </div>
+        {(!hasSubmittedIfr || !hasSubmittedIfa) && (
+          <div className="mt-2 flex items-center gap-1 text-xs leading-5 text-[#526279]">
+            <span>{!hasSubmittedIfr ? "Submit IFR first." : "IFR complete. Submit IFA next."}</span>
+            <HelpTip label="Controlled issue sequence guidance">IFR must complete secure submission before IFA becomes available. IFA must then complete secure submission before IFD or IFC becomes available.</HelpTip>
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="mt-5 min-w-0 border-t border-[#e5eaf0] pt-4">
+        <legend className="sr-only">Revision files</legend>
+        <div className={`grid min-w-0 gap-3 ${nativeRequired ? "lg:grid-cols-2" : ""}`}>
+          <div className="min-w-0 rounded-xl border border-[#dfe5eb] bg-[#fafcfd] p-3 sm:p-4">
+            <label htmlFor={`${formId}-file`} className="ev-label mb-1 flex min-h-8 items-center text-[#24384f]">Controlled issue file</label>
+            <p id={`${formId}-file-format`} className="mb-3 text-xs leading-5 text-[#526279]">PDF, DOCX, XLSX or DWG · maximum 250 MB</p>
             <input
-              className="block w-full cursor-pointer rounded-lg border border-dashed border-[#e5a27f] bg-white p-3 text-sm text-[#617083] file:mr-4 file:cursor-pointer file:rounded-lg file:border file:border-[#e5a27f] file:bg-[#fff7f2] file:px-4 file:py-2 file:text-sm file:font-bold file:text-[#8b3d1f]"
-              name="nativeFile"
+              id={`${formId}-file`}
+              aria-describedby={`${formId}-file-format${selectedFile ? ` ${formId}-file-selected` : ""}`}
+              className="block min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg text-sm text-[#526279] outline-offset-4 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-3 file:text-sm file:font-semibold file:text-[#24384f] hover:file:bg-[#f1f5f7] focus-visible:outline-2 focus-visible:outline-[#0d684f] disabled:cursor-not-allowed disabled:opacity-60"
+              name="file"
               type="file"
-              accept=".dwg,.docx,.xlsx"
+              accept=".pdf,.docx,.xlsx,.dwg"
               required
               disabled={busy}
               onChange={(event) => {
                 const file = event.currentTarget.files?.item(0) ?? null;
-                setNativeFile(file);
-                setStatus(file ? `${file.name} will be secured with the issued PDF.` : "");
+                setSelectedFile(file);
+                setStatus(file ? `${file.name} is ready to upload.` : "");
                 setFailed(false);
               }}
             />
-          </label>
-        </div>
-      )}
+            {selectedFile && <SelectedFile id={`${formId}-file-selected`} file={selectedFile} />}
+          </div>
 
-      <div className="mt-5 rounded-xl border border-[#dfe7e3] p-3">
-        <div className="flex items-start gap-2">
-          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-sm font-semibold">
+          {nativeRequired && (
+            <div className="min-w-0 rounded-xl border border-[#dfe5eb] bg-[#fafcfd] p-3 sm:p-4">
+              <div className="mb-1 flex min-h-8 flex-wrap items-center gap-x-2 gap-y-1">
+                <FileCog size={16} aria-hidden="true" className="shrink-0 text-[#0c5b45]" />
+                <label htmlFor={`${formId}-native`} className="ev-label mb-0 text-[#24384f]">Native source file</label>
+                <span className="text-xs font-semibold text-[#8b3d1f]">Required</span>
+                <HelpTip label="Native source requirement">This PDF is being issued at the project&apos;s final {projectDeliveryStageLabel(deliveryStage)} milestone. Attach its editable DWG, DOCX or XLSX source before submission.</HelpTip>
+              </div>
+              <p id={`${formId}-native-format`} className="mb-3 text-xs leading-5 text-[#526279]">Editable DWG, DOCX or XLSX · maximum 250 MB</p>
+              <input
+                id={`${formId}-native`}
+                aria-describedby={`${formId}-native-format${nativeFile ? ` ${formId}-native-selected` : ""}`}
+                className="block min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg text-sm text-[#526279] outline-offset-4 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-3 file:text-sm file:font-semibold file:text-[#24384f] hover:file:bg-[#f1f5f7] focus-visible:outline-2 focus-visible:outline-[#0d684f] disabled:cursor-not-allowed disabled:opacity-60"
+                name="nativeFile"
+                type="file"
+                accept=".dwg,.docx,.xlsx"
+                required
+                disabled={busy}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.item(0) ?? null;
+                  setNativeFile(file);
+                  setStatus(file ? `${file.name} will be secured with the issued PDF.` : "");
+                  setFailed(false);
+                }}
+              />
+              {nativeFile && <SelectedFile id={`${formId}-native-selected`} file={nativeFile} />}
+            </div>
+          )}
+        </div>
+      </fieldset>
+
+      <div className="mt-4 border-t border-[#e5eaf0] pt-3">
+        <div className="flex items-center gap-1">
+          <label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3 text-sm font-medium text-[#24384f]">
             <input type="checkbox" name="overrideSubmission" checked={override} disabled={busy}
-              className="mt-1 shrink-0 accent-[#0c5b45]"
+              className="h-4 w-4 shrink-0 accent-[#0c5b45]"
               onChange={event => void checkOverride(event.currentTarget.form, event.currentTarget.checked)} />
-            Override existing submission
+            <span>Override existing submission</span>
           </label>
           <HelpTip label="About submission overrides">Use the same revision code and issue status to replace your latest submission before DCC generates its transmittal. The existing file is retained in the audit history.</HelpTip>
         </div>
         {overrideChecking && <p role="status" className="mt-2 text-xs">Checking transmittal status...</p>}
-        {overrideMessage && <p role={overrideRevisionId ? "status" : "alert"} className={`mt-2 text-xs leading-5 ${overrideRevisionId ? "text-[#0c5b45]" : "text-[#a5452f]"}`}>{overrideMessage}</p>}
-        <p className="mt-3 text-xs font-medium text-[#617083]">{TRANSMITTAL_DAILY_NOTICE}</p>
+        {overrideMessage && <p role={overrideRevisionId ? "status" : "alert"} className={`mt-2 break-words rounded-lg border p-3 text-sm leading-6 ${overrideRevisionId ? "border-[#dce6e0] bg-[#f7faf8] text-[#0c5b45]" : "border-[#efd1c1] bg-[#fff8f3] text-[#8b3d1f]"}`}>{overrideMessage}</p>}
       </div>
-      <button
-        type="button"
-        className="ev-button mt-5 w-full"
-        disabled={busy || overrideChecking || (override && !overrideRevisionId)}
-        onClick={(event) => startUpload(event.currentTarget.form)}
-      >
-        {busy ? "Working..." : "Start secure upload"}
-      </button>
+
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0 max-w-lg text-xs leading-5 text-[#526279]">{TRANSMITTAL_DAILY_NOTICE}</p>
+        <button
+          type="button"
+          className="ev-button w-full shrink-0 sm:w-auto"
+          disabled={busy || overrideChecking || (override && !overrideRevisionId)}
+          onClick={(event) => startUpload(event.currentTarget.form)}
+        >
+          <UploadCloud size={17} aria-hidden="true" />
+          {busy ? "Working..." : "Start secure upload"}
+        </button>
+      </div>
       {(busy || progress === 100) && (
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e5ebe8]" aria-label={`Upload progress ${progress}%`}>
-          <div className="h-full rounded-full bg-[#e8733f] transition-all" style={{ width: `${progress}%` }} />
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between text-xs font-medium text-[#526279]"><span>Secure upload</span><span>{progress}%</span></div>
+          <div role="progressbar" aria-label="Secure upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 overflow-hidden rounded-full bg-[#e5ebe8]">
+            <div className="h-full rounded-full bg-[#0c5b45] transition-all motion-reduce:transition-none" style={{ width: `${progress}%` }} />
+          </div>
         </div>
       )}
       {status && (
         <p
-          className={`mt-3 rounded-lg p-3 text-xs leading-5 ${failed ? "border border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]" : "bg-[#eef4f1] text-[#0c5b45]"}`}
+          className={`mt-3 break-words rounded-lg p-3 text-sm leading-6 ${failed ? "border border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]" : "bg-[#f2f7f4] text-[#0c5b45]"}`}
           role={failed ? "alert" : "status"}
         >
           {status}
@@ -413,9 +437,17 @@ function Field({
   onChange?: () => void;
 }) {
   return (
-    <label className="mt-4 block">
-      <span className="ev-label">{label}</span>
+    <label className="block min-w-0">
+      <span className="ev-label flex min-h-8 items-center">{label}</span>
       <input className="ev-input" name={name} placeholder={placeholder} required disabled={disabled} onChange={onChange} />
     </label>
   );
+}
+
+function SelectedFile({id,file}:{id:string;file:File}) {
+  const size=file.size<1024*1024?`${Math.max(1,Math.ceil(file.size/1024))} KB`:`${(file.size/(1024*1024)).toFixed(1)} MB`;
+  return <p id={id} className="mt-3 flex min-w-0 items-start gap-2 text-xs leading-5 text-[#36564a]">
+    <FileCheck2 size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+    <span className="min-w-0 [overflow-wrap:anywhere]"><span className="font-medium">{file.name}</span><span className="ml-1 text-[#526279]">· {size}</span></span>
+  </p>;
 }

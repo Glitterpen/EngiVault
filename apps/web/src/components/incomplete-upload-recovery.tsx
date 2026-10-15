@@ -3,6 +3,7 @@ import {useState} from "react";
 import {useRouter} from "next/navigation";
 import {createClient} from "@/lib/supabase/browser";
 import {customerErrorMessage} from "@/lib/customer-messages";
+import {AlertTriangle} from "lucide-react";
 
 type RecoveryFile={kind:"primary"|"native";path:string;name:string;size:number;sha256:string;mime:string;token:string};
 
@@ -45,17 +46,17 @@ export function IncompleteUploadRecovery({endpoint}:{endpoint:string}){
     }catch(error){setFiles(null);setSelected({});setMessage(customerErrorMessage(error,"Upload could not finish.")+" Choose Resume again to recheck stored files.");}
     finally{setBusy(false);}
   }
-  return <div className="mt-4 rounded-xl border border-[#efc6b4] bg-[#fff8f4] p-4">
-    <p className="text-sm font-semibold">Incomplete submission</p>
-    <div className="mt-3 flex flex-wrap gap-2">
-      <button type="button" className="ev-button-secondary" disabled={busy} onClick={()=>void recover("resume")}>Resume incomplete submission</button>
-      <button type="button" className="ev-button-secondary" disabled={busy} onClick={()=>setConfirmCancel(true)}>Cancel incomplete upload</button>
+  return <section aria-label="Incomplete submission" className="mt-4 min-w-0 rounded-xl border border-[#e7cbb9] bg-[#fffaf5] p-4">
+    <p className="flex items-center gap-2 text-sm font-semibold text-[#7b3d22]"><AlertTriangle size={17} aria-hidden="true" className="shrink-0"/>Incomplete submission</p>
+    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <button type="button" className="ev-button-secondary min-h-11 w-full sm:w-auto" disabled={busy} onClick={()=>void recover("resume")}>Resume incomplete submission</button>
+      <button type="button" className="ev-button-secondary min-h-11 w-full sm:w-auto" disabled={busy} onClick={()=>setConfirmCancel(true)}>Cancel incomplete upload</button>
     </div>
-    {files?.map(file=><label key={file.kind} className="mt-3 block text-sm">{file.kind==="native"?"Missing native source":"Missing controlled file"}: {file.name}
-      <input type="file" disabled={busy} className="ev-input mt-2 w-full" onChange={event=>{const chosen=event.target.files?.[0];if(chosen)setSelected(previous=>({...previous,[file.kind]:chosen}));}}/>
+    {files?.map(file=><label key={file.kind} className="mt-4 block min-w-0 text-sm leading-6 text-[#405566]"><span className="font-semibold">{file.kind==="native"?"Missing native source":"Missing controlled file"}:</span> <span className="break-all">{file.name}</span>
+      <input type="file" disabled={busy} className="ev-input mt-2 min-h-11 w-full min-w-0 max-w-full text-sm" onChange={event=>{const chosen=event.target.files?.[0];if(chosen)setSelected(previous=>({...previous,[file.kind]:chosen}));}}/>
     </label>)}
-    {files&&<button type="button" className="ev-button mt-3" disabled={busy||files.some(file=>!selected[file.kind])} onClick={()=>void finish()}>Complete secure submission</button>}
-    {confirmCancel&&<div className="mt-3 text-sm"><p>Cancel only this incomplete registration? Uploaded files and audit evidence are retained. Completed revisions are not affected. You can then restart with the same revision code.</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" className="ev-button-secondary" disabled={busy} onClick={()=>void recover("cancel")}>Confirm cancellation</button><button type="button" className="ev-button-secondary" disabled={busy} onClick={()=>setConfirmCancel(false)}>Keep upload</button></div></div>}
-    {message&&<p role="status" className="mt-3 text-sm">{message}</p>}
-  </div>;
+    {files&&<button type="button" className="ev-button mt-3 min-h-11 w-full sm:w-auto" disabled={busy||files.some(file=>!selected[file.kind])} onClick={()=>void finish()}>Complete secure submission</button>}
+    {confirmCancel&&<div className="mt-4 border-t border-[#e7cbb9] pt-4 text-sm leading-6 text-[#405566]"><p>Cancel only this incomplete registration? Uploaded files and audit evidence are retained. Completed revisions are not affected. You can then restart with the same revision code.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"><button type="button" className="ev-button-secondary min-h-11 w-full sm:w-auto" disabled={busy} onClick={()=>void recover("cancel")}>Confirm cancellation</button><button type="button" className="ev-button-secondary min-h-11 w-full sm:w-auto" disabled={busy} onClick={()=>setConfirmCancel(false)}>Keep upload</button></div></div>}
+    {message&&<p role="status" className="mt-3 break-words text-sm leading-6 text-[#405566]">{message}</p>}
+  </section>;
 }

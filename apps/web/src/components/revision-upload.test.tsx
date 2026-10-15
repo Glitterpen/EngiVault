@@ -109,3 +109,79 @@ describe("submission override checkbox",()=>{
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
   });
 });
+
+describe("revision upload presentation and accessibility",()=>{
+  it("names the form and groups revision details separately from files",()=>{
+    render(<RevisionUpload {...props}/>);
+    expect(screen.getByRole("form",{name:"Upload revision"}).getAttribute("aria-busy")).toBe("false");
+    expect(screen.getByRole("group",{name:"Revision details"}).contains(screen.getByRole("textbox",{name:"Revision"}))).toBe(true);
+    expect(screen.getByRole("group",{name:"Revision files"}).contains(screen.getByLabelText("Controlled issue file"))).toBe(true);
+    expect((screen.getByLabelText("Issue date") as HTMLInputElement).required).toBe(false);
+    expect(screen.getByText("Submit IFR first.")).toBeTruthy();
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(screen.getByRole("button",{name:"Revision workflow guidance"}));
+    expect(screen.getByRole("tooltip").textContent).toContain("100% at Issued for Design (IFD)");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the complete selected filename and links file format guidance",()=>{
+    render(<RevisionUpload {...props}/>);
+    const file=new File(["%PDF-1.7"],"EDE-ENGINEERING-VERY-LONG-DOCUMENT-NAME-WITHOUT-SPACES-IFR-R01.pdf",{type:"application/pdf"});
+    const input=screen.getByLabelText("Controlled issue file") as HTMLInputElement;
+    fireEvent.change(input,{target:{files:{item:()=>file}}});
+    const descriptions=(input.getAttribute("aria-describedby")??"").split(" ").map(id=>document.getElementById(id)?.textContent);
+    expect(descriptions[0]).toContain("maximum 250 MB");
+    expect(descriptions[1]).toContain(file.name);
+    expect(screen.getByText(file.name).parentElement?.className).toContain("overflow-wrap:anywhere");
+    expect(input.accept).toBe(".pdf,.docx,.xlsx,.dwg");
+    expect(input.required).toBe(true);
+    expect(screen.getByRole("button",{name:"Start secure upload"}).className).toContain("w-full");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps native-source requirements visible and prevents an incomplete final issue",()=>{
+    render(<RevisionUpload {...props} completedIssueStatuses={["Issued for Review (IFR)","Issued for Approval (IFA)"]}/>);
+    fireEvent.change(screen.getByRole("textbox",{name:"Revision"}),{target:{value:"IFD"}});
+    fireEvent.change(screen.getByRole("combobox"),{target:{value:"Issued for Design (IFD)"}});
+    const file=new File(["%PDF-1.7"],"design.pdf",{type:"application/pdf"});
+    fireEvent.change(screen.getByLabelText("Controlled issue file"),{target:{files:{item:()=>file}}});
+    const native=screen.getByLabelText("Native source file") as HTMLInputElement;
+    expect(native.required).toBe(true);
+    expect(native.accept).toBe(".dwg,.docx,.xlsx");
+    expect(screen.getByText("Required")).toBeTruthy();
+    expect(screen.getByRole("button",{name:"Native source requirement"})).toBeTruthy();
+    fireEvent.click(screen.getByRole("button",{name:"Start secure upload"}));
+    expect(screen.getByRole("alert").textContent).toContain("Attach the editable DWG, DOCX or XLSX source required");
+    expect(document.activeElement).toBe(native);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("exposes determinate progress and preserves secure completion",async()=>{
+    const upload=vi.fn().mockResolvedValue({error:null});
+    vi.mocked(createClient).mockReturnValue({storage:{from:()=>({uploadToSignedUrl:upload})}} as unknown as ReturnType<typeof createClient>);
+    vi.spyOn(Blob.prototype,"arrayBuffer").mockImplementation(function(this:Blob){return readBytes(this);});
+    vi.stubGlobal("crypto",{subtle:{digest:vi.fn().mockResolvedValue(new Uint8Array(32).buffer)}});
+    let resolve!:(value:Response)=>void;
+    fetchMock.mockReturnValueOnce(new Promise<Response>(done=>{resolve=done;})).mockResolvedValueOnce(Response.json({}));
+    try{
+      prepare();
+      fireEvent.change(screen.getByLabelText("Issue date"),{target:{value:"2026-10-16"}});
+      const file=new File(["%PDF-1.7"],"review.pdf",{type:"application/pdf"});
+      fireEvent.change(screen.getByLabelText("Controlled issue file"),{target:{files:{item:()=>file}}});
+      fireEvent.click(screen.getByRole("button",{name:"Start secure upload"}));
+      await waitFor(()=>expect(fetchMock).toHaveBeenCalledTimes(1));
+      expect(screen.getByRole("form",{name:"Upload revision"}).getAttribute("aria-busy")).toBe("true");
+      expect(screen.getByRole("progressbar",{name:"Secure upload progress"}).getAttribute("aria-valuenow")).toBe("25");
+      expect((screen.getByRole("textbox",{name:"Revision"}) as HTMLInputElement).disabled).toBe(true);
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({revisionCode:"A",issueStatus:"Issued for Review (IFR)",issueDate:"2026-10-16",fileName:"review.pdf"});
+      resolve(Response.json({revisionId:"rev",path:"primary",token:"token"}));
+      await screen.findByText("Upload complete. The revision is queued for secure processing.");
+      expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
+      expect(screen.getByRole("form",{name:"Upload revision"}).getAttribute("aria-busy")).toBe("false");
+      expect(fetchMock.mock.calls[1][0]).toContain("/revisions/rev/complete");
+      expect(upload).toHaveBeenCalledWith("primary","token",expect.any(File),{contentType:"application/pdf",upsert:false});
+    }finally{
+      vi.restoreAllMocks();
+    }
+  });
+});

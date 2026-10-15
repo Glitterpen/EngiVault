@@ -49,3 +49,19 @@ it("shows a status-read failure with a refresh option",async()=>{
   await waitFor(()=>expect(screen.getByRole("status").textContent).toContain("could not be checked"));
   expect(screen.getByRole("button",{name:"Refresh status"})).toBeTruthy();
 });
+it("provides touch-sized refresh and retry controls without changing retry permissions",async()=>{
+  request.mockResolvedValue(response("failed","failed"));
+  render(<RevisionProcessingStatus endpoint="/processing" initialRevisionState="failed" initialRun={run("failed")} canRetry/>);
+  await waitFor(()=>expect(request).toHaveBeenCalled());
+  for(const name of ["Refresh status","Retry processing"]){
+    const button=screen.getByRole("button",{name});
+    expect(button.classList.contains("min-h-11")).toBe(true);
+    expect(button.classList.contains("w-full")).toBe(true);
+  }
+});
+it("respects reduced motion while retaining the automatic-update text",()=>{
+  render(<RevisionProcessingStatus endpoint="/processing" initialRevisionState="quarantined" initialRun={null} canRetry={false}/>);
+  const icon=screen.getByText("Updating automatically").querySelector("svg");
+  expect(icon?.classList.contains("motion-reduce:animate-none")).toBe(true);
+  expect(icon?.getAttribute("aria-hidden")).toBe("true");
+});

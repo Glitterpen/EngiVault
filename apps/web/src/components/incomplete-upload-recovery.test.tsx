@@ -32,3 +32,25 @@ it("uses normal completion when all files already exist",async()=>{
   await waitFor(()=>expect(refresh).toHaveBeenCalled());
   expect(fetchMock.mock.calls[1][0]).toBe("/revision/complete");
 });
+it("keeps recovery visible with phone-sized controls and wrapping missing file names",async()=>{
+  const name="very-long-original-native-engineering-drawing-for-revision-source-file.dwg";
+  fetchMock.mockResolvedValue(Response.json({files:[{kind:"native",name}]}));
+  render(<IncompleteUploadRecovery endpoint="/revision/recovery"/>);
+  expect(screen.getByRole("region",{name:"Incomplete submission"})).toBeTruthy();
+  for(const button of screen.getAllByRole("button")){
+    expect(button.classList.contains("min-h-11")).toBe(true);
+    expect(button.classList.contains("w-full")).toBe(true);
+  }
+  fireEvent.click(screen.getByRole("button",{name:"Resume incomplete submission"}));
+  const input=await screen.findByLabelText(`Missing native source: ${name}`);
+  expect(input.getAttribute("type")).toBe("file");
+  expect(screen.getByText(name).classList.contains("break-all")).toBe(true);
+});
+it("keeps cancellation optional without a request when the user keeps the upload",()=>{
+  render(<IncompleteUploadRecovery endpoint="/revision/recovery"/>);
+  fireEvent.click(screen.getByRole("button",{name:"Cancel incomplete upload"}));
+  expect(screen.getByText(/Completed revisions are not affected/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Keep upload"}));
+  expect(screen.queryByRole("button",{name:"Confirm cancellation"})).toBeNull();
+  expect(fetchMock).not.toHaveBeenCalled();
+});
