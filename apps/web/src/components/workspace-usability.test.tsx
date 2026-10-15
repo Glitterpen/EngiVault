@@ -7,19 +7,21 @@ vi.mock("next/navigation",()=>({usePathname:()=>"/app"}));
 vi.mock("@/app/(auth)/actions",()=>({signOut:vi.fn()}));
 
 it.each([
- ["engineer","My deliverables"],
- ["document_controller","DCC control centre"],
- ["project_admin","Project overview"],
+ ["engineer","Deliverables"],
+ ["document_controller","Control centre"],
+ ["project_admin","Overview"],
 ])("deduplicates %s preview dashboard navigation",(role,label)=>{
  render(<WorkspaceNavigation previewScope={{organisationId:"org",projectId:"project",role,disciplines:["Mechanical"]}}/>);
  expect(screen.getAllByRole("link",{name:label})).toHaveLength(1);
  expect(screen.queryByRole("link",{name:"Member dashboard"})).toBeNull();
 });
 beforeEach(()=>{
+ vi.stubGlobal("fetch",vi.fn(async()=>({ok:false,json:async()=>null})));
+ vi.stubGlobal("matchMedia",vi.fn((query:string)=>({matches:query.includes("max-width"),media:query,addEventListener:vi.fn(),removeEventListener:vi.fn()})));
  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;this.dispatchEvent(new Event("close"));}});
 });
-afterEach(()=>{cleanup();vi.restoreAllMocks();});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
 it("opens labelled modal, restores focus and preserves a draft when closed",()=>{
  render(<AppDialog title="Register a document" trigger="Register"><input aria-label="Document title"/></AppDialog>);
  const opener=screen.getByRole("button",{name:"Register"});fireEvent.click(opener);

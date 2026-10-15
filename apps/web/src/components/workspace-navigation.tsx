@@ -1,46 +1,138 @@
 "use client";
 
-import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
-import {Bell,Building2,ChartNoAxesColumnIncreasing,ChevronDown,ClipboardCheck,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,MessageSquareText,Package,Settings,ShieldCheck,UserCheck,Users} from "lucide-react";
 import {usePathname} from "next/navigation";
-import {useEffect,useState,useRef,useId} from "react";
-import {scopedRoleLabel,workspacePersona,type WorkspacePersona} from "@/lib/role-experience";
+import {useEffect,useId,useRef,useState} from "react";
+import {Bell,Building2,ChartNoAxesColumnIncreasing,ClipboardCheck,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,Menu,MessageSquareText,Package,Settings,ShieldCheck,UserCheck,Users,X} from "lucide-react";
+import {HelpTip} from "@/components/help-tip";
 import {ProjectLogo} from "@/components/project-logo";
+import {scopedRoleLabel,workspacePersona} from "@/lib/role-experience";
+import {buildWorkspaceNavigation,type WorkspaceNavigationContext,type WorkspaceNavIcon,type WorkspaceNavItem} from "@/lib/workspace-navigation-model";
+import styles from "./workspace-navigation.module.css";
 
-type Context={role:string;roleLabel:string;persona:WorkspacePersona;project:{code:string;name:string};pendingReviewCount:number;preview?:boolean};
-type ScopedContext={projectId:string;value:Context};
-type Item={key:string;href:string;label:string;icon:React.ReactNode;badge?:number};
+type PreviewScope={organisationId:string;projectId:string;role:string;disciplines:string[]};
+type Navigation=ReturnType<typeof buildWorkspaceNavigation>;
+type IdentityProps={organisationId?:string;projectId?:string;context:WorkspaceNavigationContext|null};
+const icons:Record<WorkspaceNavIcon,typeof Bell>={Bell,Building2,ChartNoAxesColumnIncreasing,ClipboardCheck,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,MessageSquareText,Package,Settings,ShieldCheck,UserCheck,Users};
+const uuid="[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
-export function WorkspaceNavigation({unreadCount=0,previewScope}:{unreadCount?:number;previewScope?:{organisationId:string;projectId:string;role:string;disciplines:string[]}}){
- const menuRoot=useRef<HTMLDivElement>(null);const menuId=useId();const pathname=usePathname();const [open,setOpen]=useState(false);const [scopedContext,setScopedContext]=useState<ScopedContext|null>(null);const uuid="[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";const match=pathname.match(new RegExp(`^/app/(${uuid})(?:/projects/(${uuid}))?`,"i"));const organisationId=match?.[1]??previewScope?.organisationId;const projectId=match?.[2]??previewScope?.projectId;
- useEffect(()=>{if(!organisationId||!projectId)return;const controller=new AbortController();const loadContext=()=>fetch(`/api/v1/organisations/${organisationId}/projects/${projectId}/workspace-context`,{cache:"no-store",signal:controller.signal}).then(response=>response.ok?response.json():null).then(value=>{if(value)setScopedContext({projectId,value:value as Context})}).catch(()=>undefined);void loadContext();const interval=window.setInterval(()=>void loadContext(),15000);window.addEventListener("focus",loadContext);return()=>{controller.abort();window.clearInterval(interval);window.removeEventListener("focus",loadContext)}},[organisationId,projectId]);
- useEffect(()=>{if(!open)return;const close=(e:PointerEvent)=>{if(!menuRoot.current?.contains(e.target as Node))setOpen(false);};const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"){setOpen(false);menuRoot.current?.querySelector("button")?.focus();}};document.addEventListener("pointerdown",close);document.addEventListener("keydown",escape);return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape);};},[open]);
- const context=scopedContext&&scopedContext.projectId===projectId?scopedContext.value:previewScope?{role:previewScope.role,roleLabel:scopedRoleLabel(previewScope.role,previewScope.disciplines),persona:workspacePersona(previewScope.role),project:{code:'',name:''},pendingReviewCount:0,preview:true}:null;const base=projectId?`/app/${organisationId}/projects/${projectId}`:"";const active=activeKey(pathname);const items=buildItems({organisationId,projectId,base,context,unreadCount}).filter(item=>!context?.preview||item.key!=="projects");
- const links=items.map(item=>{const selected=active===item.key;return <Link key={item.key} href={item.href} onClick={()=>setOpen(false)} aria-current={selected?"page":undefined} className={`group mb-1 flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${selected?"bg-white/[.12] text-white shadow-[inset_3px_0_0_#ed7138]":"text-white/75 hover:bg-white/[.07] hover:text-white"}`}><span aria-hidden="true" className={`grid size-7 shrink-0 place-items-center rounded-lg transition ${selected?"bg-[#ed7138] text-white":"bg-white/[.055] text-white/55 group-hover:text-white"}`}>{item.icon}</span><span className="min-w-0 flex-1">{item.label}</span>{Boolean(item.badge)&&<span className="grid min-w-5 place-items-center rounded-full bg-[#ed7138] px-1 text-[10px] font-extrabold leading-5 text-white">{(item.badge??0)>99?"99+":item.badge}</span>}</Link>});
- const workspaceLabel=context?.roleLabel??"Secure workspace";const workspaceDescription=context?.project?.code?`${context.project.code} · ${context.project.name}`:"Your authorised engineering work";
- return <><div ref={menuRoot} className="sticky top-16 z-30 border-b border-white/10 bg-[#10243e] p-2.5 text-white shadow-lg md:hidden"><button type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open} aria-controls={menuId} aria-label="Toggle workspace navigation" className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[.07] px-3.5 py-2.5 text-sm font-semibold"><span className="flex items-center gap-2.5"><span className={`grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg ${projectId?"bg-white p-1 text-[#ed7138]":"bg-[#ed7138]"}`}>{projectId&&organisationId?<ProjectLogo organisationId={organisationId} projectId={projectId} name={context?.project?.name??"Project"} size={28} className="size-full object-contain"/>:<FolderKanban size={15}/>}</span>{workspaceLabel}</span><ChevronDown size={17} className={`transition ${open?"rotate-180":""}`}/></button>{open&&<nav id={menuId} aria-label="Mobile workspace" className="absolute left-2.5 right-2.5 top-[calc(100%+6px)] max-h-[calc(100dvh-140px)] overflow-y-auto rounded-2xl border border-white/10 bg-[#10243e] p-2.5 shadow-[0_24px_60px_rgba(5,19,36,.35)]">{links}</nav>}</div><aside style={{left:"max(0px, calc((100vw - min(2100px, 100vw)) / 2))"}} className="fixed bottom-0 top-16 z-30 hidden w-[248px] overflow-y-auto border-r border-white/[.07] bg-[linear-gradient(180deg,#10243e_0%,#0c1d32_100%)] p-4 text-white md:block 2xl:w-[264px] 2xl:p-5"><div className="mb-4 flex items-start gap-3 px-3 pt-2">{projectId&&organisationId&&<span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white p-1.5 text-[#ed7138]"><ProjectLogo organisationId={organisationId} projectId={projectId} name={context?.project?.name??"Project"} size={36} className="size-full object-contain"/></span>}<div className="min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-[.22em] text-[#ff9a6d]">{workspaceLabel}</p><p className="mt-1.5 line-clamp-2 text-xs leading-5 text-white/45">{workspaceDescription}</p></div></div><nav aria-label="Workspace">{links}</nav><div className="mx-3 mt-6 text-white/70"><HelpTip label="Workspace role guidance">This workspace shows only the responsibilities assigned to your current role.</HelpTip></div></aside></>;
+function readContext(value:unknown,previewRole?:string):WorkspaceNavigationContext|null{
+  if(!value||typeof value!=="object")return null;
+  const data=value as Partial<WorkspaceNavigationContext>;
+  if(typeof data.role!=="string"||!["organisation_admin","project_admin","document_controller","engineer","viewer","executive_viewer"].includes(data.role)
+    ||typeof data.roleLabel!=="string"||!data.project||typeof data.project.code!=="string"||typeof data.project.name!=="string")return null;
+  // Never replace a delegated member's menu with the administrator's context.
+  if(previewRole?(data.role!==previewRole||data.preview!==true):data.preview===true)return null;
+  return {role:data.role,roleLabel:data.roleLabel,persona:workspacePersona(data.role),project:data.project,
+    pendingReviewCount:typeof data.pendingReviewCount==="number"&&Number.isFinite(data.pendingReviewCount)?Math.max(0,Math.floor(data.pendingReviewCount)):0,preview:Boolean(previewRole)};
 }
 
-function buildItems({organisationId,projectId,base,context,unreadCount}:{organisationId?:string;projectId?:string;base:string;context:Context|null;unreadCount:number}):Item[]{
- const global:Item[]=context?.preview?[]:[{key:"organisations",href:"/app",label:"Organisations",icon:<Building2 size={17}/>}];
- const notifications:Item={key:"notifications",href:"/app/notifications",label:"Notifications",icon:<Bell size={17}/>,badge:unreadCount||undefined};
- if(!organisationId)return [...global,{key:"projects",href:"/app/projects",label:"Projects",icon:<FolderKanban size={17}/>},notifications];
- if(!projectId)return [...global,{key:"projects",href:`/app/${organisationId}`,label:"Projects",icon:<FolderKanban size={17}/>},notifications];
- const projects:Item={key:"projects",href:context?.preview?`${base}/${context.role==='engineer'?'assignments':context.role==='document_controller'?'control':'overview'}`:`/app/${organisationId}`,label:context?.preview?'Member dashboard':context?.persona==="management"?"All projects":"My project assignments",icon:<FolderKanban size={17}/>};
- const requests:Item={key:"requests",href:`${base}/requests`,label:context?.persona==="engineering"?"My requests":"Deliverable requests",icon:<ClipboardCheck size={17}/>};
- const templates:Item={key:"templates",href:`${base}/templates`,label:"Project templates",icon:<Package size={17}/>};
- const references:Item={key:"interdisciplinary",href:`${base}/interdisciplinary`,label:"Interdisciplinary check",icon:<FileSearch size={17}/>};
- if(!context)return [...global,projects,notifications];
- if(context.persona==="management"){
-  const management:Item[]=[...global,projects,{key:"overview",href:`${base}/overview`,label:"Project overview",icon:<LayoutDashboard size={17}/>},{key:"progress",href:`${base}/progress`,label:"Progress & health",icon:<ChartNoAxesColumnIncreasing size={17}/>},{key:"reports",href:`${base}/reports`,label:"Project reports",icon:<FileText size={17}/>},{key:"team",href:`${base}/team`,label:context.role==="organisation_admin"?"Project appointments":"Team & resources",icon:<Users size={17}/>},templates,references,notifications];
-  if(context.role==="organisation_admin")management.push({key:"administration",href:`${base}/administration`,label:"Admin controls",icon:<ShieldCheck size={17}/>});
-  if(context.role==="project_admin")management.push(requests,{key:"settings",href:`${base}/settings`,label:"Project settings",icon:<Settings size={17}/>});
-  return management;
- }
- if(context.persona==="document_control")return [...global,projects,{key:"control",href:`${base}/control`,label:"DCC control centre",icon:<LayoutDashboard size={17}/>},{key:"documents",href:`${base}/documents`,label:"Master document register",icon:<FileStack size={17}/>},{key:"reviews",href:`${base}/reviews`,label:"Submission review",icon:<ClipboardCheck size={17}/>,badge:context.pendingReviewCount||undefined},requests,templates,references,{key:"team",href:`${base}/team`,label:"Discipline engineers",icon:<Users size={17}/>},{key:"progress",href:`${base}/progress`,label:"Delivery progress",icon:<ChartNoAxesColumnIncreasing size={17}/>},{key:"packages",href:`${base}/work-packages`,label:"Work packages",icon:<Package size={17}/>},notifications];
- if(context.persona==="engineering")return [...global,projects,{key:"assignments",href:`${base}/assignments`,label:"My deliverables",icon:<UserCheck size={17}/>},requests,templates,references,{key:"search",href:`${base}/search`,label:"Evidence search",icon:<FileSearch size={17}/>},{key:"chat",href:`${base}/chat`,label:"Ask EngiCite",icon:<MessageSquareText size={17}/>},notifications];
- return [...global,projects,{key:"documents",href:`${base}/documents`,label:"Project documents",icon:<FileStack size={17}/>},{key:"search",href:`${base}/search`,label:"Evidence search",icon:<FileSearch size={17}/>},templates,references,notifications];
+export function WorkspaceNavigation({unreadCount=0,previewScope}:{unreadCount?:number;previewScope?:PreviewScope}){
+  const pathname=usePathname();
+  const match=pathname.match(new RegExp(`^/app/(${uuid})(?:/projects/(${uuid}))?(?:/|$)`,"i"));
+  const organisationId=previewScope?.organisationId??match?.[1];
+  const projectId=previewScope?.projectId??match?.[2];
+  const previewRole=previewScope?.role;
+  const scopeKey=`${organisationId??""}:${projectId??""}:${previewRole??"workspace"}`;
+  const [scopedContext,setScopedContext]=useState<{key:string;value:WorkspaceNavigationContext|null}|null>(null);
+  useEffect(()=>{
+    if(!organisationId||!projectId)return;
+    const controller=new AbortController();let request=0;
+    const loadContext=async()=>{
+      const current=++request;
+      try{
+        const response=await fetch(`/api/v1/organisations/${organisationId}/projects/${projectId}/workspace-context`,{cache:"no-store",signal:controller.signal});
+        const value=response.ok?readContext(await response.json(),previewRole):null;
+        if(!controller.signal.aborted&&current===request)setScopedContext({key:scopeKey,value});
+      }catch{
+        if(!controller.signal.aborted&&current===request)setScopedContext({key:scopeKey,value:null});
+      }
+    };
+    void loadContext();
+    const interval=window.setInterval(()=>void loadContext(),15000);
+    window.addEventListener("focus",loadContext);
+    return()=>{controller.abort();window.clearInterval(interval);window.removeEventListener("focus",loadContext);};
+  },[organisationId,projectId,previewRole,scopeKey]);
+  const fetched=scopedContext?.key===scopeKey?scopedContext.value:null;
+  const context=fetched??(previewScope?{role:previewScope.role,roleLabel:scopedRoleLabel(previewScope.role,previewScope.disciplines),persona:workspacePersona(previewScope.role),project:{code:"",name:""},pendingReviewCount:0,preview:true}:null);
+  const navigation=buildWorkspaceNavigation({pathname,organisationId,projectId,context,unreadCount});
+  // Route changes unmount an open drawer instead of retaining an old page's overlay.
+  return <WorkspaceSidebar key={pathname} organisationId={organisationId} projectId={projectId} context={context} navigation={navigation}/>;
 }
 
-function activeKey(pathname:string){if(pathname.endsWith("/templates"))return "templates";if(/\/interdisciplinary(?:\/|$)/.test(pathname))return "interdisciplinary";if(pathname.endsWith("/requests"))return "requests";if(pathname.startsWith("/app/notifications"))return "notifications";if(pathname.endsWith("/overview"))return "overview";if(pathname.endsWith("/control"))return "control";if(pathname.endsWith("/reviews"))return "reviews";if(pathname.includes("/reports"))return "reports";if(pathname.endsWith("/team"))return "team";if(pathname.endsWith("/assignments"))return "assignments";if(pathname.includes("/work-packages"))return "packages";if(pathname.endsWith("/progress"))return "progress";if(pathname.endsWith("/search"))return "search";if(pathname.endsWith("/chat"))return "chat";if(pathname.endsWith("/administration"))return "administration";if(pathname.endsWith("/settings"))return "settings";if(pathname==="/app/documents"||pathname.includes("/documents"))return "documents";if(pathname==="/app")return "organisations";return "projects"}
+function ProjectIdentity({organisationId,projectId,context}:IdentityProps){
+  const name=context?.project.name||(projectId?"Project workspace":"Your workspace");
+  return <div className={styles.identity}>
+    <span className={styles.logo} aria-hidden="true">{organisationId&&projectId?<ProjectLogo organisationId={organisationId} projectId={projectId} name={name} size={44} className="size-full object-contain"/>:<FolderKanban size={23}/>}</span>
+    <div className={styles.identityText}><p className={styles.projectCode}>{context?.project.code||(projectId?"Project":"EngiCite")}</p><p className={styles.projectName} title={name}>{name}</p></div>
+    <div className={styles.roleRow}><span className={styles.role}>{context?.roleLabel??"Secure workspace"}</span>{context?.preview&&<span className={styles.preview}>Read-only preview</span>}</div>
+  </div>;
+}
+
+function NavigationLink({item,activeKey,onNavigate}:{item:WorkspaceNavItem;activeKey:string;onNavigate?:()=>void}){
+  const Icon=icons[item.icon];const selected=activeKey===item.key;
+  return <Link href={item.href} onClick={onNavigate} aria-current={selected?"page":undefined} className={`${styles.link} ${selected?styles.active:""}`}>
+    <Icon size={18} strokeWidth={1.7} aria-hidden="true" className={styles.linkIcon}/><span className={styles.linkLabel}>{item.label}</span>
+    {Boolean(item.badge)&&<><span aria-hidden="true" className={styles.badge}>{item.badge!>99?"99+":item.badge}</span><span className="sr-only">{`, ${item.badge} ${item.key==="reviews"?"pending":"unread"}`}</span></>}
+  </Link>;
+}
+
+function NavigationContents({navigation,onNavigate,label}:{navigation:Navigation;onNavigate?:()=>void;label:string}){
+  const id=useId();const workspaceLinks=navigation.workspaceLinks.filter(item=>item.key!=="notifications");
+  const notifications=navigation.workspaceLinks.find(item=>item.key==="notifications");
+  return <nav aria-label={label} className={styles.navigation}>
+    <div className={styles.scrollArea}>
+      {workspaceLinks.length>0&&<div className={styles.workspaceLinks}>{workspaceLinks.map(item=><NavigationLink key={item.key} item={item} activeKey={navigation.activeKey} onNavigate={onNavigate}/>)}</div>}
+      {navigation.groups.map(group=><section key={group.key} aria-labelledby={`${id}-${group.key}`} className={styles.group}>
+        <h2 id={`${id}-${group.key}`} className={styles.groupTitle}>{group.label}</h2>
+        <div className={styles.groupLinks}>{group.items.map(item=><NavigationLink key={item.key} item={item} activeKey={navigation.activeKey} onNavigate={onNavigate}/>)}</div>
+      </section>)}
+    </div>
+    <div className={styles.footer}><div className={styles.footerLink}>{notifications&&<NavigationLink item={notifications} activeKey={navigation.activeKey} onNavigate={onNavigate}/>}</div><HelpTip label="Workspace role guidance">This workspace shows only the responsibilities assigned to your current role.</HelpTip></div>
+  </nav>;
+}
+
+function WorkspaceSidebar({navigation,...identity}:IdentityProps&{navigation:Navigation}){
+  const [open,setOpen]=useState(false);const dialog=useRef<HTMLDialogElement>(null);const trigger=useRef<HTMLButtonElement>(null);
+  const closeButton=useRef<HTMLButtonElement>(null);const desktop=useRef<HTMLElement>(null);const menuId=useId();
+  useEffect(()=>{
+    if(!open)return;
+    const modal=dialog.current;if(!modal)return;
+    const opener=trigger.current,desktopSidebar=desktop.current;
+    const previousOverflow=document.body.style.overflow;document.body.style.overflow="hidden";
+    if(!modal.open)modal.showModal();
+    closeButton.current?.focus();
+    const media=typeof window.matchMedia==="function"?window.matchMedia("(min-width: 768px)"):null;
+    const closeForDesktop=()=>{if(media?.matches)setOpen(false);};
+    const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!modal.contains(event.target)&&!trigger.current?.contains(event.target))setOpen(false);};
+    const keydown=(event:KeyboardEvent)=>{
+      if(event.defaultPrevented)return;
+      if(event.key==="Escape"){event.preventDefault();setOpen(false);return;}
+      if(event.key!=="Tab")return;
+      const targets=Array.from(modal.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),[tabindex="0"]')).filter(item=>!item.closest("[hidden]"));
+      const first=targets[0],last=targets.at(-1);
+      if(event.shiftKey&&(document.activeElement===first||!modal.contains(document.activeElement))){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!modal.contains(document.activeElement))){event.preventDefault();first?.focus();}
+    };
+    media?.addEventListener("change",closeForDesktop);
+    document.addEventListener("pointerdown",outside);document.addEventListener("keydown",keydown);
+    return()=>{
+      media?.removeEventListener("change",closeForDesktop);
+      document.removeEventListener("pointerdown",outside);document.removeEventListener("keydown",keydown);
+      if(modal.open)modal.close();
+      document.body.style.overflow=previousOverflow;
+      if(opener?.isConnected){if(media?.matches)desktopSidebar?.querySelector<HTMLElement>('[aria-current="page"]')?.focus();else opener.focus();}
+    };
+  },[open]);
+  return <>
+    <div className={`sticky top-16 ${styles.mobileBar}`}><button ref={trigger} type="button" data-preview-safe aria-label="Toggle workspace navigation" aria-haspopup="dialog" aria-expanded={open} aria-controls={menuId} onClick={()=>setOpen(value=>!value)} className={styles.mobileTrigger}>
+      <Menu size={21} aria-hidden="true"/><span className={styles.mobileTitle}><span className={styles.mobileProject}>{identity.context?.project.code||"Workspace"}</span><span className={styles.currentPage}>{navigation.currentLabel}</span></span><span className={styles.mobileOpenLabel} aria-hidden="true">Menu</span>
+    </button></div>
+    <aside ref={desktop} className={styles.sidebar} aria-label="Project sidebar"><ProjectIdentity {...identity}/><NavigationContents navigation={navigation} label="Workspace"/></aside>
+    <dialog ref={dialog} id={menuId} role="dialog" aria-modal="true" aria-label="Project navigation" className={styles.drawer}
+      onCancel={event=>{event.preventDefault();setOpen(false);}} onClose={()=>setOpen(false)}
+      onClick={event=>{if(event.target!==event.currentTarget)return;const box=event.currentTarget.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)setOpen(false);}}>
+      {open&&<><div className={styles.drawerHeading}><span>Project navigation</span><button ref={closeButton} type="button" data-preview-safe aria-label="Close project navigation" onClick={()=>setOpen(false)} className={styles.closeButton}><X size={21} aria-hidden="true"/></button></div><ProjectIdentity {...identity}/><NavigationContents navigation={navigation} label="Mobile workspace" onNavigate={()=>setOpen(false)}/></>}
+    </dialog>
+  </>;
+}
