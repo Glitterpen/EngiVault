@@ -1,37 +1,11 @@
-import {HelpTip} from "@/components/help-tip";
+import { HelpTip } from "@/components/help-tip";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  ClipboardCheck,
-  Clock3,
-  Download,
-  Eye,
-  FileCog,
-} from "lucide-react";
-import { RevisionReviewForm } from "@/components/revision-review-form";
-import { RevisionProcessingStatus } from "@/components/revision-processing-status";
+import { ArrowLeft } from "lucide-react";
+import { SubmissionReviewQueue, type SubmissionReviewRow } from "@/components/submission-review-queue";
 import { requireProject } from "@/lib/auth";
 
-type Revision = {
-  id: string;
-  document_id: string;
-  revision_code: string;
-  issue_status: string;
-  original_filename: string;
-  native_original_filename: string | null;
-  created_at: string;
-  state: string;
-  documents: {
-    document_number: string;
-    title: string;
-    discipline: string;
-  } | null;
-};
-
-export default async function ReviewsPage({
-  params,
-}: {
+export default async function ReviewsPage({ params }: {
   params: Promise<{ organisationId: string; projectId: string }>;
 }) {
   const { organisationId, projectId } = await params;
@@ -50,130 +24,30 @@ export default async function ReviewsPage({
     .neq("state", "pending_upload")
     .order("created_at");
 
-  const rows = (data ?? []) as unknown as Revision[];
+  const rows = (data ?? []) as unknown as SubmissionReviewRow[];
+  const pageHref = `/app/${organisationId}/projects/${projectId}/reviews`;
 
-  return (
-    <div className="mx-auto max-w-6xl">
-      <Link
-        href={`/app/${organisationId}/projects/${projectId}/control`}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"
-      >
-        <ArrowLeft size={16} /> Document control centre
+  return <div className="mx-auto max-w-6xl space-y-5">
+    <header>
+      <Link href={`/app/${organisationId}/projects/${projectId}/control`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]">
+        <ArrowLeft aria-hidden="true" size={16} /> Document control centre
       </Link>
-
-      <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">
-        Document control
-      </p>
-      <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold">
-        <ClipboardCheck /> Submission review
-       <HelpTip label="Reviewing engineer submissions">Preview every engineer submission, verify its document details and file
-        content, then accept it into the controlled register or return it with
-        clear instructions.</HelpTip></h1>
-
-
-      <div className="mt-6 space-y-5">
-        {error ? <div className="ev-card p-6" role="alert">Submissions could not be loaded. Refresh the page and try again.</div> : rows.length ? (
-          rows.map((row) => {
-            const enhancedPreviewAvailable = row.state === "ready";
-            const canReview = row.state === "ready";
-            const previewHref = `/app/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/preview`;
-            const downloadHref = `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/download`;
-            const nativeDownloadHref = `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/native-download`;
-
-            return (
-              <article className="ev-card overflow-hidden" key={row.id}>
-                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e3e9e6] p-5">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-xs font-bold uppercase tracking-[.12em] text-[#e8733f]">
-                        {row.documents?.document_number} &middot; Revision {row.revision_code}
-                      </p>
-                      <span className="rounded-full bg-[#eef4f1] px-2.5 py-1 text-[10px] font-bold uppercase text-[#0c5b45]">
-                        {row.documents?.discipline}
-                      </span>
-                    </div>
-                    <h2 className="mt-2 text-lg font-semibold">{row.documents?.title}</h2>
-                    <p className="mt-1 truncate text-xs text-[#617083]">
-                      Submitted {new Date(row.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {enhancedPreviewAvailable ? (
-                      <Link
-                        href={previewHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ev-button"
-                      >
-                        <Eye size={16} /> Open secure preview
-                      </Link>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 rounded-xl bg-[#fff7dd] px-3 py-2 text-xs font-semibold text-[#7a5a00]">
-                        <Clock3 size={15} /> Security processing: {row.state.replaceAll("_", " ")}
-                      </span>
-                    )}
-                    {enhancedPreviewAvailable && (
-                      <a
-                        href={downloadHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ev-button-secondary"
-                      >
-                        <Download size={16} /> Original file
-                      </a>
-                    )}
-                    {enhancedPreviewAvailable && row.native_original_filename && (
-                      <a
-                        href={nativeDownloadHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ev-button-secondary"
-                      >
-                        <FileCog size={16} /> Native source
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 bg-[#f8faf9] p-5 sm:grid-cols-2 lg:grid-cols-4">
-                  <ConformanceItem label="Document number" value={row.documents?.document_number ?? "—"} />
-                  <ConformanceItem label="Revision" value={row.revision_code} />
-                  <ConformanceItem label="Issue status" value={row.issue_status} />
-                  <ConformanceItem label="Submitted file" value={row.original_filename} />
-                  {row.native_original_filename&&<ConformanceItem label="Editable native source" value={row.native_original_filename}/>}
-                </div>
-
-                <div className="px-5 pt-3">
-                  <RevisionProcessingStatus
-                    endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${row.document_id}/revisions/${row.id}/processing`}
-                    initialRevisionState={row.state}
-                    initialRun={null}
-                    canRetry={!preview}
-                  />
-                  <Link href={`/app/${organisationId}/projects/${projectId}/documents/${row.document_id}`} className="mt-2 inline-block text-xs font-semibold text-[#0c5b45]">Open document record and processing details</Link>
-                </div>
-                <RevisionReviewForm organisationId={organisationId} projectId={projectId} revisionId={row.id} ready={canReview} readOnly={Boolean(preview)} />
-              </article>
-            );
-          })
-        ) : (
-          <div className="ev-card p-10 text-center text-[#617083]">
-            No engineer submissions are waiting for review.
-          </div>
-        )}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="flex min-w-0 flex-wrap items-center gap-2 text-2xl font-semibold text-[#102842] sm:text-3xl">
+          Submission review
+          <HelpTip label="Reviewing engineer submissions">Open a submission to check its files and MDR details. Confirm conformance before approving, or return it with clear instructions. The queue is ordered oldest first.</HelpTip>
+        </h1>
+        {!error ? <p className="text-sm text-[#617083]">{rows.length} submission{rows.length === 1 ? "" : "s"} awaiting review</p> : null}
       </div>
-    </div>
-  );
-}
+      {preview ? <p className="mt-2 text-sm text-[#617083]">Audited DCC preview · Read-only</p> : null}
+    </header>
 
-function ConformanceItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#718079]">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-[#20384f]" title={value}>
-        {value}
-      </p>
-    </div>
-  );
+    {error ? <div className="ev-card p-5" role="alert">
+      <p className="font-semibold text-[#102842]">Submissions could not be loaded.</p>
+      <p className="mt-1 text-sm text-[#617083]">Try again shortly. No review decisions have been changed.</p>
+      <Link href={pageHref} className="ev-button-secondary mt-4 min-h-11">Retry submissions</Link>
+    </div> : rows.length ? <SubmissionReviewQueue organisationId={organisationId} projectId={projectId} rows={rows} readOnly={Boolean(preview)} /> : <div className="ev-card p-6 text-sm text-[#617083]">
+      No engineer submissions are waiting for review.
+    </div>}
+  </div>;
 }

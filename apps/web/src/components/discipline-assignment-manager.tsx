@@ -2,11 +2,11 @@
 
 import {HelpTip} from "@/components/help-tip";
 import {useActionState,useState} from "react";
-import {ChevronDown,Layers3,Mail,UserCheck} from "lucide-react";
+import {ChevronDown,Mail,UserCheck} from "lucide-react";
 import {assignDisciplineDocuments,type WorkflowState} from "@/app/app/workflow-actions";
 import type {DisciplineAssignmentScope} from "@/lib/discipline-assignment-scopes";
 
-export function DisciplineAssignmentManager({organisationId,projectId,disciplines}:{organisationId:string;projectId:string;disciplines:DisciplineAssignmentScope[]}){
+export function DisciplineAssignmentManager({organisationId,projectId,disciplines,readOnly=false}:{organisationId:string;projectId:string;disciplines:DisciplineAssignmentScope[];readOnly?:boolean}){
   const awaiting=disciplines.filter(scope=>!scope.engineers.length||scope.engineers.some(engineer=>engineer.remainingCount>0));
   const assigned=disciplines.flatMap(scope=>scope.engineers.filter(engineer=>engineer.assignedCount>0).map(engineer=>({scope,engineer})));
   const [selectedDiscipline,setDiscipline]=useState("");
@@ -24,12 +24,12 @@ export function DisciplineAssignmentManager({organisationId,projectId,discipline
     setEngineerId("");
   }
 
-  return <details className="group ev-card mt-6 overflow-hidden" open>
-    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 sm:px-5">
-      <div className="flex min-w-0 items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#e8f1ed] text-[#0c5b45]"><Layers3 size={19}/></span><div><h2 className="font-semibold text-[#10243e]">Assign deliverables by discipline <HelpTip label="Discipline allocations">Only outstanding allocations to PM-appointed engineers appear below. Fully assigned engineer–discipline combinations leave this list automatically.</HelpTip></h2></div></div>
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-[#dce3e9] bg-[#f8fafb] text-[#617083]"><ChevronDown size={17} className="transition group-open:rotate-180"/></span>
+  return <details className="group ev-card min-w-0 overflow-hidden">
+    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 sm:px-5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2"><h2 className="text-sm font-semibold text-[#10243e]">Assign deliverables by discipline</h2><span className="text-xs text-[#617083]">{awaiting.length?`${awaiting.length} ${awaiting.length===1?"discipline":"disciplines"} outstanding`:"Up to date"}</span><HelpTip label="Discipline allocations">Only outstanding allocations to PM-appointed engineers appear below. Fully assigned engineer–discipline combinations leave this list automatically.</HelpTip></div>
+      <ChevronDown size={17} aria-hidden="true" className="shrink-0 text-[#617083] transition group-open:rotate-180"/>
     </summary>
-    {awaiting.length?<form action={action} className="border-t border-[#e4e9ee] p-4 sm:p-5">
+    {readOnly?<div className="border-t border-[#e4e9ee] p-4 text-sm text-[#617083]"><p>Read-only preview. Assignment changes are unavailable.</p>{awaiting.length>0&&<ul className="mt-3 space-y-2">{awaiting.map(item=><li key={item.name} className="break-words"><span className="font-semibold">{item.name}</span> · {item.documentCount} deliverables · {item.engineers.length?item.engineers.map(member=>`${member.name}: ${member.remainingCount} remaining`).join("; "):"No appointed engineer"}</li>)}</ul>}</div>:awaiting.length?<form action={action} className="border-t border-[#e4e9ee] p-4 sm:p-5">
       <input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/>
       <div className="grid gap-4 lg:grid-cols-[1fr_1.35fr_auto] lg:items-end">
         <label className="min-w-0"><span className="ev-label">MDR discipline</span><select className="ev-input w-full min-w-0" name="discipline" value={discipline} disabled={pending} onChange={event=>changeDiscipline(event.target.value)}>{awaiting.map(item=><option key={item.name} value={item.name}>{item.name} · {item.documentCount} deliverable{item.documentCount===1?"":"s"}</option>)}</select></label>
@@ -40,6 +40,6 @@ export function DisciplineAssignmentManager({organisationId,projectId,discipline
       <HelpTip label="Assignment notifications"><Mail size={14}/> A single consolidated email and in-app notification are sent for new assignments. Existing individual assignments are preserved.</HelpTip>
     </form>:<p className="border-t border-[#e4e9ee] p-5 text-sm text-[#0c5b45]" role="status">All current deliverables are assigned to the eligible engineers. New or unassigned deliverables will appear here when available.</p>}
     {state?.message&&<p className={`mx-5 mb-4 rounded-xl border p-3 text-xs ${state.ok?"border-[#cfe1d8] bg-[#f3f8f5] text-[#0c5b45]":"border-[#efc7bb] bg-[#fff7f4] text-[#8b3d1f]"}`} role={state.ok?"status":"alert"}>{state.message}</p>}
-    {assigned.length>0&&<details className="border-t border-[#e4e9ee] p-4 sm:p-5"><summary className="cursor-pointer text-sm font-semibold text-[#0c5b45]">View assigned allocations ({assigned.length})</summary><HelpTip label="Manage existing allocations">These assignments remain active. Open an individual MDR deliverable to review or remove its assignment.</HelpTip><ul className="mt-3 grid gap-3 sm:grid-cols-2">{assigned.map(({scope,engineer})=><li key={`${scope.name}:${engineer.userId}`} className="min-w-0 rounded-xl bg-[#f3f8f5] p-3"><p className="break-words text-sm font-semibold">{scope.name} · {engineer.name}</p><p className="mt-1 break-all text-xs text-[#617083]">{engineer.email}</p><p className="mt-2 text-xs text-[#0c5b45]">{engineer.assignedCount} of {scope.documentCount} assigned · {engineer.remainingCount?`${engineer.remainingCount} remaining`:"Fully assigned"}</p></li>)}</ul></details>}
+    {assigned.length>0&&<details className="border-t border-[#e4e9ee] px-4 py-2 sm:px-5"><summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-[#0c5b45]">View assigned allocations ({assigned.length})</summary><HelpTip label="Manage existing allocations">These assignments remain active. Open an individual MDR deliverable to review or remove its assignment.</HelpTip><ul className="mb-2 mt-3 grid gap-3 sm:grid-cols-2">{assigned.map(({scope,engineer})=><li key={`${scope.name}:${engineer.userId}`} className="min-w-0 rounded-xl bg-[#f3f8f5] p-3"><p className="break-words text-sm font-semibold">{scope.name} · {engineer.name}</p><p className="mt-1 break-all text-xs text-[#617083]">{engineer.email}</p><p className="mt-2 text-xs text-[#0c5b45]">{engineer.assignedCount} of {scope.documentCount} assigned · {engineer.remainingCount?`${engineer.remainingCount} remaining`:"Fully assigned"}</p></li>)}</ul></details>}
   </details>;
 }
