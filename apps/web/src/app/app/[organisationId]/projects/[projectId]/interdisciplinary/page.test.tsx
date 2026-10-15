@@ -19,6 +19,9 @@ afterEach(cleanup);
 it("shows the complete discipline folder overview rather than a global document page",async()=>{
   rpc.mockResolvedValue({data:{total:72,disciplines:["Process","Mechanical","Electrical"],documents:[documentRow()]},error:null});
   render(await libraryPage({q:"layout & list",page:"3"}));
+  expect(screen.getByRole("heading",{level:1,name:"Interdisciplinary check"})).toBeTruthy();
+  expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
+  expect(screen.getByText("Project reference library").className).not.toContain("uppercase");
   const folders=screen.getAllByRole("link").filter(link=>linkUrl(link).pathname===base&&linkUrl(link).searchParams.get("discipline"));
   expect(folders.map(link=>linkUrl(link).searchParams.get("discipline"))).toEqual(["Electrical","Mechanical","Process"]);
   for(const folder of folders){expect(linkUrl(folder).searchParams.get("q")).toBe("layout & list");expect(linkUrl(folder).searchParams.get("page")??"1").toBe("1");}

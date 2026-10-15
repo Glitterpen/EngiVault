@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {Folder} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {requireProject} from "@/lib/auth";
 import {referenceDate,type InterdisciplinaryLibrary} from "@/lib/interdisciplinary-checks";
 import {groupSubmissions} from "@/lib/submission-groups";
@@ -23,8 +24,7 @@ export default async function InterdisciplinaryLibraryPage({params,searchParams}
   const groups=groupSubmissions(library.documents.map((document,position)=>({latest:{issue_status:document.issue_status},document,position})))
     .sort((a,b)=>a.items[0].position-b.items[0].position);
   return <div className="mx-auto min-w-0 max-w-[1250px]">
-    <p className="text-xs font-bold uppercase tracking-widest text-[#e8733f]">Project reference library</p>
-    <h1 className="mt-2 flex flex-wrap items-center gap-2 text-3xl font-semibold">Interdisciplinary check <HelpTip label="Approved-document library guidance">Browse the latest available DCC-approved revision from every discipline in this project. Drafts and pending submissions are not shared here. Sign-offs and feedback are separate from final DCC approval; upload assignments are unchanged.</HelpTip></h1>
+    <WorkspacePageHeading title="Interdisciplinary check" context="Project reference library" help={<HelpTip label="Approved-document library guidance">Browse the latest available DCC-approved revision from every discipline in this project. Drafts and pending submissions are not shared here. Sign-offs and feedback are separate from final DCC approval; upload assignments are unchanged.</HelpTip>}/>
     {preview&&<p className="mt-3 text-sm text-[#a5452f]">Live member preview · Read-only</p>}
     {!discipline?<section className="mt-4" aria-labelledby="discipline-folders-heading">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="discipline-folders-heading" className="flex items-center gap-2 text-lg font-semibold">Discipline folders <HelpTip label="Discipline folder guidance">Open a discipline folder to browse its approved submissions by issue purpose. The most recently submitted groups and documents appear first. Search and pagination apply inside the selected folder.</HelpTip></h2><span className="text-sm text-[#617083]">{folders.length} {folders.length===1?"discipline":"disciplines"}</span></div>
@@ -32,7 +32,7 @@ export default async function InterdisciplinaryLibraryPage({params,searchParams}
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{folders.map(name=><Link key={name} href={folderUrl(name)} aria-label={`Open ${name} discipline folder`} className="ev-card flex min-h-20 min-w-0 items-center gap-3 p-4 hover:border-[#0c5b45] hover:bg-[#f3f8f6]">
         <Folder className="size-6 shrink-0 text-[#0c5b45]" aria-hidden="true"/><span className="min-w-0 flex-1 break-words font-semibold">{name}</span><span className="text-[#0c5b45]" aria-hidden="true">→</span>
       </Link>)}</div>
-      {!folders.length&&<p className="ev-card mt-3 p-6 text-center text-sm text-[#617083]">Discipline folders will appear when documents are approved by DCC.</p>}
+      {!folders.length&&<p className="ev-card mt-3 px-4 py-5 text-center text-sm text-[#617083] sm:px-5">Discipline folders will appear when documents are approved by DCC.</p>}
     </section>:<>
     <Link href={folderOverviewUrl} className="mt-3 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#0c5b45]">← All discipline folders</Link>
     <h2 className="mt-1 flex min-w-0 items-center gap-2 text-xl font-semibold"><Folder className="size-5 shrink-0 text-[#0c5b45]" aria-hidden="true"/><span className="min-w-0 break-words">{discipline} folder</span></h2>
@@ -51,7 +51,7 @@ export default async function InterdisciplinaryLibraryPage({params,searchParams}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 sm:mt-0 sm:shrink-0 sm:flex-col sm:items-end"><p className="text-xs text-[#617083]">Rev {document.revision_code} · {document.submitted_at?`Submitted ${referenceDate(document.submitted_at)}`:`Issued ${referenceDate(document.issue_date)}`}</p>
       <Link href={`${base}/${document.revision_id}?${detailQuery}`} aria-label={`View approved file and checks for ${document.document_number}`} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-[#0c5b45] hover:bg-[#eef5f1]">View file & checks <span aria-hidden="true">→</span></Link></div>
     </article>)}</div></details>)}</div>
-    {!library.documents.length&&<p className="ev-card mt-5 p-8 text-center text-sm text-[#617083]">No approved documents match this selection.</p>}
+    {!library.documents.length&&<p className="ev-card mt-4 px-4 py-5 text-center text-sm text-[#617083] sm:px-5">No approved documents match this selection.</p>}
     <nav aria-label="Approved document pages" className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">{page>1?<Link className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-[#0c5b45]" href={pageUrl(page-1)}>← Previous</Link>:<span/>}<span>Page {page} · {library.total} approved documents</span>{page*25<library.total?<Link className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-[#0c5b45]" href={pageUrl(page+1)}>Next →</Link>:<span/>}</nav>
     </>}
   </div>;

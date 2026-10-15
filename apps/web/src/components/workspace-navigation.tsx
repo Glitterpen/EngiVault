@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {usePathname} from "next/navigation";
-import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState} from "react";
+import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState,type ReactNode} from "react";
 import {Bell,Building2,ChartNoAxesColumnIncreasing,ClipboardCheck,Eye,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,Menu,MessageSquareText,Package,PanelLeftClose,PanelLeftOpen,Settings,ShieldCheck,UserCheck,Users,X} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import {ProjectLogo} from "@/components/project-logo";
@@ -13,6 +13,7 @@ import styles from "./workspace-navigation.module.css";
 type PreviewScope={organisationId:string;projectId:string;role:string;disciplines:string[]};
 type Navigation=ReturnType<typeof buildWorkspaceNavigation>;
 type IdentityProps={organisationId?:string;projectId?:string;context:WorkspaceNavigationContext|null};
+type WorkspaceChrome={brand:ReactNode;account:ReactNode};
 const icons:Record<WorkspaceNavIcon,typeof Bell>={Bell,Building2,ChartNoAxesColumnIncreasing,ClipboardCheck,FileSearch,FileStack,FileText,FolderKanban,LayoutDashboard,MessageSquareText,Package,Settings,ShieldCheck,UserCheck,Users};
 const uuid="[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
@@ -27,7 +28,7 @@ function readContext(value:unknown,previewRole?:string):WorkspaceNavigationConte
     pendingReviewCount:typeof data.pendingReviewCount==="number"&&Number.isFinite(data.pendingReviewCount)?Math.max(0,Math.floor(data.pendingReviewCount)):0,preview:Boolean(previewRole)};
 }
 
-export function WorkspaceNavigation({unreadCount=0,previewScope}:{unreadCount?:number;previewScope?:PreviewScope}){
+export function WorkspaceNavigation({unreadCount=0,previewScope,chrome,children}:{unreadCount?:number;previewScope?:PreviewScope;chrome?:WorkspaceChrome;children?:ReactNode}){
   const pathname=usePathname();
   const match=pathname.match(new RegExp(`^/app/(${uuid})(?:/projects/(${uuid}))?(?:/|$)`,"i"));
   const organisationId=previewScope?.organisationId??match?.[1];
@@ -59,7 +60,10 @@ export function WorkspaceNavigation({unreadCount=0,previewScope}:{unreadCount?:n
   const context=fetched??(previewScope?{role:previewScope.role,roleLabel:scopedRoleLabel(previewScope.role,previewScope.disciplines),persona:workspacePersona(previewScope.role),project:{code:"",name:""},pendingReviewCount:0,preview:true}:null);
   const navigation=buildWorkspaceNavigation({pathname,organisationId,projectId,context,unreadCount});
   // Route changes unmount an open drawer instead of retaining an old page's overlay.
-  return <WorkspaceSidebar key={pathname} organisationId={organisationId} projectId={projectId} context={context} navigation={navigation} collapsed={collapsed} onToggleCollapsed={()=>setCollapsed(value=>!value)}/>;
+  const sidebar=<WorkspaceSidebar key={pathname} organisationId={organisationId} projectId={projectId} context={context} navigation={navigation} collapsed={collapsed} onToggleCollapsed={()=>setCollapsed(value=>!value)} chrome={chrome} unreadCount={unreadCount}/>;
+  // Server-rendered page slots stay outside the keyed drawer: opening menus or
+  // refreshing header context must never remount an upload or discard a draft.
+  return chrome?<>{sidebar}<div className={styles.workspaceFrame}>{children}</div></>:sidebar;
 }
 
 function ProjectIdentity({organisationId,projectId,context}:IdentityProps){
@@ -125,7 +129,7 @@ function NavigationContents({navigation,onNavigate,label,id:navId,compact=false}
   </nav>;
 }
 
-function WorkspaceSidebar({navigation,collapsed,onToggleCollapsed,...identity}:IdentityProps&{navigation:Navigation;collapsed:boolean;onToggleCollapsed:()=>void}){
+function WorkspaceSidebar({navigation,collapsed,onToggleCollapsed,chrome,unreadCount,...identity}:IdentityProps&{navigation:Navigation;collapsed:boolean;onToggleCollapsed:()=>void;chrome?:WorkspaceChrome;unreadCount:number}){
   const [open,setOpen]=useState(false);const dialog=useRef<HTMLDialogElement>(null);const trigger=useRef<HTMLButtonElement>(null);
   const closeButton=useRef<HTMLButtonElement>(null);const desktop=useRef<HTMLElement>(null);const menuId=useId(),desktopNavId=useId();
   const CollapseIcon=collapsed?PanelLeftOpen:PanelLeftClose;
@@ -159,9 +163,20 @@ function WorkspaceSidebar({navigation,collapsed,onToggleCollapsed,...identity}:I
     };
   },[open]);
   return <>
-    <div className={`sticky top-16 ${styles.mobileBar}`}><button ref={trigger} type="button" data-preview-safe aria-label="Toggle workspace navigation" aria-haspopup="dialog" aria-expanded={open} aria-controls={menuId} onClick={()=>setOpen(value=>!value)} className={styles.mobileTrigger}>
+    {chrome?<header className={`workspace-topbar ${styles.topbar}`}><div className={`workspace-header-inner ${styles.topbarInner}`}>
+      <button ref={trigger} type="button" data-preview-safe aria-label="Toggle workspace navigation" aria-haspopup="dialog" aria-expanded={open} aria-controls={menuId} onClick={()=>setOpen(value=>!value)} className={styles.headerMenu}><Menu size={21} aria-hidden="true"/></button>
+      <div className={styles.brandSlot}>{chrome.brand}</div>
+      <nav aria-label="Current location" className={styles.headerContext}><ol>
+        <li className={styles.headerProject} title={identity.context?.project.name||undefined}>{identity.context?.project.code||(identity.projectId?"Project workspace":identity.organisationId?"Organisation":"Workspace")}{identity.context?.project.name&&<span className="sr-only">{` — ${identity.context.project.name}`}</span>}</li>
+        <li aria-current="page" className={styles.headerPage}>{navigation.currentLabel}</li>
+      </ol></nav>
+      <div className={styles.headerActions}>
+        <Link href="/app/notifications" aria-label={`Notifications, ${unreadCount} unread`} aria-current={navigation.activeKey==="notifications"?"page":undefined} className={styles.notificationLink}><Bell size={19} aria-hidden="true"/>{unreadCount>0&&<span className={styles.notificationBadge} aria-hidden="true">{unreadCount>99?"99+":unreadCount}</span>}</Link>
+        <div className={styles.accountSlot}>{chrome.account}</div>
+      </div>
+    </div></header>:<div className={`sticky top-16 ${styles.mobileBar}`}><button ref={trigger} type="button" data-preview-safe aria-label="Toggle workspace navigation" aria-haspopup="dialog" aria-expanded={open} aria-controls={menuId} onClick={()=>setOpen(value=>!value)} className={styles.mobileTrigger}>
       <Menu size={21} aria-hidden="true"/><span className={styles.mobileTitle}><span className={styles.mobileProject}>{identity.context?.project.code||"Workspace"}</span><span className={styles.currentPage}>{navigation.currentLabel}</span></span><span className={styles.mobileOpenLabel} aria-hidden="true">Menu</span>
-    </button></div>
+    </button></div>}
     <aside ref={desktop} className={styles.sidebar} data-collapsed={collapsed} aria-label="Project sidebar"><ProjectIdentity {...identity}/><NavigationContents navigation={navigation} label="Workspace" id={desktopNavId} compact={collapsed}/>
       <button type="button" data-preview-safe className={styles.collapseToggle} onClick={onToggleCollapsed} aria-label={collapsed?"Expand sidebar":"Collapse sidebar"} aria-expanded={!collapsed} aria-controls={desktopNavId} title={collapsed?"Expand sidebar":"Collapse sidebar"}>
         <CollapseIcon size={19} aria-hidden="true"/><span className={styles.collapseLabel}>{collapsed?"Expand sidebar":"Collapse sidebar"}</span>

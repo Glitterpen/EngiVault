@@ -32,6 +32,8 @@ describe("compact progress and health summary",()=>{
   it("uses real weighted progress/health and preserves upload, accepted-stage and terminal scope counts",()=>{
     const result=workspace();
     expect(screen.getByRole("heading",{level:1,name:"Progress & health"})).toBeTruthy();
+    expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
+    expect(screen.getByText("PRJ-100 · Terminal upgrade")).toBeTruthy();
     expect(datum("Project health").textContent).toBe("Needs attention");
     expect(datum("DCC-accepted progress").textContent).toBe("20%");
     expect(datum("Overall submitted").textContent).toBe("60%");

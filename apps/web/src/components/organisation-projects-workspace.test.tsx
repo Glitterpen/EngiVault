@@ -22,6 +22,8 @@ describe("organisation project status navigation",()=>{
   it("shows active projects by default with labelled count buttons and explicit pressed state",()=>{
     workspace({projects:[project("1"),project("2"),project("archive","archived"),project("deleted","trashed")]});
     expect(screen.getByRole("heading",{level:1,name:"Projects"})).toBeTruthy();
+    expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
+    expect(screen.getByText("Example Engineering")).toBeTruthy();
     const nav=screen.getByRole("navigation",{name:"Project status"});
     expect(within(nav).getByRole("button",{name:/^Active\s*2$/}).getAttribute("aria-pressed")).toBe("true");
     expect(within(nav).getByRole("button",{name:/^Archived\s*1$/}).getAttribute("aria-pressed")).toBe("false");

@@ -2,6 +2,7 @@ import type {ReactNode} from "react";
 import Link from "next/link";
 import {ArrowRight,CalendarClock,ClipboardCheck,FileStack,PackageOpen,Send} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 
 export type DccProject={code:string;name:string;project_introduction:string|null;key_objectives:string[]|null;planned_end_date:string|null};
 type WorkspaceProps={
@@ -24,13 +25,7 @@ export function DccControlWorkspace({organisationId,projectId,project,summary,di
     {title:"Work packages",description:"Prepare handover packages and view past transmittals.",href:`${base}/work-packages`,icon:PackageOpen},
   ];
   return <div className="mx-auto min-w-0 max-w-6xl space-y-4">
-    <header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <div className="min-w-0">
-        <p className="break-words text-xs font-semibold text-[#617083]">{project.code}</p>
-        <h1 className="mt-1 flex flex-wrap items-center gap-x-2 text-3xl font-semibold tracking-tight">Document control centre <HelpTip label="Document Control workspace">Manage the MDR, review engineer submissions and issue approved documents. Open project details only when needed. Help icons also work with keyboard focus and a tap.</HelpTip></h1>
-      </div>
-      <Link className="ev-button w-full shrink-0 sm:w-auto" href={`${base}/documents`}><FileStack size={16} aria-hidden="true"/>Open MDR</Link>
-    </header>
+    <header className="min-w-0"><WorkspacePageHeading title="Document control centre" context={<>{project.code} · {project.name}</>} help={<HelpTip label="Document Control workspace">Manage the MDR, review engineer submissions and issue approved documents. Open project details only when needed. Help icons also work with keyboard focus and a tap.</HelpTip>} actions={<Link className="ev-button w-full shrink-0 sm:w-auto" href={`${base}/documents`}><FileStack size={16} aria-hidden="true"/>Open MDR</Link>}/></header>
     <section aria-labelledby="dcc-summary-heading" className="ev-card px-4 py-3 sm:px-5">
       <div className="flex items-center gap-1"><h2 id="dcc-summary-heading" className="text-sm font-semibold">Register summary</h2><HelpTip label="Document control summary guidance">Awaiting review counts submitted revisions in the active MDR, excluding unfinished uploads; some files may still be completing security checks. Not submitted means no completed upload is recorded. Overdue follows the agreed MDR schedule. These counts can overlap.</HelpTip></div>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">

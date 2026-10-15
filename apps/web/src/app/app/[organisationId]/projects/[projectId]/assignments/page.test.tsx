@@ -32,7 +32,11 @@ it("does not invent a revision status after a failed revision fetch",async()=>{
 });
 it("retains successfully loaded assignments but hides unavailable project aggregates",async()=>{
   render(await page());
-  expect(screen.getByText("My deliverables")).toBeTruthy();
+  expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
+  expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
+  expect(screen.getByText("P01 · Test project").closest("details")).toBeNull();
+  expect(screen.queryByText("Discipline Engineer workspace")).toBeNull();
+  expect(screen.getByText("Project Manager-authorised disciplines").className).not.toContain("uppercase");
   expect(screen.getByRole("status").textContent).toContain("Project-wide progress is temporarily unavailable");
   expect(screen.queryByText("Project delay influence")).toBeNull();
 });

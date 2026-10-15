@@ -59,6 +59,8 @@ it("keeps tenant-scoped DCC authorization and oldest-first submitted queue filte
   expect(eq).toHaveBeenCalledWith("control_status", "submitted");
   expect(neq).toHaveBeenCalledWith("state", "pending_upload");
   expect(order).toHaveBeenCalledWith("created_at");
+  expect(screen.getByRole("heading",{level:1,name:"Submission review"}).className).toContain("text-2xl");
+  expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
   expect(screen.getByRole("link", { name: "Document control centre" }).getAttribute("href")).toBe(`${base}/control`);
 });
 

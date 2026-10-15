@@ -6,6 +6,7 @@ import {ArrowLeft,ArrowRight,Archive,FolderKanban,Search,Settings} from "lucide-
 import {HelpTip} from "@/components/help-tip";
 import {OrganisationLogo} from "@/components/organisation-logo";
 import {ProjectLogo} from "@/components/project-logo";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {healthTone} from "@/lib/project-health";
 import {projectHomePath,roleLabel} from "@/lib/role-experience";
 import type {PortfolioProject,ProjectSummary} from "@/lib/organisation-project-portfolio";
@@ -36,13 +37,7 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
   return <div className="mx-auto min-w-0 max-w-[1450px] space-y-4">
     <header className="min-w-0">
       <Link href="/app" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16} aria-hidden="true"/>Back to organisations</Link>
-      <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#dfe7e3] bg-white p-1.5"><OrganisationLogo organisationId={organisationId} name={organisationName} size={48} className="size-full object-contain"/></span>
-          <div className="min-w-0"><p className="break-words text-sm text-[#526675]">{organisationName}</p><h1 className="flex flex-wrap items-center gap-1 text-3xl font-semibold tracking-tight">{title}<HelpTip label={isAdmin?"Projects dashboard guidance":"Project assignments guidance"}>{isAdmin?"Summary figures cover active projects only. Search by project code or name. Archived and deleted projects are kept separate from current work. Progress is stage-weighted MDR completion, not elapsed time.":"Open a project to see the workspace and disciplines assigned to your role. Your access is unchanged by search or project status."}</HelpTip></h1></div>
-        </div>
-        {isAdmin&&createAction}
-      </div>
+      <div className="mt-1"><WorkspacePageHeading title={title} context={organisationName} logo={<OrganisationLogo organisationId={organisationId} name={organisationName} size={44} className="size-full object-contain"/>} help={<HelpTip label={isAdmin?"Projects dashboard guidance":"Project assignments guidance"}>{isAdmin?"Summary figures cover active projects only. Search by project code or name. Archived and deleted projects are kept separate from current work. Progress is stage-weighted MDR completion, not elapsed time.":"Open a project to see the workspace and disciplines assigned to your role. Your access is unchanged by search or project status."}</HelpTip>} actions={isAdmin&&createAction}/></div>
       {isAdmin&&<nav aria-label="Organisation actions" className="mt-2 flex flex-wrap gap-x-5 text-sm font-semibold text-[#526675]">
         <Link href={`${base}/settings`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#0c5b45]"><Settings size={15} aria-hidden="true"/>Manage organisation</Link>
         <Link href={`${base}/audit`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#0c5b45]">Audit log</Link>
@@ -71,7 +66,7 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
       </div>
 
       <div ref={results} id={`${searchId}-results`} role="region" aria-label="Project results" tabIndex={-1} className="min-w-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45]">
-      {visible.length?<ul className="min-w-0 space-y-3" aria-label={isAdmin?"Projects":"Project assignments"}>{visible.map(project=><li key={project.project_id}><ProjectCard project={project} organisationId={organisationId} isAdmin={isAdmin} disciplines={disciplines[project.project_id]??[]} disciplinesAvailable={disciplinesAvailable}/></li>)}</ul>:<div className="rounded-2xl border border-dashed border-[#cbd6df] bg-white p-6 text-center sm:p-10">
+      {visible.length?<ul className="min-w-0 space-y-3" aria-label={isAdmin?"Projects":"Project assignments"}>{visible.map(project=><li key={project.project_id}><ProjectCard project={project} organisationId={organisationId} isAdmin={isAdmin} disciplines={disciplines[project.project_id]??[]} disciplinesAvailable={disciplinesAvailable}/></li>)}</ul>:<div className="rounded-2xl border border-dashed border-[#cbd6df] bg-white px-4 py-5 text-center sm:px-5 sm:py-6">
         <FolderKanban size={24} aria-hidden="true" className="mx-auto text-[#617083]"/>
         <h3 className="mt-3 text-base font-semibold">{query?"No matching projects":`No ${selectedLabel} projects`}</h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#526675]">{query?"Try another project code or name, or choose a different project status.":status==="active"?isAdmin?"Create a project when you are ready to begin. Archived and deleted records remain in their own views.":"Your project workspaces will appear here when you are appointed to a project.":status==="archived"?"Archived projects will appear here. They remain separate from active work.":"Deleted projects will appear here while they can still be recovered."}</p>

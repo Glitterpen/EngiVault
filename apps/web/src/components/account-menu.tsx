@@ -36,21 +36,21 @@ export function AccountMenu({email,initialRoleLabel,founderAccess=false}:{email:
   },[organisationId,projectId,projectKey]);
 
   return <details ref={panel} className="group relative" onKeyDown={e=>{if(e.key==="Escape"&&panel.current?.open){e.preventDefault();panel.current.open=false;panel.current.querySelector("summary")?.focus();}}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))e.currentTarget.open=false;}}>
-    <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2 text-[#58687b] transition hover:border-[#cbd7d1] hover:bg-white sm:gap-2 sm:pr-2.5" aria-label={`Open account details, ${currentRoleLabel}`}>
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{initial}</span>
-      <span className="hidden max-w-52 truncate text-xs font-bold text-[#35485d] sm:block">{currentRoleLabel}</span>
-      <ChevronDown size={14} className="shrink-0 transition group-open:rotate-180"/>
+    <summary className="ev-account-trigger flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2 text-[#58687b] transition-colors hover:border-[#cbd7d1] hover:bg-white sm:gap-2 sm:pr-2.5" aria-label={`Open account details, ${currentRoleLabel}`}>
+      <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{initial}</span>
+      <span className="ev-account-role hidden max-w-52 truncate text-xs font-semibold text-[#35485d] sm:block">{currentRoleLabel}</span>
+      <ChevronDown aria-hidden="true" size={14} className="shrink-0 transition-transform group-open:rotate-180"/>
     </summary>
-    <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#dce4ea] bg-white shadow-[0_18px_50px_rgba(16,36,62,.16)]">
+    <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#dce4ea] bg-white shadow-[0_8px_28px_rgba(16,36,62,.12)]">
       <div className="border-b border-[#edf1f4] p-4">
-        <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#e8733f]">Signed-in account</p>
+        <p className="text-xs font-semibold text-[#617083]">Signed-in account</p>
         <p className="mt-2 break-all text-sm font-semibold text-[#10243e]">{email}</p>
         <p className="mt-1 text-xs text-[#617083]">{currentRoleLabel}</p>
       </div>
-      {founderAccess&&<div className="border-b border-[#edf1f4] p-2"><Link href="/founder" className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#10243e] transition hover:bg-[#eef4f7]"><ShieldCheck size={16} className="text-[#e8733f]"/> Founder control centre</Link></div>}
+      {founderAccess&&<div className="border-b border-[#edf1f4] p-2"><Link href="/founder" className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#10243e] transition-colors hover:bg-[#eef4f7]"><ShieldCheck aria-hidden="true" size={16} className="text-[#b94d20]"/> Founder control centre</Link></div>}
       <form action={signOut} className="p-2">
-        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#58687b] transition hover:bg-[#fff3ed] hover:text-[#a5452f]">
-          <LogOut size={16}/>
+        <button className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#58687b] transition-colors hover:bg-[#fff3ed] hover:text-[#a5452f]">
+          <LogOut aria-hidden="true" size={16}/>
           Sign out
         </button>
       </form>

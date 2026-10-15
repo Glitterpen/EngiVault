@@ -27,13 +27,13 @@ export default async function ReviewsPage({ params }: {
   const rows = (data ?? []) as unknown as SubmissionReviewRow[];
   const pageHref = `/app/${organisationId}/projects/${projectId}/reviews`;
 
-  return <div className="mx-auto max-w-6xl space-y-5">
+  return <div className="mx-auto min-w-0 max-w-6xl space-y-4">
     <header>
       <Link href={`/app/${organisationId}/projects/${projectId}/control`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]">
         <ArrowLeft aria-hidden="true" size={16} /> Document control centre
       </Link>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex min-w-0 flex-wrap items-center gap-2 text-2xl font-semibold text-[#102842] sm:text-3xl">
+      <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <h1 className="flex min-w-0 flex-wrap items-center gap-2 break-words text-2xl font-semibold leading-tight tracking-tight text-[#10243e] sm:text-[1.75rem]">
           Submission review
           <HelpTip label="Reviewing engineer submissions">Open a submission to check its files and MDR details. Confirm conformance before approving, or return it with clear instructions. The queue is ordered oldest first.</HelpTip>
         </h1>
@@ -46,7 +46,7 @@ export default async function ReviewsPage({ params }: {
       <p className="font-semibold text-[#102842]">Submissions could not be loaded.</p>
       <p className="mt-1 text-sm text-[#617083]">Try again shortly. No review decisions have been changed.</p>
       <Link href={pageHref} className="ev-button-secondary mt-4 min-h-11">Retry submissions</Link>
-    </div> : rows.length ? <SubmissionReviewQueue organisationId={organisationId} projectId={projectId} rows={rows} readOnly={Boolean(preview)} /> : <div className="ev-card p-6 text-sm text-[#617083]">
+    </div> : rows.length ? <SubmissionReviewQueue organisationId={organisationId} projectId={projectId} rows={rows} readOnly={Boolean(preview)} /> : <div className="ev-card px-4 py-4 text-sm text-[#617083] sm:px-5">
       No engineer submissions are waiting for review.
     </div>}
   </div>;

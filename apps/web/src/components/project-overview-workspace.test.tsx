@@ -40,10 +40,11 @@ beforeEach(()=>{
 afterEach(()=>{expect(resolveIssue).not.toHaveBeenCalled();expect(reportIssue).not.toHaveBeenCalled();cleanup();vi.restoreAllMocks();});
 
 describe("compact project overview summary",()=>{
-  it("keeps one project heading, a labelled progress indicator, semantic metrics and UTC dates",()=>{
+  it("keeps one concise page heading, the full project identity, semantic metrics and UTC dates",()=>{
     workspace();
-    expect(screen.getByRole("heading",{level:1,name:"Example FEED project"})).toBeTruthy();
-    expect(screen.getByText("FEED-001 · Project overview")).toBeTruthy();
+    expect(screen.getByRole("heading",{level:1,name:"Project overview"})).toBeTruthy();
+    expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
+    expect(screen.getByText("FEED-001 · Example FEED project")).toBeTruthy();
     expect(screen.getByRole("img",{name:"Example FEED project client logo"})).toBeTruthy();
     const progress=screen.getByRole("progressbar",{name:"Stage-weighted MDR completion"});
     expect(progress.getAttribute("aria-valuenow")).toBe("42");expect(progress.getAttribute("aria-valuemin")).toBe("0");expect(progress.getAttribute("aria-valuemax")).toBe("100");
@@ -152,7 +153,8 @@ describe("issue triage and disclosures",()=>{
   });
   it("distinguishes a known empty issue list from an unavailable issue source",()=>{
     const result=workspace();
-    expect(screen.getByText("No open project issues.")).toBeTruthy();
+    const empty=screen.getByText("No open project issues.");
+    expect(empty.className).toContain("py-4");expect(empty.className).not.toContain("py-8");
     fireEvent.click(screen.getByRole("button",{name:/^Resolved\s*0$/}));expect(screen.getByText("No resolved project issues.")).toBeTruthy();
     result.rerender(<ProjectOverviewWorkspace {...result.values} issuesAvailable={false}/>);
     expect(screen.getByText(/Project issues are unavailable/)).toBeTruthy();expect(screen.queryByText("No open project issues.")).toBeNull();expect(screen.queryByText("No resolved project issues.")).toBeNull();

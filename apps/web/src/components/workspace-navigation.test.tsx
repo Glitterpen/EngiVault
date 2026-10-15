@@ -1,5 +1,7 @@
 import {act,cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
+import {useEffect} from "react";
+import Link from "next/link";
 import {WorkspaceNavigation} from "./workspace-navigation";
 import {roleLabel,workspacePersona} from "@/lib/role-experience";
 import styles from "./workspace-navigation.module.css";
@@ -16,7 +18,13 @@ const otherProject="84a284cf-a4af-44db-937e-911d8bdb7e0f";
 const base=`/app/${organisationId}/projects/${projectId}`;
 const endpoint=(org=organisationId,project=projectId)=>`/api/v1/organisations/${org}/projects/${project}/workspace-context`;
 const mediaListeners=new Map<string,Set<(event:MediaQueryListEvent)=>void>>();
+const chrome={brand:<Link href="/app">EngiCite home</Link>,account:<button type="button" aria-label="Open account details">AB</button>};
 let mobile=true;
+
+function ContentProbe({onMount}:{onMount:()=>void}){
+  useEffect(()=>{onMount();},[onMount]);
+  return <main id="workspace-content" tabIndex={-1}><label>Draft note<input name="draft-note" defaultValue=""/></label></main>;
+}
 
 function context(role="document_controller",overrides:Record<string,unknown>={}){
   return {role,roleLabel:roleLabel(role),persona:workspacePersona(role),project:{code:"BDR-FEED",name:"Badagry Refinery"},pendingReviewCount:5,preview:false,...overrides};
@@ -221,6 +229,68 @@ describe("collapsible desktop project sidebar",()=>{
     fireEvent.mouseEnter(link);fireEvent.mouseLeave(link);act(()=>{vi.advanceTimersByTime(75);});
     fireEvent.mouseEnter(screen.getByRole("tooltip"));act(()=>{vi.advanceTimersByTime(200);});expect(screen.getByRole("tooltip").textContent).toBe("MDR");
     fireEvent.mouseLeave(screen.getByRole("tooltip"));act(()=>{vi.advanceTimersByTime(150);});expect(screen.queryByRole("tooltip")).toBeNull();expect(link.hasAttribute("aria-describedby")).toBe(false);
+  });
+});
+
+describe("unified workspace header",()=>{
+  it("renders one contextual header and one mobile trigger without a second navigation bar",async()=>{
+    const view=await workspace("project_admin",`${base}/overview`,{chrome});
+    const header=screen.getByRole("banner"),location=within(header).getByRole("navigation",{name:"Current location"});
+    expect(screen.getAllByRole("banner")).toHaveLength(1);expect(screen.getAllByRole("button",{name:"Toggle workspace navigation"})).toHaveLength(1);
+    expect(within(header).getByRole("link",{name:"EngiCite home"}).getAttribute("href")).toBe("/app");expect(within(header).getByRole("button",{name:"Open account details"})).toBeTruthy();
+    expect(location.textContent).toContain("BDR-FEED");expect(location.textContent).toContain("Overview");expect(view.container.querySelector(`.${styles.mobileBar}`)).toBeNull();
+    expect(toggle().getAttribute("type")).toBe("button");expect(toggle().hasAttribute("data-preview-safe")).toBe(true);expect(toggle().getAttribute("aria-haspopup")).toBe("dialog");
+  });
+  it.each([
+    ["document_controller",`${base}/documents/revision-id`,"MDR"],
+    ["engineer",`${base}/assignments`,"Deliverables"],
+    ["project_admin",`${base}/reports/weekly-report`,"Reports"],
+  ])("uses the current authorised destination in the %s header",async(role,pathname,label)=>{
+    await workspace(role,pathname,{chrome});const location=within(screen.getByRole("banner")).getByRole("navigation",{name:"Current location"});
+    expect(location.textContent).toContain(label);expect(location.textContent).not.toContain(projectId);
+    expect(within(desktop()).getAllByRole("link").filter(link=>link.getAttribute("aria-current")==="page")).toHaveLength(1);
+  });
+  it("caps the visual header badge without losing the full accessible unread count",async()=>{
+    const view=await workspace("document_controller",`${base}/reviews`,{chrome,unreadCount:134});
+    let link=within(screen.getByRole("banner")).getByRole("link",{name:"Notifications, 134 unread"});
+    expect(link.getAttribute("href")).toBe("/app/notifications");expect(link.textContent).toContain("99+");expect(link.textContent).not.toContain("134");
+    view.rerender(<WorkspaceNavigation chrome={chrome} unreadCount={0}/>);await flush();link=within(screen.getByRole("banner")).getByRole("link",{name:"Notifications, 0 unread"});
+    expect(link.textContent).not.toMatch(/\d/);
+  });
+  it.each([response(null),response(context("owner",{project:{code:"PRIVATE",name:"Private administrator project"}})),response(context(),false)])("keeps unavailable or invalid header context generic %j",async value=>{
+    fetchContext.mockResolvedValue(value);render(<WorkspaceNavigation chrome={chrome}/>);await flush();const header=screen.getByRole("banner");
+    expect(header.textContent).toContain("Project workspace");expect(header.textContent).not.toContain("PRIVATE");expect(header.textContent).not.toContain("Badagry Refinery");expect(header.textContent).not.toContain("BDR-FEED");
+    expect(hrefs(desktop()).sort()).toEqual(["/app",`/app/${organisationId}`,"/app/notifications"].sort());
+  });
+  it.each([
+    context("organisation_admin",{preview:true,project:{code:"ACTOR-ADMIN",name:"Actor administrator project"}}),
+    context("engineer",{preview:false,project:{code:"ACTOR-ADMIN",name:"Actor administrator project"}}),
+  ])("never substitutes actor context into an audited member header %j",async value=>{
+    route.pathname=`${base}/assignments`;fetchContext.mockResolvedValue(response(value));
+    render(<WorkspaceNavigation chrome={chrome} previewScope={{organisationId,projectId,role:"engineer",disciplines:["Electrical"]}}/>);await flush();const header=screen.getByRole("banner");
+    expect(header.textContent).toContain("Project workspace");expect(header.textContent).toContain("Deliverables");expect(header.textContent).not.toContain("ACTOR-ADMIN");expect(header.textContent).not.toContain("Actor administrator project");
+    expect(hrefs(desktop())).toContain(`${base}/assignments`);expect(hrefs(desktop())).not.toContain(`${base}/administration`);expect(hrefs(desktop())).not.toContain(`${base}/overview`);
+    expect(within(header).getByRole("link",{name:"Notifications, 0 unread"}).getAttribute("href")).toBe("/app/notifications");
+  });
+  it("clears the old project header immediately while a different project context is loading",async()=>{
+    const next=deferred<ReturnType<typeof response>>();fetchContext.mockResolvedValueOnce(response(context("project_admin",{project:{code:"OLD-PROJECT",name:"Old confidential project"}}))).mockReturnValueOnce(next.promise);
+    const view=render(<WorkspaceNavigation chrome={chrome}/>);await flush();expect(screen.getByRole("banner").textContent).toContain("OLD-PROJECT");
+    route.pathname=`/app/${otherOrganisation}/projects/${otherProject}/overview`;view.rerender(<WorkspaceNavigation chrome={chrome}/>);await flush();
+    expect(screen.getByRole("banner").textContent).toContain("Project workspace");expect(screen.getByRole("banner").textContent).not.toContain("OLD-PROJECT");
+    await act(async()=>{next.resolve(response(context("project_admin",{project:{code:"NEW-PROJECT",name:"Current project"}})));});await flush();
+    expect(screen.getByRole("banner").textContent).toContain("NEW-PROJECT");expect(screen.getByRole("banner").textContent).not.toContain("OLD-PROJECT");
+  });
+  it("keeps the main content mounted once across header refreshes, route changes and navigation controls",async()=>{
+    const mounted=vi.fn(),content=<ContentProbe onMount={mounted}/>;route.pathname=`${base}/overview`;fetchContext.mockResolvedValue(response(context("project_admin")));
+    const view=render(<WorkspaceNavigation chrome={chrome}>{content}</WorkspaceNavigation>);await flush();resize(true);
+    const input=screen.getByRole("textbox",{name:"Draft note"}) as HTMLInputElement;fireEvent.change(input,{target:{value:"Keep this unsaved note"}});
+    const assertContent=()=>{expect(screen.getByRole("textbox",{name:"Draft note"})).toBe(input);expect(input.value).toBe("Keep this unsaved note");expect(mounted).toHaveBeenCalledTimes(1);expect(view.container.querySelectorAll("#workspace-content")).toHaveLength(1);expect(screen.getAllByRole("main")).toHaveLength(1);};
+    fireEvent.click(screen.getByRole("button",{name:"Collapse sidebar"}));assertContent();
+    route.pathname=`${base}/progress`;view.rerender(<WorkspaceNavigation chrome={chrome}>{content}</WorkspaceNavigation>);await flush();assertContent();
+    expect(screen.getByRole("complementary",{name:"Project sidebar"}).getAttribute("data-collapsed")).toBe("true");expect(within(screen.getByRole("banner")).getByRole("navigation",{name:"Current location"}).textContent).toContain("Progress & health");
+    fireEvent.focus(window);await flush();assertContent();resize(false);document.body.style.overflow="clip";const opener=toggle();fireEvent.click(opener);
+    const dialog=screen.getByRole("dialog",{name:"Project navigation"});expect(opener.getAttribute("aria-controls")).toBe(dialog.id);expect(dialog.contains(document.activeElement)).toBe(true);expect(document.body.style.overflow).toBe("hidden");assertContent();
+    fireEvent.keyDown(document,{key:"Escape"});expect(screen.queryByRole("dialog",{name:"Project navigation"})).toBeNull();expect(document.activeElement).toBe(opener);expect(document.body.style.overflow).toBe("clip");assertContent();
   });
 });
 
