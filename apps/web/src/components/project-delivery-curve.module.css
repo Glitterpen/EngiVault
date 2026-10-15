@@ -1,0 +1,44 @@
+.plot {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  touch-action: pan-y;
+}
+.traceLayer,
+.cursorLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
+}
+.reveal {
+  animation: delivery-curve-reveal 1.05s cubic-bezier(.22,.61,.36,1) both;
+}
+.actualKey,
+.plannedKey {
+  display: inline-block;
+  width: 26px;
+  flex-shrink: 0;
+}
+.actualKey { border-top: 3px solid #0c5b45; }
+.plannedKey { border-top: 2px dashed #24384f; }
+.range {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  accent-color: #0c5b45;
+  cursor: pointer;
+}
+.range:focus-visible {
+  outline: 2px solid #0c5b45;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.range:disabled { cursor: default; opacity: .55; }
+@keyframes delivery-curve-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { animation: none !important; clip-path: none !important; }
+}
