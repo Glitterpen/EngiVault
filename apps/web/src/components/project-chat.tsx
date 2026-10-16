@@ -4,7 +4,7 @@ import { customerErrorMessage } from "@/lib/customer-messages";
 
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import {type FormEvent,useId,useState} from "react";
 import {
   ChevronDown,
   FileText,
@@ -55,6 +55,7 @@ export function ProjectChat({
   projectId,
   revisions,
 }: ProjectChatProps) {
+  const id=useId();
   const [selected, setSelected] = useState<string[]>(() =>
     revisions.map((revision) => revision.id),
   );
@@ -163,39 +164,40 @@ export function ProjectChat({
   }
 
   return (
-    <div className="engineering-grid relative overflow-hidden rounded-[28px] border border-white/10 bg-[#10243e] text-white shadow-[0_28px_70px_rgba(16,36,62,.24)]">
-      <div className="pointer-events-none absolute -right-20 -top-28 size-72 rounded-full border-[42px] border-[#ed7138]/10" />
-      <div className="pointer-events-none absolute -left-32 bottom-16 size-64 rounded-full bg-[#1a3657]/50 blur-3xl" />
+    <div className="engineering-grid relative min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#10243e] text-white shadow-[0_28px_70px_rgba(16,36,62,.24)] [--focus:#ffffff] [&_a:focus-visible]:outline-white [&_button:focus-visible]:outline-white [&_summary:focus-visible]:outline-white [&_input:focus-visible]:outline-white [&_textarea:focus-visible]:outline-white">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 size-72 rounded-full border-[42px] border-[#ed7138]/10" />
+      <div aria-hidden="true" className="pointer-events-none absolute -left-32 bottom-16 size-64 rounded-full bg-[#1a3657]/50 blur-3xl" />
 
-      <div className="relative p-5 sm:p-7 lg:p-9">
+      <div className="relative min-w-0 p-4 sm:p-6 lg:p-7 xl:p-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-xl bg-[#ed7138]/15 text-[#ff8a55] ring-1 ring-[#ed7138]/25">
-              <Sparkles size={20} />
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#ed7138]/15 text-[#ff8a55] ring-1 ring-[#ed7138]/25">
+              <Sparkles size={20} aria-hidden="true" />
             </span>
-            <div>
-              <p className="text-lg font-bold tracking-[-.02em]">Ask EngiCite</p>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">Ask EngiCite</h1>
               <p className="mt-0.5 text-xs text-[#a9bdd4]">
                 Know the answer. Cite the proof.
               </p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[#bed0e2]">
-            <ShieldCheck size={14} className="text-[#ff8a55]" /> Project-secured evidence
+          <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[#bed0e2]">
+            <ShieldCheck size={14} className="shrink-0 text-[#ff8a55]" aria-hidden="true" /> Project-secured evidence
           </span>
         </header>
 
-        <details className="group mt-6 rounded-2xl border border-white/10 bg-white/[.055] open:bg-white/[.07]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold marker:content-none">
-            <span>
+        <details className="group mt-5 min-w-0 rounded-2xl border border-white/10 bg-white/[.055] open:bg-white/[.07]">
+          <summary className="flex min-h-11 min-w-0 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-semibold marker:content-none">
+            <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
               Authorised revision scope
-              <span className="ml-2 font-normal text-[#9fb4ca]">
+              <span className="font-normal text-[#bed0e2]">
                 {selected.length} of {revisions.length} selected
               </span>
             </span>
             <ChevronDown
               size={17}
-              className="text-[#9fb4ca] transition group-open:rotate-180"
+              className="shrink-0 text-[#bed0e2] transition group-open:rotate-180 motion-reduce:transition-none"
+              aria-hidden="true"
             />
           </summary>
           <div className="border-t border-white/10 px-4 pb-4 pt-3">
@@ -203,25 +205,25 @@ export function ProjectChat({
               <HelpTip label="Authorised revision scope">EngiCite can retrieve only the ready revisions selected here. The
                 scope locks after your first question.</HelpTip>
               {!sessionId && revisions.length > 0 && (
-                <div className="flex gap-2 text-xs font-semibold">
+                <div className="flex flex-wrap gap-2 text-sm font-semibold">
                   <button
                     type="button"
                     onClick={selectAll}
-                    className="rounded-lg border border-white/15 px-3 py-1.5 text-white hover:bg-white/10"
+                    className="min-h-11 rounded-lg border border-white/25 px-3 py-2 text-white hover:bg-white/10"
                   >
                     Select all
                   </button>
                   <button
                     type="button"
                     onClick={clearSelection}
-                    className="rounded-lg border border-white/15 px-3 py-1.5 text-[#a9bdd4] hover:bg-white/10 hover:text-white"
+                    className="min-h-11 rounded-lg border border-white/25 px-3 py-2 text-[#bed0e2] hover:bg-white/10 hover:text-white"
                   >
                     Clear
                   </button>
                 </div>
               )}
             </div>
-            <div className="mt-3 grid max-h-64 gap-2 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
+            <div role="group" aria-label="Ready revisions" className="mt-3 grid min-w-0 max-h-64 gap-2 overflow-y-auto overscroll-contain p-1 xl:grid-cols-2 2xl:grid-cols-3">
               {revisions.map((revision) => {
                 const doc = Array.isArray(revision.documents)
                   ? revision.documents[0]
@@ -229,20 +231,20 @@ export function ProjectChat({
                 return (
                   <label
                     key={revision.id}
-                    className="flex cursor-pointer gap-3 rounded-xl border border-white/10 bg-[#0b1d33]/55 p-3 transition hover:border-[#ed7138]/45 hover:bg-[#152e4c]"
+                    className="flex min-h-11 min-w-0 cursor-pointer gap-3 rounded-xl border border-white/20 bg-[#0b1d33]/55 p-3 transition hover:border-[#ed7138]/45 hover:bg-[#152e4c] motion-reduce:transition-none"
                   >
                     <input
                       type="checkbox"
                       checked={selected.includes(revision.id)}
                       disabled={Boolean(sessionId)}
                       onChange={() => toggle(revision.id)}
-                      className="mt-0.5 size-4 accent-[#ed7138]"
+                      className="mt-0.5 size-5 shrink-0 accent-[#b94d20]"
                     />
                     <span className="min-w-0">
-                      <span className="block truncate text-xs font-bold text-[#ff8a55]">
+                      <span className="block text-xs font-semibold leading-5 text-[#ff8a55] [overflow-wrap:anywhere]">
                         {doc?.document_number} · Rev {revision.revision_code}
                       </span>
-                      <span className="mt-1 block truncate text-xs text-[#a9bdd4]">
+                      <span className="mt-1 block text-sm leading-5 text-[#bed0e2] [overflow-wrap:anywhere]">
                         {doc?.title}
                       </span>
                     </span>
@@ -258,52 +260,55 @@ export function ProjectChat({
           </div>
         </details>
 
-        <form onSubmit={ask} className="mt-5">
-          <label htmlFor="engicite-question" className="sr-only">
+        <form aria-label="Ask EngiCite" aria-busy={busy} onSubmit={ask} className="mt-5 min-w-0">
+          <label htmlFor={`${id}-question`} className="mb-2 block text-sm font-medium text-[#d5e0eb]">
             Ask a question about the selected project evidence
           </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-end">
             <textarea
-              id="engicite-question"
+              id={`${id}-question`}
               required
               minLength={2}
               maxLength={1000}
               name="question"
-              className="min-h-16 flex-1 resize-y rounded-2xl border border-white/70 bg-white px-4 py-4 text-sm font-semibold text-[#14263d] outline-none shadow-[0_8px_24px_rgba(0,0,0,.14)] placeholder:font-normal placeholder:text-[#77869a] focus:border-[#ed7138] focus:ring-4 focus:ring-[#ed7138]/20"
+              className="min-h-24 min-w-0 flex-1 resize-y rounded-2xl border border-white/70 bg-white px-4 py-3 text-base text-[#14263d] outline-none shadow-[0_8px_24px_rgba(0,0,0,.14)] placeholder:font-normal placeholder:text-[#617083] focus:border-[#b94d20] focus:ring-4 focus:ring-[#b94d20]/20 sm:text-sm"
               placeholder="What is the export line design pressure?"
             />
             <button
               type="submit"
               disabled={busy || !revisions.length}
-              className="inline-flex min-h-16 items-center justify-center gap-2 rounded-2xl bg-[#ed7138] px-6 text-sm font-bold text-white shadow-[0_10px_24px_rgba(237,113,56,.25)] transition hover:-translate-y-0.5 hover:bg-[#ff7c40] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#b94d20] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(237,113,56,.15)] transition-colors hover:bg-[#a64019] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none xl:w-auto"
             >
-              {busy ? <Sparkles size={18} className="animate-pulse" /> : <Send size={17} />}
+              {busy ? <Sparkles size={18} className="animate-pulse motion-reduce:animate-none" aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
               {busy ? "Checking evidence…" : "Ask EngiCite"}
             </button>
           </div>
           <p
             role="status"
-            className="mt-2 flex items-center gap-2 text-xs text-[#9fb4ca]"
+            aria-live="polite"
+            aria-atomic="true"
+            className="mt-2 flex min-w-0 items-start gap-2 text-xs leading-5 text-[#bed0e2]"
           >
-            <MessageSquareText size={13} /> {notice}
+            <MessageSquareText size={13} className="mt-1 shrink-0" aria-hidden="true" /><span className="min-w-0 [overflow-wrap:anywhere]">{notice}</span>
           </p>
         </form>
 
-        <div className="mt-4 space-y-4" aria-live="polite">
+        <div className="mt-4 min-w-0 space-y-4" role="log" aria-label="Questions and answers" aria-live="polite" aria-relevant="additions">
           {messages.map((message, index) => (
             <article
               key={`${message.question}-${index}`}
-              className="rounded-2xl border border-white/10 bg-white/[.065] p-4 sm:p-5"
+              aria-label={`Question ${index+1} and answer`}
+              className="min-w-0 rounded-2xl border border-white/10 bg-white/[.065] p-3 sm:p-5"
             >
-              <p className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#14263d]">
+              <p className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#14263d] [overflow-wrap:anywhere]">
                 {message.question}
               </p>
-              <div className="mt-3 rounded-xl bg-[#173452] p-4">
+              <div className="mt-3 min-w-0 rounded-xl bg-[#173452] p-3 sm:p-4">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#ff8a55]">
-                  <ShieldCheck size={15} />
+                  <ShieldCheck size={15} aria-hidden="true" />
                   {message.grounded ? "Cited answer" : "Insufficient evidence"}
                 </div>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#d5e0eb]">
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#d5e0eb] [overflow-wrap:anywhere]">
                   {message.answer}
                 </p>
                 {message.citations.length > 0 && (
@@ -312,7 +317,8 @@ export function ProjectChat({
                       <Link
                         key={citation.label}
                         href={citationHref(base, citation)}
-                        className="inline-flex rounded-lg bg-[#294563] px-3 py-2 text-[10px] font-extrabold uppercase tracking-wide text-white transition hover:bg-[#365777] first:bg-[#ed7138] first:hover:bg-[#ff7c40]"
+                        aria-label={`Open cited source ${citation.label}: ${citation.documentNumber}, revision ${citation.revision}, ${locationLabel(citation)}`}
+                        className="inline-flex min-h-11 max-w-full items-center rounded-lg bg-[#294563] px-3 py-2 text-xs font-semibold leading-5 text-white transition-colors [overflow-wrap:anywhere] hover:bg-[#365777] first:bg-[#b94d20] first:hover:bg-[#a64019] motion-reduce:transition-none"
                       >
                         {citation.documentNumber} · Rev {citation.revision} · {locationLabel(citation)}
                       </Link>
@@ -325,26 +331,21 @@ export function ProjectChat({
         </div>
 
         {latestCitations.length > 0 && (
-          <section className="mt-5 space-y-2" aria-label="Sources for the latest answer">
+          <section className="mt-5 min-w-0 space-y-2" aria-label="Sources for the latest answer">
             {latestCitations.map((citation) => (
               <Link
                 key={`${citation.revisionId}-${citation.label}`}
                 href={citationHref(base, citation)}
-                className="group flex items-center gap-3 rounded-xl border border-white/10 bg-[#0b1d33]/70 p-3 transition hover:border-[#ed7138]/40 hover:bg-[#142d4a]"
+                className="group flex min-h-11 min-w-0 items-start gap-3 rounded-xl border border-white/20 bg-[#0b1d33]/70 p-3 transition-colors hover:border-[#ed7138]/40 hover:bg-[#142d4a] motion-reduce:transition-none"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-white/10 text-white">
-                  <FileText size={17} />
+                  <FileText size={17} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[#ff8a55]">
-                    {citation.documentNumber}
-                  </span>
-                  <span className="mt-0.5 block truncate text-xs font-semibold text-white">
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-xs font-semibold leading-5"><span className="min-w-0 text-[#ff8a55] [overflow-wrap:anywhere]">{citation.documentNumber}</span><span className="max-w-full text-[#bed0e2] [overflow-wrap:anywhere]">Rev {citation.revision}</span></span>
+                  <span className="mt-0.5 block text-sm leading-5 text-white [overflow-wrap:anywhere]">
                     {citation.title || citation.excerpt}
                   </span>
-                </span>
-                <span className="shrink-0 text-[10px] font-bold uppercase text-[#91abc5] group-hover:text-white">
-                  Rev {citation.revision}
                 </span>
               </Link>
             ))}
@@ -352,7 +353,7 @@ export function ProjectChat({
         )}
       </div>
 
-      <footer className="relative border-t border-white/10 px-5 py-3 text-center text-[9px] font-bold uppercase tracking-[.18em] text-[#6685a5] sm:px-9">
+      <footer className="relative border-t border-white/10 px-4 py-3 text-center text-xs leading-5 text-[#a9bdd4] sm:px-6">
         Authorised project data · EngiCite evidence workflow
       </footer>
     </div>

@@ -19,13 +19,13 @@ export default async function ChatPage({
 
   if (!can(role, "ai:use")) {
     return (
-      <div className="ev-card mx-auto max-w-2xl p-8">
+      <div className="ev-card mx-auto min-w-0 max-w-2xl p-5 sm:p-8">
         <h1 className="text-2xl font-semibold">AI chat unavailable</h1>
         <p className="mt-3 text-sm text-[#617083]">
           Your project role does not include AI question access.
         </p>
         <Link
-          className="mt-5 inline-flex text-sm font-bold text-[#10243e]"
+          className="mt-5 inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#10243e]"
           href={backHref}
         >
           {canOpenMdr?"Return to documents":"Return to project workspace"}
@@ -47,12 +47,12 @@ export default async function ChatPage({
   if(scopeResult.error)return <ReadUnavailable title="Project evidence is temporarily unavailable" href={`${base}/chat`}>Your authorised revision scope could not be loaded. Retry before starting a question.</ReadUnavailable>;
 
   return (
-    <div className="mx-auto w-full max-w-[1500px]">
+    <div className="mx-auto min-w-0 w-full max-w-[1500px]">
       <Link
         href={backHref}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"
       >
-        <ArrowLeft size={16} />{canOpenMdr?"Back to document register":"Back to project workspace"}
+        <ArrowLeft size={16} className="shrink-0" aria-hidden="true"/>{canOpenMdr?"Back to document register":"Back to project workspace"}
       </Link>
       <div className="mt-5">
         <ProjectChat

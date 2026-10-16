@@ -114,7 +114,7 @@ describe("organisation read failures are not empty data or denied access",()=>{
   it("retains category creation for a genuinely empty register and the existing toggle payload",async()=>{
     const first=render(await CategorySettingsPage({params:baseParams()}));expect(screen.getByText("No document categories are registered yet.")).toBeTruthy();expect(screen.getByTestId("create-category")).toBeTruthy();
     first.unmount();results.document_categories={data:[{id:"category",kind:"discipline",code:"PR",name:"Process",is_active:true}]};
-    const {container}=render(await CategorySettingsPage({params:baseParams()}));const toggle=screen.getByRole("button",{name:"Disable"}).closest("form")!;
+    const {container}=render(await CategorySettingsPage({params:baseParams()}));const toggle=screen.getByRole("button",{name:"Disable Process discipline"}).closest("form")!;
     expect(Array.from(new FormData(toggle).entries())).toEqual([["organisationId","org"],["categoryId","category"],["isActive","false"]]);expect(container.querySelectorAll("form")).toHaveLength(1);
   });
   it("retains not-found for confirmed category access denial",async()=>{

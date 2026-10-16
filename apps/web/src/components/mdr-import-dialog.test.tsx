@@ -20,6 +20,15 @@ beforeEach(()=>{
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
 
 describe("MDR workbook validation preview",()=>{
+  it("keeps workbook selection named and keyboard-focusable through its visible picker",()=>{
+    openAndChoose();
+    const input=screen.getByLabelText("Choose Excel file") as HTMLInputElement;
+    expect(input.type).toBe("file");expect(input.tabIndex).toBe(0);expect(input.disabled).toBe(false);
+    expect(input.closest(".ev-file-picker")).not.toBeNull();
+    const selected=document.getElementById(input.getAttribute("aria-describedby")!);
+    expect(selected?.textContent).toBe("MDR.xlsx");expect(selected?.getAttribute("aria-live")).toBe("polite");
+    expect(screen.getByRole("button",{name:"Close Excel import"}).classList.contains("size-11")).toBe(true);
+  });
   it("opens the errors view with errors beyond the first fifteen rows, while import stays blocked",async()=>{
     vi.mocked(fetch).mockResolvedValue({ok:true,json:async()=>workbookPreview(500,[501])} as Response);
     const dialog=openAndChoose();

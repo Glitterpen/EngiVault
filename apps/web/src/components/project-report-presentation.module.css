@@ -1,0 +1,97 @@
+.identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: .5rem;
+  row-gap: 1rem;
+}
+
+.identityTitle {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.clientLogos {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem;
+}
+
+.organisationLogo {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.scrollRegion {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.scrollRegion:focus-visible {
+  outline: 2px solid #10243e;
+  outline-offset: -3px;
+}
+
+.curvePlot {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+@media (min-width: 640px) {
+  .identity {
+    grid-template-columns: minmax(80px, 1fr) minmax(0, 2.4fr) minmax(80px, 1fr);
+    gap: 1.5rem;
+  }
+  .identityTitle {
+    grid-column: auto;
+    grid-row: auto;
+    text-align: center;
+  }
+  .clientLogos {
+    gap: .5rem;
+  }
+}
+
+@media print {
+  .identity {
+    grid-template-columns: minmax(80px, 1fr) minmax(0, 2.4fr) minmax(80px, 1fr);
+    gap: 1.5rem;
+  }
+  .identityTitle {
+    grid-column: auto;
+    grid-row: auto;
+    text-align: center;
+  }
+  .clientLogos {
+    gap: .5rem;
+  }
+  .scrollRegion {
+    overflow: visible !important;
+    max-width: none;
+  }
+  .scrollRegion table {
+    min-width: 0 !important;
+    width: 100%;
+    table-layout: fixed;
+    break-inside: auto !important;
+  }
+  .scrollRegion th,
+  .scrollRegion td {
+    overflow-wrap: anywhere;
+  }
+  .scrollRegion tr {
+    break-inside: avoid;
+  }
+  .curvePlot {
+    min-width: 0;
+  }
+}

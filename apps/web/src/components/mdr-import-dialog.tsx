@@ -108,9 +108,9 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
       <FileSpreadsheet size={16} /> Import Excel
     </button>
     <dialog ref={dialog} aria-label="Import Master Document Register from Excel" onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }} className="m-auto max-h-[94vh] w-[min(96vw,1050px)] overflow-hidden rounded-2xl border border-[#dce2e9] bg-white p-0 text-[#10243e] shadow-[0_28px_90px_rgba(16,36,62,.32)] backdrop:bg-[#10243e]/65 backdrop:backdrop-blur-sm">
-      <header className="flex items-center justify-between border-b border-[#d6e0ed] px-5 py-4 sm:px-6">
-        <div><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#e8733f]">Master document register</p><h2 className="mt-1 font-semibold">Import planned deliverables from Excel</h2></div>
-        <button type="button" onClick={() => dialog.current?.close()} className="grid size-9 place-items-center rounded-lg border border-[#dce2e9] text-[#617083] hover:border-[#e8733f] hover:text-[#e8733f]" aria-label="Close Excel import"><X size={16} /></button>
+      <header className="flex items-center justify-between gap-3 border-b border-[#d6e0ed] px-5 py-4 sm:px-6">
+        <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#a64019]">Master document register</p><h2 className="mt-1 font-semibold">Import planned deliverables from Excel</h2></div>
+        <button type="button" onClick={() => dialog.current?.close()} className="grid size-11 shrink-0 place-items-center rounded-lg border border-[#dce2e9] text-[#617083] hover:border-[#a64019] hover:text-[#a64019]" aria-label="Close Excel import"><X size={16} aria-hidden="true"/></button>
       </header>
       <div className="max-h-[calc(94vh-73px)] overflow-y-auto p-5 sm:p-6">
         <section className="grid gap-3 md:grid-cols-3">
@@ -118,9 +118,10 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
             <a href="/templates/EngiCite-MDR-Import-Template.xlsx" download className="ev-button-secondary mt-4 w-full"><Download size={16} /> Download Excel template</a>
           </Step>
           <Step number="2" title="Choose workbook" body="Excel .xlsx only, up to 5 MB and 500 rows.">
-            <label htmlFor={inputId} className="ev-button-secondary mt-4 w-full cursor-pointer"><Upload size={16} /> Choose Excel file</label>
-            <input id={inputId} className="sr-only" type="file" disabled={busy} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} />
-            <p className="mt-2 truncate text-xs font-semibold text-[#10243e]">{file?.name ?? "No file selected"}</p>
+            <label htmlFor={inputId} className="ev-file-picker ev-button-secondary mt-4 w-full cursor-pointer"><Upload size={16} aria-hidden="true"/> Choose Excel file
+              <input id={inputId} className="sr-only" type="file" aria-describedby={`${inputId}-selection`} disabled={busy} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} />
+            </label>
+            <p id={`${inputId}-selection`} aria-live="polite" className="mt-2 text-xs font-semibold text-[#10243e] [overflow-wrap:anywhere]">{file?.name ?? "No file selected"}</p>
           </Step>
           <Step number="3" title="Preview and import" body="Nothing is saved until every row passes validation.">
             <button type="button" className="ev-button mt-4 w-full" disabled={busy || !file} onClick={previewWorkbook}><FileCheck2 size={16} /> {operation === "preview" ? "Checking workbook..." : "Preview workbook"}</button>
@@ -164,7 +165,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
 }
 
 function Step({ number, title, body, children }: { number: string; title: string; body: string; children: React.ReactNode }) {
-  return <article className="rounded-xl border border-[#d6e0ed] p-4"><div className="flex items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{number}</span><h3 className="font-semibold">{title} <HelpTip label={`${title} guidance`}>{body}</HelpTip></h3></div>{children}</article>;
+  return <article className="min-w-0 rounded-xl border border-[#d6e0ed] p-4"><div className="flex min-w-0 items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{number}</span><h3 className="min-w-0 font-semibold">{title} <HelpTip label={`${title} guidance`}>{body}</HelpTip></h3></div>{children}</article>;
 }
 
 function Summary({ label, value, good = false, warning = false }: { label: string; value: number; good?: boolean; warning?: boolean }) {

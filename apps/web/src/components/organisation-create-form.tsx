@@ -1,7 +1,7 @@
 "use client";
 
 import {HelpTip} from "@/components/help-tip";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { Building2, ImagePlus, Plus } from "lucide-react";
 import Image from "next/image";
 import { createOrganisation, type MutationState } from "@/app/app/actions";
@@ -10,6 +10,7 @@ export function OrganisationCreateForm({initialName="",initialSlug=""}:{initialN
   const [state,action,pending]=useActionState<MutationState,FormData>(createOrganisation,undefined);
   const [preview,setPreview]=useState("");
   const [fileName,setFileName]=useState("");
+  const logoHelpId=useId();
 
   useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview)},[preview]);
 
@@ -25,12 +26,12 @@ export function OrganisationCreateForm({initialName="",initialSlug=""}:{initialN
     <label className="mt-4 block"><span className="ev-label">URL slug</span><input className="ev-input" name="slug" defaultValue={initialSlug} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="north-field-engineering" required/></label>
     <label className="mt-4 block">
       <span className="ev-label">Company logo</span>
-      <span className="mt-1 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#d6e0ed] bg-[#f4f7fb] p-3 transition hover:border-[#10243e]">
+      <span className="ev-file-picker mt-1 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#d6e0ed] bg-[#f4f7fb] p-3 transition hover:border-[#10243e]">
         <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-white text-[#e8733f] shadow-sm">
           {preview?<Image unoptimized src={preview} alt="Selected company logo preview" width={56} height={56} className="size-full object-contain p-1"/>:<Building2 size={24}/>} 
         </span>
-        <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ImagePlus size={16}/> {fileName?"Change logo":"Choose company logo"}</span><span className="mt-1 block truncate text-xs text-[#617083]">{fileName||"PNG, JPEG or WebP; maximum 2 MB"}</span></span>
-        <input className="sr-only" type="file" name="logo" accept="image/png,image/jpeg,image/webp" required onChange={event=>selectLogo(event.target.files?.[0]??null)}/>
+        <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ImagePlus size={16} aria-hidden="true"/> {fileName?"Change logo":"Choose company logo"}</span><span className="mt-1 block break-words text-xs text-[#617083]" aria-live="polite">{fileName||"No file selected"}</span><span id={logoHelpId} className="mt-1 block text-xs text-[#617083]">PNG, JPEG or WebP; maximum 2 MB</span></span>
+        <input className="sr-only" type="file" name="logo" aria-label="Company logo" aria-describedby={logoHelpId} accept="image/png,image/jpeg,image/webp" required onChange={event=>selectLogo(event.target.files?.[0]??null)}/>
       </span>
     </label>
     {state?.message&&<p className="mt-4 rounded-lg border border-[#f0c8b7] bg-[#fff6f2] p-3 text-xs leading-5 text-[#8b3d1f]" role="alert">{state.message}</p>}

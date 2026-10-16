@@ -2,7 +2,7 @@
 
 import {HelpTip} from "@/components/help-tip";
 import Image from "next/image";
-import {useActionState,useEffect,useRef,useState} from "react";
+import {useActionState,useEffect,useId,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
 import {ArchiveRestore,Building2,ImagePlus,Trash2} from "lucide-react";
 import {deleteOrganisation,setDocumentArchived,setOrganisationArchived,setProjectArchived,updateDocument,updateOrganisation,updateProject,type MutationState} from "@/app/app/actions";
@@ -15,6 +15,7 @@ export function OrganisationAdminForm({record}:{record:{id:string;name:string;sl
  const [temporaryPreview,setTemporaryPreview]=useState("");
  const [failedPreview,setFailedPreview]=useState("");
  const handledMutation=useRef("");
+ const logoHelpId=useId();
  useEffect(()=>()=>{if(temporaryPreview)URL.revokeObjectURL(temporaryPreview)},[temporaryPreview]);
  useEffect(()=>{
   if(!state?.mutationId||handledMutation.current===state.mutationId)return;
@@ -31,8 +32,8 @@ export function OrganisationAdminForm({record}:{record:{id:string;name:string;sl
 
    <div className="mt-5 flex flex-wrap items-center gap-4">
     <span className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#d6e0ed] bg-white text-[#e8733f] shadow-sm">{preview&&failedPreview!==preview?<Image unoptimized src={preview} alt={`${record.name} logo`} width={80} height={80} onError={()=>setFailedPreview(preview)} className="size-full object-contain p-2"/>:<Building2 size={28}/>}</span>
-    <label className="ev-button-secondary cursor-pointer"><ImagePlus size={16}/> Replace company logo<input className="sr-only" type="file" name="logo" accept="image/png,image/jpeg,image/webp" onChange={event=>selectLogo(event.target.files?.[0]??null)}/></label>
-    <p className="text-xs text-[#617083]">Optional · PNG, JPEG or WebP · maximum 2 MB</p>
+    <label className="ev-file-picker ev-button-secondary cursor-pointer"><ImagePlus size={16} aria-hidden="true"/> Replace company logo<input className="sr-only" type="file" name="logo" aria-label="Replace company logo" aria-describedby={logoHelpId} accept="image/png,image/jpeg,image/webp" onChange={event=>selectLogo(event.target.files?.[0]??null)}/></label>
+    <p id={logoHelpId} className="text-xs text-[#617083]">Optional · PNG, JPEG or WebP · maximum 2 MB</p>
    </div>
    <Field name="name" label="Organisation name" value={record.name}/>
    <Field name="slug" label="URL slug" value={record.slug}/>
@@ -48,6 +49,7 @@ export function ProjectAdminForm({record}:{record:{id:string;organisation_id:str
  const [state,action,pending]=useActionState<MutationState,FormData>(updateProject,undefined);
  const [logoPreviews,setLogoPreviews]=useState<string[]>([]);
  const [logoCount,setLogoCount]=useState(0);
+ const logoHelpId=useId();
  useEffect(()=>()=>logoPreviews.forEach(url=>URL.revokeObjectURL(url)),[logoPreviews]);
  function chooseLogos(files:FileList|null){const selected=Array.from(files??[]);setLogoCount(selected.length);setLogoPreviews(selected.slice(0,3).map(file=>URL.createObjectURL(file)))}
  const tooManyLogos=logoCount>3;
@@ -56,8 +58,8 @@ export function ProjectAdminForm({record}:{record:{id:string;organisation_id:str
   <h2 className="font-semibold">Project and client identity <HelpTip label="Project icon">The first client logo is used automatically as the project icon.</HelpTip></h2>
   <div className="mt-5 flex flex-wrap items-center gap-4">
    {logoPreviews.length?<div className="flex flex-wrap gap-2">{logoPreviews.map((src,index)=><span key={src} className="grid size-16 place-items-center overflow-hidden rounded-xl border border-[#d6e0ed] bg-white p-1.5"><Image unoptimized src={src} alt={`Replacement client logo ${index+1}`} width={52} height={52} className="size-full object-contain"/></span>)}</div>:<span className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#d6e0ed] bg-white p-2 text-[#e8733f] shadow-sm"><ProjectLogo organisationId={record.organisation_id} projectId={record.id} name={record.name} size={80} version={state?.logoVersion} className="size-full object-contain"/></span>}
-   <label className="ev-button-secondary cursor-pointer"><ImagePlus size={16}/> Replace client logos<input className="sr-only" type="file" name="clientLogos" accept="image/png,image/jpeg,image/webp" multiple onChange={event=>chooseLogos(event.target.files)}/></label>
-   <p className="text-xs text-[#617083]">Optional · up to 3 · maximum 2 MB each</p>
+   <label className="ev-file-picker ev-button-secondary cursor-pointer"><ImagePlus size={16} aria-hidden="true"/> Replace client logos<input className="sr-only" type="file" name="clientLogos" aria-label="Replace client logos" aria-describedby={logoHelpId} accept="image/png,image/jpeg,image/webp" multiple onChange={event=>chooseLogos(event.target.files)}/></label>
+   <p id={logoHelpId} className="text-xs text-[#617083]">Optional · PNG, JPEG or WebP · up to 3 · maximum 2 MB each</p>
   </div>
   {tooManyLogos&&<p className="mt-2 text-xs font-semibold text-[#a5452f]" role="alert">Choose no more than three client logos.</p>}
   <Field name="code" label="Project code" value={record.code}/><Field name="name" label="Project name" value={record.name}/><Field name="clientName" label="Client name" value={record.client_name??""}/><Field name="facility" label="Facility / location" value={record.facility_location??""} optional/><Field name="description" label="Description" value={record.description??""} optional/>

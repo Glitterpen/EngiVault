@@ -76,12 +76,17 @@ button:not(:disabled), summary { cursor: pointer; }
 .ev-button-secondary:hover:not(:disabled) { border-color: #b7c2cd; background-color: #f8fafb; }
 .ev-button:focus-visible, .ev-button-secondary:focus-visible, .ev-input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .ev-button > svg, .ev-button-secondary > svg { flex-shrink: 0; }
+.ev-file-picker { min-width: 0; max-width: 100%; }
+/* A visually hidden native file input remains keyboard-operable; show its focus
+   on the visible picker, not on the hidden one-pixel input. */
+.ev-file-picker:has(input[type="file"]:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
+.ev-file-picker input[type="file"]:focus-visible { outline: none; }
 .ev-button-secondary:disabled { opacity: .5; box-shadow: none; transform: none; }
 .ev-label { text-transform: none; letter-spacing: normal; }
 textarea.ev-input { min-height: 100px; padding-block: .75rem; resize: vertical; }
 .ev-help-trigger { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; opacity: .8; cursor: help; vertical-align: middle; }
 .ev-help-trigger:hover, .ev-help-trigger[aria-expanded="true"] { opacity: 1; background: rgba(127,145,165,.16); }
-.ev-help-trigger:focus-visible { outline: 2px solid #ed7138; outline-offset: 2px; opacity: 1; }
+.ev-help-trigger:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; opacity: 1; }
 .ev-help-popup { position: fixed; inset: auto; z-index: 1000; display: block; margin: 0; border: 1px solid #d7e0e9; border-radius: 12px; padding: 14px 16px; background: #fff; color: #34465c; box-shadow: 0 8px 24px rgba(16,36,62,.12); font-size: 13px; line-height: 1.65; font-weight: 400; letter-spacing: normal; text-transform: none; text-align: left; white-space: normal; overflow-wrap: anywhere; overflow-y: auto; overscroll-behavior: contain; }
 .ev-help-popup::backdrop { background: transparent; pointer-events: none; }
 @media print { .ev-help { display: none !important; } .ev-help-popup { display: none !important; } }

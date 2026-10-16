@@ -51,6 +51,14 @@ describe("logo-aligned application palette",()=>{
     expect(contrast("#10243e","#ffffff")).toBeGreaterThanOrEqual(3);
   });
 
+  it("shows hidden file-input focus on the visible picker and uses a contrasting help outline",()=>{
+    const css=readFileSync(join(sourceRoot,"app/globals.css"),"utf8");
+    expect(css).toContain('.ev-file-picker:has(input[type="file"]:focus-visible)');
+    expect(css).toMatch(/\.ev-file-picker:has\(input\[type="file"\]:focus-visible\)\s*\{[^}]*outline: 3px solid var\(--focus\)/);
+    expect(css).toMatch(/\.ev-help-trigger:focus-visible\s*\{[^}]*outline: 3px solid var\(--focus\)/);
+    expect(contrast("#10243e","#f4f7fb")).toBeGreaterThanOrEqual(3);
+  });
+
   it("keeps delivery series distinct and visible against the chart background",()=>{
     const series=["#647386","#b94d20","#10243e"];
     expect(new Set(series).size).toBe(3);

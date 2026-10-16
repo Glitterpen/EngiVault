@@ -32,11 +32,11 @@ export function PrintReportButton({href}:{href:string}){
     }finally{setPreparing(false)}
   }
 
-  return <div className="flex flex-col items-end gap-1">
-    <a className="ev-button" href={href} onClick={event=>void download(event)} aria-disabled={preparing} aria-busy={preparing}>
-      {preparing?<LoaderCircle className="animate-spin" size={16}/>:<Download size={16}/>}
+  return <div className="flex min-w-0 w-full flex-col items-stretch gap-1 sm:w-auto sm:items-end">
+    <a className="ev-button min-h-11" href={href} onClick={event=>void download(event)} aria-disabled={preparing} aria-busy={preparing}>
+      {preparing?<LoaderCircle className="shrink-0 animate-spin motion-reduce:animate-none" size={16} aria-hidden="true"/>:<Download size={16} aria-hidden="true"/>}
       {preparing?"Preparing PDF…":"Download PDF"}
     </a>
-    {error?<p className="max-w-xs text-right text-xs font-semibold text-[#a5452f]" role="alert">{error} Try again.</p>:null}
+    {error?<p className="max-w-xs break-words text-xs font-semibold leading-5 text-[#a5452f] sm:text-right" role="alert">{error} Try again.</p>:null}
   </div>;
 }
