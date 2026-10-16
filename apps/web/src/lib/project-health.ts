@@ -9,7 +9,7 @@ export function assessProjectHealth({deliverables,completion,overdue,highIssues,
 }
 
 export function healthTone(health:ProjectHealth):string{
-  if(health==="Complete"||health==="On track")return "bg-[#e8f1ed] text-[#0c5b45]";
+  if(health==="Complete"||health==="On track")return "bg-[#eef3fa] text-[#24384f]";
   if(health==="At risk")return "bg-[#fde8e4] text-[#9b2c24]";
   if(health==="Needs attention")return "bg-[#fff0e9] text-[#a5452f]";
   return "bg-[#eef1f4] text-[#617083]";

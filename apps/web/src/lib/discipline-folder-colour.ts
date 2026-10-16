@@ -1,17 +1,17 @@
-// Stable accents aid scanning; the discipline name always supplies the meaning.
+// Stable logo-aligned accents aid scanning; the discipline name supplies the meaning.
 const colours:Record<string,string>={
   electrical:"#b45309",
-  "fire & gas":"#b91c1c",
-  instrumentation:"#6d28d9",
-  mechanical:"#1d4ed8",
-  process:"#0f766e",
+  "fire & gas":"#a64019",
+  instrumentation:"#304c72",
+  mechanical:"#1e3a5f",
+  process:"#10243e",
   project:"#475569",
-  "subsea / pipeline":"#0e7490",
+  "subsea / pipeline":"#43668f",
   piping:"#c2410c",
-  structural:"#4338ca",
+  structural:"#263d5b",
   civil:"#92400e",
-  telecommunications:"#a21caf",
-  "technical safety":"#be123c",
+  telecommunications:"#526b8b",
+  "technical safety":"#9a451f",
 };
 const palette=Object.values(colours);
 

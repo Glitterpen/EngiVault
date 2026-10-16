@@ -20,9 +20,9 @@ export function OrganisationLogoRequired({organisation}:{organisation:{id:string
    <div className="flex items-start gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#e8733f]"><Building2 size={22}/></span><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Required company identity</p><h1 className="mt-2 text-2xl font-semibold">Add the {organisation.name} logo <HelpTip label="Company logo">EngiCite uses this single company logo automatically as the organisation icon. There is no separate icon selection.</HelpTip></h1></div></div>
    <label className="mt-6 block">
     <span className="ev-label">Company logo</span>
-    <span className="mt-2 flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-[#b9c8c1] bg-[#f8faf9] p-4 transition hover:border-[#0c5b45]">
+    <span className="mt-2 flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-[#d6e0ed] bg-[#f4f7fb] p-4 transition hover:border-[#10243e]">
      <span className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-[#e8733f] shadow-sm">{preview?<Image unoptimized src={preview} alt="Company logo preview" width={80} height={80} className="size-full object-contain p-2"/>:<ImagePlus size={26}/>}</span>
-     <span className="min-w-0 flex-1"><span className="font-semibold text-[#0c5b45]">{fileName?"Change uploaded logo":"Choose company logo"}</span><span className="mt-1 block truncate text-xs text-[#617083]">{fileName||"PNG, JPEG or WebP · maximum 2 MB"}</span></span>
+     <span className="min-w-0 flex-1"><span className="font-semibold text-[#10243e]">{fileName?"Change uploaded logo":"Choose company logo"}</span><span className="mt-1 block truncate text-xs text-[#617083]">{fileName||"PNG, JPEG or WebP · maximum 2 MB"}</span></span>
      <input className="sr-only" type="file" name="logo" accept="image/png,image/jpeg,image/webp" required onChange={event=>selectLogo(event.target.files?.[0]??null)}/>
     </span>
    </label>

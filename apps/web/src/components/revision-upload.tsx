@@ -254,11 +254,11 @@ export function RevisionUpload({
     >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 items-center gap-2">
-          <UploadCloud size={19} aria-hidden="true" className="shrink-0 text-[#0c5b45]" />
+          <UploadCloud size={19} aria-hidden="true" className="shrink-0 text-[#10243e]" />
           <h2 id={`${formId}-heading`} className="text-base font-semibold text-[#14263d]">Upload revision</h2>
         </div>
         <div className="flex items-center gap-1 text-xs font-medium text-[#526279]">
-          <span className="rounded-md bg-[#f1f5f3] px-2 py-1 text-[#36564a]">{projectDeliveryStageLabel(deliveryStage)}</span>
+          <span className="rounded-md bg-[#eef3fa] px-2 py-1 text-[#24384f]">{projectDeliveryStageLabel(deliveryStage)}</span>
           <HelpTip label="Revision workflow guidance">
             {projectDeliveryStage(deliveryStage)?.workflow}. DCC-accepted progress reaches 100% at {projectTerminalIssueStatus(deliveryStage)}.
           </HelpTip>
@@ -304,7 +304,7 @@ export function RevisionUpload({
             <input
               id={`${formId}-file`}
               aria-describedby={`${formId}-file-format${selectedFile ? ` ${formId}-file-selected` : ""}`}
-              className="block min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg text-sm text-[#526279] outline-offset-4 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-3 file:text-sm file:font-semibold file:text-[#24384f] hover:file:bg-[#f1f5f7] focus-visible:outline-2 focus-visible:outline-[#0d684f] disabled:cursor-not-allowed disabled:opacity-60"
+              className="block min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg text-sm text-[#526279] outline-offset-4 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-3 file:text-sm file:font-semibold file:text-[#24384f] hover:file:bg-[#f1f5f7] focus-visible:outline-2 focus-visible:outline-[#10243e] disabled:cursor-not-allowed disabled:opacity-60"
               name="file"
               type="file"
               accept=".pdf,.docx,.xlsx,.dwg"
@@ -323,7 +323,7 @@ export function RevisionUpload({
           {nativeRequired && (
             <div className="min-w-0 rounded-xl border border-[#dfe5eb] bg-[#fafcfd] p-3 sm:p-4">
               <div className="mb-1 flex min-h-8 flex-wrap items-center gap-x-2 gap-y-1">
-                <FileCog size={16} aria-hidden="true" className="shrink-0 text-[#0c5b45]" />
+                <FileCog size={16} aria-hidden="true" className="shrink-0 text-[#10243e]" />
                 <label htmlFor={`${formId}-native`} className="ev-label mb-0 text-[#24384f]">Native source file</label>
                 <span className="text-xs font-semibold text-[#8b3d1f]">Required</span>
                 <HelpTip label="Native source requirement">This PDF is being issued at the project&apos;s final {projectDeliveryStageLabel(deliveryStage)} milestone. Attach its editable DWG, DOCX or XLSX source before submission.</HelpTip>
@@ -332,7 +332,7 @@ export function RevisionUpload({
               <input
                 id={`${formId}-native`}
                 aria-describedby={`${formId}-native-format${nativeFile ? ` ${formId}-native-selected` : ""}`}
-                className="block min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg text-sm text-[#526279] outline-offset-4 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-3 file:text-sm file:font-semibold file:text-[#24384f] hover:file:bg-[#f1f5f7] focus-visible:outline-2 focus-visible:outline-[#0d684f] disabled:cursor-not-allowed disabled:opacity-60"
+                className="block min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg text-sm text-[#526279] outline-offset-4 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border file:border-[#ced6df] file:bg-white file:px-3 file:text-sm file:font-semibold file:text-[#24384f] hover:file:bg-[#f1f5f7] focus-visible:outline-2 focus-visible:outline-[#10243e] disabled:cursor-not-allowed disabled:opacity-60"
                 name="nativeFile"
                 type="file"
                 accept=".dwg,.docx,.xlsx"
@@ -355,14 +355,14 @@ export function RevisionUpload({
         <div className="flex items-center gap-1">
           <label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3 text-sm font-medium text-[#24384f]">
             <input type="checkbox" name="overrideSubmission" checked={override} disabled={busy}
-              className="h-4 w-4 shrink-0 accent-[#0c5b45]"
+              className="h-4 w-4 shrink-0 accent-[#10243e]"
               onChange={event => void checkOverride(event.currentTarget.form, event.currentTarget.checked)} />
             <span>Override existing submission</span>
           </label>
           <HelpTip label="About submission overrides">Use the same revision code and issue status to replace your latest submission before DCC generates its transmittal. The existing file is retained in the audit history.</HelpTip>
         </div>
         {overrideChecking && <p role="status" className="mt-2 text-xs">Checking transmittal status...</p>}
-        {overrideMessage && <p role={overrideRevisionId ? "status" : "alert"} className={`mt-2 break-words rounded-lg border p-3 text-sm leading-6 ${overrideRevisionId ? "border-[#dce6e0] bg-[#f7faf8] text-[#0c5b45]" : "border-[#efd1c1] bg-[#fff8f3] text-[#8b3d1f]"}`}>{overrideMessage}</p>}
+        {overrideMessage && <p role={overrideRevisionId ? "status" : "alert"} className={`mt-2 break-words rounded-lg border p-3 text-sm leading-6 ${overrideRevisionId ? "border-[#d6e0ed] bg-[#f4f7fb] text-[#10243e]" : "border-[#efd1c1] bg-[#fff8f3] text-[#8b3d1f]"}`}>{overrideMessage}</p>}
       </div>
 
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -380,14 +380,14 @@ export function RevisionUpload({
       {(busy || progress === 100) && (
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between text-xs font-medium text-[#526279]"><span>Secure upload</span><span>{progress}%</span></div>
-          <div role="progressbar" aria-label="Secure upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 overflow-hidden rounded-full bg-[#e5ebe8]">
-            <div className="h-full rounded-full bg-[#0c5b45] transition-all motion-reduce:transition-none" style={{ width: `${progress}%` }} />
+          <div role="progressbar" aria-label="Secure upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 overflow-hidden rounded-full bg-[#eef3fa]">
+            <div className="h-full rounded-full bg-[#10243e] transition-all motion-reduce:transition-none" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
       {status && (
         <p
-          className={`mt-3 break-words rounded-lg p-3 text-sm leading-6 ${failed ? "border border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]" : "bg-[#f2f7f4] text-[#0c5b45]"}`}
+          className={`mt-3 break-words rounded-lg p-3 text-sm leading-6 ${failed ? "border border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]" : "bg-[#f4f7fb] text-[#10243e]"}`}
           role={failed ? "alert" : "status"}
         >
           {status}
@@ -446,7 +446,7 @@ function Field({
 
 function SelectedFile({id,file}:{id:string;file:File}) {
   const size=file.size<1024*1024?`${Math.max(1,Math.ceil(file.size/1024))} KB`:`${(file.size/(1024*1024)).toFixed(1)} MB`;
-  return <p id={id} className="mt-3 flex min-w-0 items-start gap-2 text-xs leading-5 text-[#36564a]">
+  return <p id={id} className="mt-3 flex min-w-0 items-start gap-2 text-xs leading-5 text-[#24384f]">
     <FileCheck2 size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
     <span className="min-w-0 [overflow-wrap:anywhere]"><span className="font-medium">{file.name}</span><span className="ml-1 text-[#526279]">· {size}</span></span>
   </p>;

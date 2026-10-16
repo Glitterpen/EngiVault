@@ -62,8 +62,8 @@ describe("observed submitted and accepted measures",()=>{
     const values=model();values.points[2]={...values.points[2],submitted:45,submittedSource:"report"};
     const result=workspace({...values,submittedHistoryCount:1});
     expect(path(result.container,"submitted")!.getAttribute("d")).toBe("M 317.79 135.5 L 469.89 93.5");
-    expect(path(result.container,"submitted")!.getAttribute("stroke")).toBe("#24384f");expect(path(result.container,"submitted")!.getAttribute("stroke-dasharray")).toBe("6 6");
-    expect(path(result.container,"accepted")!.getAttribute("d")).toBe("M 44 209 L 317.79 177.5 L 469.89 146");expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#0c5b45");
+    expect(path(result.container,"submitted")!.getAttribute("stroke")).toBe("#b94d20");expect(path(result.container,"submitted")!.getAttribute("stroke-dasharray")).toBe("6 6");
+    expect(path(result.container,"accepted")!.getAttribute("d")).toBe("M 44 209 L 317.79 177.5 L 469.89 146");expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#10243e");
     fireEvent.change(screen.getByRole("slider"),{target:{value:"2"}});expect(selectedValue("Overall submitted")).toBe("45%");expect(selectedValue("DCC accepted")).toBe("25%");
   });
   it("renders current-only observations as single markers without a zero baseline or false trend",()=>{
@@ -99,10 +99,10 @@ describe("observed submitted and accepted measures",()=>{
 });
 
 describe("timeline-linear estimated plan",()=>{
-  it("adds a distinctly labelled orange dashed estimate without changing either observed path",()=>{
+  it("adds a distinctly labelled slate dashed estimate without changing either observed path",()=>{
     const result=workspace();
     expect(screen.getByText("Estimated plan",{selector:"span"})).toBeTruthy();expect(selectedValue("Estimated plan")).toBe("73.7%");
-    const estimate=path(result.container,"planned")!;expect(estimate.getAttribute("stroke")).toBe("#a4470b");expect(estimate.getAttribute("stroke-dasharray")).toBe("10 4");
+    const estimate=path(result.container,"planned")!;expect(estimate.getAttribute("stroke")).toBe("#647386");expect(estimate.getAttribute("stroke-dasharray")).toBe("10 4");
     expect(estimate.getAttribute("d")).toMatch(/^M 44 230 .* L 622 20$/);expect(result.container.querySelectorAll('[data-curve-series="planned-point"]')).toHaveLength(5);
     expect(path(result.container,"accepted")!.getAttribute("d")).toBe("M 44 209 L 317.79 177.5 L 469.89 146");expect(path(result.container,"submitted")).toBeNull();
     const original=structuredClone(result.curve);fireEvent.keyDown(screen.getByRole("slider"),{key:"End"});expect(selectedValue("Estimated plan")).toBe("100%");expect(selectedValue("DCC accepted")).toBe("Not observed");expect(result.curve).toEqual(original);

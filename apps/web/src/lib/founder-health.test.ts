@@ -16,7 +16,7 @@ describe("founder account health presentation",()=>{
   });
 
   it("gives every health state a distinct treatment",()=>{
-    expect(healthClasses("healthy")).toContain("edf8f4");
+    expect(healthClasses("healthy")).toContain("eef3fa");
     expect(healthClasses("attention")).toContain("fff8e8");
     expect(healthClasses("critical")).toContain("fff0ef");
   });

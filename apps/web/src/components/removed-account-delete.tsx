@@ -8,7 +8,7 @@ export function RemovedAccountDelete({organisationId,userId,email}:{organisation
   const [confirmation,setConfirmation]=useState("");
   const [acknowledged,setAcknowledged]=useState(false);
   const [state,action,pending]=useActionState(deleteRemovedMemberAccount,undefined);
-  if(state?.ok)return <p role="status" className="rounded-lg bg-[#e8f1ed] p-3 text-sm text-[#0c5b45]">{state.message}</p>;
+  if(state?.ok)return <p role="status" className="rounded-lg bg-[#eef3fa] p-3 text-sm text-[#10243e]">{state.message}</p>;
   return <div>
     <button type="button" className="ev-button-secondary text-[#a53724]" onClick={()=>setOpen(!open)} disabled={pending} aria-expanded={open}>Delete account</button>
     {open&&<form action={action} className="mt-3 rounded-xl border border-[#efc6b4] bg-[#fff9f5] p-4">

@@ -17,7 +17,7 @@
   --navy: #10243e;
   --orange: #ed7138;
   --brand-text: #a64019;
-  --green: #0d684f;
+  --focus: var(--navy);
 }
 
 * { box-sizing: border-box; }
@@ -27,7 +27,7 @@ button, input, select, textarea { font: inherit; }
 a { text-underline-offset: 3px; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled), summary { cursor: pointer; }
-:where(a, button, summary, input, select, textarea):focus-visible { outline: 3px solid #0d684f; outline-offset: 3px; }
+:where(a, button, summary, input, select, textarea):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 :where(button, input, select, textarea):disabled { cursor: not-allowed; }
 .ev-skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 1100; padding: .75rem 1rem; border-radius: .75rem; background: white; color: #10243e; font-weight: 600; }
 .ev-skip-link:focus { top: .5rem; }
@@ -40,7 +40,7 @@ button:not(:disabled), summary { cursor: pointer; }
 .workspace-topbar .ev-account-role { display: none; }
 .ev-account-trigger::-webkit-details-marker { display: none; }
 .workspace-main details > summary:focus-visible { outline-offset: -3px; }
-.workspace-main [role="region"][tabindex="0"]:focus-visible { outline: 3px solid var(--green); outline-offset: -3px; }
+.workspace-main [role="region"][tabindex="0"]:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 ::selection { background: #ffd9c7; color: #10243e; }
 
 .workspace-shell,
@@ -63,7 +63,7 @@ button:not(:disabled), summary { cursor: pointer; }
 @layer components {
   .ev-card { @apply rounded-2xl border border-[#dde4eb] bg-white shadow-[0_1px_3px_rgba(16,36,62,.035)]; }
   .ev-label { @apply mb-1.5 block text-xs font-semibold leading-5 text-[#526279]; }
-  .ev-input { @apply h-11 w-full rounded-xl border border-[#d4dce5] bg-[#fbfcfd] px-3.5 text-sm text-[#14263d] outline-none transition-colors placeholder:text-[#69798b] hover:border-[#b8c3cf] focus:border-[#0d684f] focus:bg-white focus:ring-4 focus:ring-[#0d684f]/10; }
+  .ev-input { @apply h-11 w-full rounded-xl border border-[#d4dce5] bg-[#fbfcfd] px-3.5 text-sm text-[#14263d] outline-none transition-colors placeholder:text-[#69798b] hover:border-[#b8c3cf] focus:border-[#10243e] focus:bg-white focus:ring-4 focus:ring-[#10243e]/10; }
   .ev-button { @apply inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#b94d20] px-5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,36,62,.08)] transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none; }
   .ev-button-secondary { @apply inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#d4dce5] bg-white px-5 text-sm font-semibold text-[#24384f] shadow-[0_1px_2px_rgba(16,36,62,.03)] transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none; }
 }
@@ -74,12 +74,9 @@ button:not(:disabled), summary { cursor: pointer; }
 .ev-button { background-color: #b94d20; }
 .ev-button:hover:not(:disabled) { background-color: #a64019; }
 .ev-button-secondary:hover:not(:disabled) { border-color: #b7c2cd; background-color: #f8fafb; }
-.ev-button:focus-visible, .ev-button-secondary:focus-visible, .ev-input:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+.ev-button:focus-visible, .ev-button-secondary:focus-visible, .ev-input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .ev-button > svg, .ev-button-secondary > svg { flex-shrink: 0; }
 .ev-button-secondary:disabled { opacity: .5; box-shadow: none; transform: none; }
-/* Public landing-page interactions stay within the navy/orange logo palette. */
-.ev-landing :is(a, button, summary, input, select, textarea):focus-visible { outline: 3px solid #10243e; outline-offset: 3px; }
-.ev-landing .ev-input:focus { border-color: #10243e; --tw-ring-color: rgb(16 36 62 / .12); }
 .ev-label { text-transform: none; letter-spacing: normal; }
 textarea.ev-input { min-height: 100px; padding-block: .75rem; resize: vertical; }
 .ev-help-trigger { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; opacity: .8; cursor: help; vertical-align: middle; }
@@ -90,7 +87,7 @@ textarea.ev-input { min-height: 100px; padding-block: .75rem; resize: vertical; 
 @media print { .ev-help { display: none !important; } .ev-help-popup { display: none !important; } }
 .workspace-main table { border-collapse: separate; border-spacing: 0; }
 .workspace-main tbody tr { transition: background-color .16s ease; }
-.workspace-main tbody tr:hover { background: #fafcfb; }
+.workspace-main tbody tr:hover { background: #f8fafc; }
 
 @media (max-width: 767px) {
   .workspace-main { padding: 18px 16px 32px; }

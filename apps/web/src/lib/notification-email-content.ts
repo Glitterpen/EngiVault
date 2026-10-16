@@ -22,7 +22,7 @@ export function notificationEmailContent(input: NotificationEmailInput) {
     <h1 style="font-size:24px;line-height:1.25">${escapeHtml(title)}</h1>
     <p>Hello ${escapeHtml(input.recipientName)},</p>
     <p><strong>${escapeHtml(organisationName)}</strong> sent you an update${input.projectName ? ` for <strong>${escapeHtml(projectName)}</strong>` : ""}.</p>
-    <div style="border:1px solid #dfe7e3;border-radius:12px;padding:16px;margin:20px 0;background:#f8faf9">
+    <div style="border:1px solid #dce3ec;border-radius:12px;padding:16px;margin:20px 0;background:#f7f9fc">
       <p style="margin:0;line-height:1.65">${escapeHtml(body).replaceAll("\n", "<br/>")}</p>
     </div>
     <p><a href="${escapeHtml(input.notificationUrl)}" style="display:inline-block;background:#e8733f;color:white;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">Open notification</a></p>

@@ -39,7 +39,7 @@ export function DccControlWorkspace({organisationId,projectId,project,summary,di
       <section aria-labelledby="dcc-work-heading" className="ev-card min-w-0 overflow-hidden">
         <div className="border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id="dcc-work-heading" className="font-semibold">Work queue</h2></div>
         <ul className="divide-y divide-[#e7ecef]">{tasks.map(({title,description,href,icon:Icon})=><li key={href}>
-          <Link href={href} className="group flex min-h-11 min-w-0 items-center gap-3 px-4 py-4 transition hover:bg-[#f3f7f5] focus-visible:outline-offset-[-3px] sm:px-5">
+          <Link href={href} className="group flex min-h-11 min-w-0 items-center gap-3 px-4 py-4 transition hover:bg-[#f4f7fb] focus-visible:outline-offset-[-3px] sm:px-5">
             <Icon size={19} aria-hidden="true" className="shrink-0 text-[#526675]"/>
             <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-semibold text-[#14263d]">{title}</h3><p className="mt-1 break-words text-xs leading-5 text-[#617083]">{description}</p></div>
             <ArrowRight size={17} aria-hidden="true" className="shrink-0 text-[#617083]"/>
@@ -50,7 +50,7 @@ export function DccControlWorkspace({organisationId,projectId,project,summary,di
         <details className="ev-card min-w-0 overflow-hidden">
           <summary className="min-h-11 cursor-pointer break-words px-4 py-3 text-sm font-semibold sm:px-5">MDR by discipline <span className="ml-2 text-xs font-normal text-[#617083]">{disciplines.length} {disciplines.length===1?"discipline":"disciplines"}</span></summary>
           <div className="border-t border-[#e7ecef] px-4 pb-2 sm:px-5">{disciplines.length?<ul className="divide-y divide-[#edf1f3]">{disciplines.map(({name,count})=><li key={name}>
-            <Link href={`${base}/documents?${new URLSearchParams({discipline:name,view:"flat"})}`} className="flex min-h-11 min-w-0 items-center justify-between gap-3 py-2 text-sm text-[#24384f] hover:text-[#0c5b45]">
+            <Link href={`${base}/documents?${new URLSearchParams({discipline:name,view:"flat"})}`} className="flex min-h-11 min-w-0 items-center justify-between gap-3 py-2 text-sm text-[#24384f] hover:text-[#10243e]">
               <span className="min-w-0 break-words">{name}</span><span className="shrink-0 text-xs text-[#617083]">{count} {count===1?"deliverable":"deliverables"}<span aria-hidden="true" className="ml-2">→</span></span>
             </Link>
           </li>)}</ul>:<p className="py-4 text-sm text-[#617083]">The MDR is empty. Use Open MDR to register the first deliverable.</p>}</div>

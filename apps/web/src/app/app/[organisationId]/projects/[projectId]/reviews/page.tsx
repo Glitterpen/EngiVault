@@ -29,7 +29,7 @@ export default async function ReviewsPage({ params }: {
 
   return <div className="mx-auto min-w-0 max-w-6xl space-y-4">
     <header>
-      <Link href={`/app/${organisationId}/projects/${projectId}/control`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]">
+      <Link href={`/app/${organisationId}/projects/${projectId}/control`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e]">
         <ArrowLeft aria-hidden="true" size={16} /> Document control centre
       </Link>
       <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-3">

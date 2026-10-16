@@ -21,7 +21,7 @@ export default async function ChatPage({
           Your project role does not include AI question access.
         </p>
         <Link
-          className="mt-5 inline-flex text-sm font-bold text-[#0c5b45]"
+          className="mt-5 inline-flex text-sm font-bold text-[#10243e]"
           href={`${base}/documents`}
         >
           Return to documents
@@ -45,7 +45,7 @@ export default async function ChatPage({
     <div className="mx-auto w-full max-w-[1500px]">
       <Link
         href={`${base}/documents`}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"
       >
         <ArrowLeft size={16} /> Back to document register
       </Link>

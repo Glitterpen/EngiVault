@@ -19,7 +19,7 @@ export function ProjectProgressRefresh({asOf}:{asOf:string}){
   const date=new Date(asOf),time=Number.isNaN(date.getTime())?"Unavailable":date.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",timeZone:"UTC"});
   return <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#526675]">
     <p>Updated <time dateTime={asOf}>{time} UTC</time></p>
-    <label className="inline-flex min-h-11 items-center gap-2"><input type="checkbox" data-preview-safe checked={automatic} onChange={event=>setAutomatic(event.target.checked)} className="size-4 accent-[#0c5b45]"/>Auto-refresh · 60s</label>
-    <button type="button" data-preview-safe disabled={pending} onClick={()=>startTransition(()=>router.refresh())} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 font-semibold text-[#0c5b45] disabled:opacity-60"><RefreshCw size={15} aria-hidden="true" className={pending?"animate-spin motion-reduce:animate-none":""}/>{pending?"Refreshing…":"Refresh now"}</button>
+    <label className="inline-flex min-h-11 items-center gap-2"><input type="checkbox" data-preview-safe checked={automatic} onChange={event=>setAutomatic(event.target.checked)} className="size-4 accent-[#10243e]"/>Auto-refresh · 60s</label>
+    <button type="button" data-preview-safe disabled={pending} onClick={()=>startTransition(()=>router.refresh())} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 font-semibold text-[#10243e] disabled:opacity-60"><RefreshCw size={15} aria-hidden="true" className={pending?"animate-spin motion-reduce:animate-none":""}/>{pending?"Refreshing…":"Refresh now"}</button>
   </div>;
 }

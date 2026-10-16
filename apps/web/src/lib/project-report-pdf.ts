@@ -15,9 +15,9 @@ const NAVY=rgb(16/255,36/255,62/255);
 const INK=rgb(20/255,38/255,61/255);
 const MUTED=rgb(100/255,115/255,134/255);
 const ORANGE=rgb(237/255,113/255,56/255);
-const GREEN=rgb(13/255,104/255,79/255);
+const ACTUAL=NAVY;
 const LINE=rgb(221/255,228/255,235/255);
-const PAPER=rgb(248/255,250/255,249/255);
+const PAPER=rgb(247/255,249/255,252/255);
 const PALE_ORANGE=rgb(1,247/255,242/255);
 const PALE_RED=rgb(1,249/255,247/255);
 
@@ -272,13 +272,13 @@ function drawSCurve(context:Context){
   for(let index=1;index<progress.length;index+=1){
     const previous=progress[index-1],current=progress[index];
     context.page!.drawLine({start:{x:pointX(previous.date),y:pointY(previous.planned)},end:{x:pointX(current.date),y:pointY(current.planned)},thickness:2.2,color:ORANGE});
-    if(previous.actual!==null&&current.actual!==null)context.page!.drawLine({start:{x:pointX(previous.date),y:pointY(previous.actual)},end:{x:pointX(current.date),y:pointY(current.actual)},thickness:2.2,color:GREEN});
+    if(previous.actual!==null&&current.actual!==null)context.page!.drawLine({start:{x:pointX(previous.date),y:pointY(previous.actual)},end:{x:pointX(current.date),y:pointY(current.actual)},thickness:2.2,color:ACTUAL});
   }
   progress.forEach(point=>{
     const plannedLabel=formatProgressPercentage(point.planned),plannedX=pointX(point.date)-context.bold.widthOfTextAtSize(plannedLabel,5.5)/2;
     context.page!.drawCircle({x:pointX(point.date),y:pointY(point.planned),size:2,color:ORANGE});
     context.page!.drawText(plannedLabel,{x:plannedX,y:pointY(point.planned)+5,size:5.5,font:context.bold,color:ORANGE});
-    if(point.actual!==null){const actualLabel=formatProgressPercentage(point.actual),actualX=pointX(point.date)-context.bold.widthOfTextAtSize(actualLabel,5.5)/2;context.page!.drawCircle({x:pointX(point.date),y:pointY(point.actual),size:2,color:GREEN});context.page!.drawText(actualLabel,{x:actualX,y:pointY(point.actual)-10,size:5.5,font:context.bold,color:GREEN})}
+    if(point.actual!==null){const actualLabel=formatProgressPercentage(point.actual),actualX=pointX(point.date)-context.bold.widthOfTextAtSize(actualLabel,5.5)/2;context.page!.drawCircle({x:pointX(point.date),y:pointY(point.actual),size:2,color:ACTUAL});context.page!.drawText(actualLabel,{x:actualX,y:pointY(point.actual)-10,size:5.5,font:context.bold,color:ACTUAL})}
   });
   const currentWeekDate=projectSCurveCurrentWeekDate(progress.map(point=>point.date),context.report.periodEnd),currentWeekX=pointX(currentWeekDate);
   context.page!.drawLine({start:{x:currentWeekX,y:chartBottom},end:{x:currentWeekX,y:chartTop},thickness:.55,color:MUTED,dashArray:[2,3],opacity:.3});
@@ -288,7 +288,7 @@ function drawSCurve(context:Context){
   const legendY=chartBottom-72;
   context.page!.drawLine({start:{x:chartX,y:legendY},end:{x:chartX+24,y:legendY},thickness:2.4,color:ORANGE});
   context.page!.drawText("Planned progress",{x:chartX+30,y:legendY-3,size:7,font:context.bold,color:MUTED});
-  context.page!.drawLine({start:{x:chartX+160,y:legendY},end:{x:chartX+184,y:legendY},thickness:2.4,color:GREEN});
+  context.page!.drawLine({start:{x:chartX+160,y:legendY},end:{x:chartX+184,y:legendY},thickness:2.4,color:ACTUAL});
   context.page!.drawText("Stage-weighted actual",{x:chartX+190,y:legendY-3,size:7,font:context.bold,color:MUTED});
   context.y=legendY-25;
 
@@ -301,8 +301,8 @@ function drawSCurve(context:Context){
 
 function emptyState(context:Context,message:string,positive=false){
   const lines=wrapText(message,context.bold,9,CONTENT_WIDTH-24);const height=lines.length*12+24;ensure(context,height);
-  context.page!.drawRectangle({x:MARGIN,y:context.y-height,width:CONTENT_WIDTH,height,color:positive?rgb(232/255,241/255,237/255):PAPER,borderColor:positive?GREEN:LINE,borderWidth:1});
-  drawLines(context.page!,lines,MARGIN+12,context.y-19,12,9,context.bold,positive?GREEN:MUTED);context.y-=height+20;
+  context.page!.drawRectangle({x:MARGIN,y:context.y-height,width:CONTENT_WIDTH,height,color:positive?rgb(238/255,243/255,250/255):PAPER,borderColor:positive?ACTUAL:LINE,borderWidth:1});
+  drawLines(context.page!,lines,MARGIN+12,context.y-19,12,9,context.bold,positive?ACTUAL:MUTED);context.y-=height+20;
 }
 
 type Column={label:string;width:number};

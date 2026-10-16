@@ -19,7 +19,7 @@ export function MdrDocumentRows({docs,organisationId,projectId,canManage,title}:
     <div className="hidden min-w-0 overflow-x-auto md:block" role="region" aria-label={`Master document register — ${title} — scroll horizontally for all columns`} tabIndex={0}>
       <table className="min-w-[680px] w-full text-left text-sm">
         <caption className="sr-only">{title} MDR deliverables</caption>
-        <thead className="border-y border-[#e7ecef] bg-[#f8faf9] text-xs font-medium text-[#617083]"><tr>
+        <thead className="border-y border-[#e7ecef] bg-[#f4f7fb] text-xs font-medium text-[#617083]"><tr>
           <th scope="col" className="w-[52%] px-4 py-3">Document</th><th scope="col" className="px-4 py-3">Next issue</th><th scope="col" className="px-4 py-3">Status</th>{canManage&&<th scope="col" className="px-4 py-3 text-right">Actions</th>}
         </tr></thead>
         <tbody>{docs.map(document=><tr key={document.id} className="border-b border-[#e7ecef] last:border-0">
@@ -37,7 +37,7 @@ function SubmissionStatus({document}:{document:MdrDocument}){
   return <span title={description} className="font-semibold"><span className="sr-only">Latest submitted issue: </span>{submission.code}<span className="sr-only"> — {description}</span></span>;
 }
 function DocumentLink({document,href}:{document:MdrDocument;href:string}){
-  return <Link href={href} className="inline-flex min-h-11 min-w-0 flex-col justify-center gap-1 rounded-lg hover:underline"><span className="break-words text-xs font-semibold text-[#0c5b45]">{document.document_number}</span><span className="break-words text-sm font-medium text-[#24384f]">{document.title}</span></Link>;
+  return <Link href={href} className="inline-flex min-h-11 min-w-0 flex-col justify-center gap-1 rounded-lg hover:underline"><span className="break-words text-xs font-semibold text-[#10243e]">{document.document_number}</span><span className="break-words text-sm font-medium text-[#24384f]">{document.title}</span></Link>;
 }
 function MetadataTip({document}:{document:MdrDocument}){
   return <HelpTip label={`Document details for ${document.document_number}`}><dl className="grid gap-2"><div><dt className="font-semibold">Area / system</dt><dd>{[document.area,document.system].filter(Boolean).join(" · ")||"Not recorded"}</dd></div>{document.work_package&&<div><dt className="font-semibold">Work package</dt><dd>{document.work_package}</dd></div>}<div><dt className="font-semibold">Updated</dt><dd>{formatDate(document.updated_at)}</dd></div></dl><div className="mt-3 border-t border-[#e7ecef] pt-3"><DocumentIssueSchedule schedule={document.schedule}/></div></HelpTip>;

@@ -155,7 +155,7 @@ export default async function NewTransmittalPage({
     <div className="mx-auto min-w-0 max-w-6xl">
       <Link
         href={`/app/${organisationId}/projects/${projectId}/control`}
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]"
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e]"
       >
         <ArrowLeft size={16} aria-hidden="true" /> Document control centre
       </Link>
@@ -195,7 +195,7 @@ function TransmittalLoadError({
     <div className="mx-auto min-w-0 max-w-[900px]">
       <Link
         href={`/app/${organisationId}/projects/${projectId}/control`}
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]"
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e]"
       >
         <ArrowLeft size={16} aria-hidden="true" /> Document control centre
       </Link>

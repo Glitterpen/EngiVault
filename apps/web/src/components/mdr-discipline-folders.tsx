@@ -58,10 +58,10 @@ function FolderDocuments({organisationId,projectId,discipline,search,records,can
       <MdrDocumentRows docs={data.documents} organisationId={organisationId} projectId={projectId} canManage={canManage&&data.canManage} title={discipline.name}/>
       <nav aria-label={`${discipline.name} document pages`} className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7ecef] px-4 py-2 text-xs text-[#617083]">
         <span role="status">{data.total} document{data.total===1?"":"s"} · Page {data.page} of {pages}</span>
-        {pages>1&&<div className="flex gap-2"><button type="button" data-preview-safe aria-label={`Previous page in ${discipline.name}`} disabled={data.page<=1} onClick={()=>goToPage(data.page-1)} className="min-h-11 rounded-lg px-3 font-semibold text-[#0c5b45] disabled:opacity-40">Previous</button><button type="button" data-preview-safe aria-label={`Next page in ${discipline.name}`} disabled={data.page>=pages} onClick={()=>goToPage(data.page+1)} className="min-h-11 rounded-lg px-3 font-semibold text-[#0c5b45] disabled:opacity-40">Next</button></div>}
+        {pages>1&&<div className="flex gap-2"><button type="button" data-preview-safe aria-label={`Previous page in ${discipline.name}`} disabled={data.page<=1} onClick={()=>goToPage(data.page-1)} className="min-h-11 rounded-lg px-3 font-semibold text-[#10243e] disabled:opacity-40">Previous</button><button type="button" data-preview-safe aria-label={`Next page in ${discipline.name}`} disabled={data.page>=pages} onClick={()=>goToPage(data.page+1)} className="min-h-11 rounded-lg px-3 font-semibold text-[#10243e] disabled:opacity-40">Next</button></div>}
       </nav>
     </>}
-    <div className="border-t border-[#e7ecef] px-4 py-1"><button type="button" data-preview-safe aria-label={`Close ${discipline.name} folder`} onClick={onClose} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-xs font-semibold text-[#0c5b45]"><ArrowLeft size={14} aria-hidden="true"/>Back to disciplines</button></div>
+    <div className="border-t border-[#e7ecef] px-4 py-1"><button type="button" data-preview-safe aria-label={`Close ${discipline.name} folder`} onClick={onClose} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-xs font-semibold text-[#10243e]"><ArrowLeft size={14} aria-hidden="true"/>Back to disciplines</button></div>
   </div>;
 }
 function validPage(value:unknown,discipline:string):value is MdrFolderPage{

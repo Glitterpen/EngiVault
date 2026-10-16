@@ -38,14 +38,14 @@ export function NotificationInbox({items}:{items:NotificationInboxItem[]}){
       </div>
     </div>}
     {visible.length>0?<ul aria-label="Notifications" className="divide-y divide-[#e7ecef]">{visible.map(item=><li key={item.id} className="min-w-0">
-      <Link href={`/app/notifications/${item.id}`} className="group flex min-h-11 min-w-0 items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-[#f6f9f8] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#0c5b45] motion-reduce:transition-none sm:px-5">
+      <Link href={`/app/notifications/${item.id}`} className="group flex min-h-11 min-w-0 items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-[#f4f7fb] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#10243e] motion-reduce:transition-none sm:px-5">
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><h3 className={`min-w-0 text-sm leading-6 [overflow-wrap:anywhere] ${item.read_at?"font-medium text-[#405566]":"font-semibold text-[#10243e]"}`}>{item.title}</h3>{!item.read_at&&<span className="shrink-0 rounded-md bg-[#eef4f1] px-2 py-0.5 text-xs font-medium text-[#0c5b45]">Unread</span>}</div>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><h3 className={`min-w-0 text-sm leading-6 [overflow-wrap:anywhere] ${item.read_at?"font-medium text-[#405566]":"font-semibold text-[#10243e]"}`}>{item.title}</h3>{!item.read_at&&<span className="shrink-0 rounded-md bg-[#eef3fa] px-2 py-0.5 text-xs font-medium text-[#10243e]">Unread</span>}</div>
           {item.document&&<div className="mt-1 min-w-0 text-xs leading-5 text-[#526675]"><p className="font-medium [overflow-wrap:anywhere]">{item.document.number}{item.document.discipline?` · ${item.document.discipline}`:""}</p><p className="[overflow-wrap:anywhere]">{item.document.title}</p></div>}
           <p className="mt-1 line-clamp-2 whitespace-pre-line text-sm leading-6 text-[#526675] [overflow-wrap:anywhere]">{item.body}</p>
           <time dateTime={item.created_at} className="mt-2 block text-xs text-[#657889]">{item.receivedLabel}</time>
         </div>
-        <ChevronRight size={17} aria-hidden="true" className="mt-1 shrink-0 text-[#718294] group-hover:text-[#0c5b45]"/>
+        <ChevronRight size={17} aria-hidden="true" className="mt-1 shrink-0 text-[#718294] group-hover:text-[#10243e]"/>
       </Link>
     </li>)}</ul>:<div className="px-4 py-9 text-center sm:px-5"><Bell size={24} aria-hidden="true" className="mx-auto text-[#718294]"/><p className="mt-3 text-sm font-medium text-[#405566]">{items.length?unreadOnly&&!query?"No unread notifications in the latest messages.":"No notifications match your filters.":"You have no notifications."}</p>{items.length>0&&<button type="button" data-preview-safe className="ev-button-secondary mt-4 min-h-11 w-full sm:w-auto" onClick={()=>{setSearch("");setUnreadOnly(false);}}>Show all loaded messages</button>}</div>}
   </section>;

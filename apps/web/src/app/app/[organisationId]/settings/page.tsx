@@ -17,7 +17,7 @@ export default async function OrganisationSettings({params}:{params:Promise<{org
  const logoVersion=typeof settings.logo_updated_at==="string"?settings.logo_updated_at:String(branding?.updated_at??"");
  const org={id:access.organisation_id,name:access.name,status:String(branding?.status??"active"),slug:access.slug,logoUrl:organisationLogoEndpoint(organisationId,logoVersion)};
  return <div className="mx-auto max-w-3xl">
-  <Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16}/> Organisation</Link>
+  <Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16}/> Organisation</Link>
   <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Organisation administrator</p>
   <h1 className="mt-2 text-3xl font-semibold">Manage organisation <HelpTip label="Organisation settings">Edit company identity, pause the workspace or remove it securely.</HelpTip></h1>
 

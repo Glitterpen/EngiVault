@@ -7,10 +7,10 @@ import {usePathname} from "next/navigation";
 export default function AuthLayout({children}:{children:React.ReactNode}) {
   const pathname=usePathname();
   const registration=pathname==="/register";
-  if(pathname==="/login"||registration)return <main className={`flex min-h-svh min-w-0 flex-col items-center justify-center bg-white px-2 py-6 min-[360px]:px-5 sm:bg-[#f6f8f7] sm:px-6 ${registration?"sm:py-6":"sm:py-10"}`}>
+  if(pathname==="/login"||registration)return <main className={`flex min-h-svh min-w-0 flex-col items-center justify-center bg-white px-2 py-6 min-[360px]:px-5 sm:bg-[#f6f8fb] sm:px-6 ${registration?"sm:py-6":"sm:py-10"}`}>
     <div className={`w-full min-w-0 ${registration?"max-w-[560px]":"max-w-[440px]"}`}>
       <header className={registration?"mb-4 flex justify-center":"mb-5 flex justify-center sm:mb-6"}><Brand/></header>
-      <section aria-label={registration?"EngiCite registration":"EngiCite sign in"} className={`min-w-0 sm:rounded-2xl sm:border sm:border-[#dfe7e3] sm:bg-white sm:shadow-[0_8px_32px_rgba(16,36,62,.04)] ${registration?"sm:p-6":"sm:p-7"}`}>{children}</section>
+      <section aria-label={registration?"EngiCite registration":"EngiCite sign in"} className={`min-w-0 sm:rounded-2xl sm:border sm:border-[#d6e0ed] sm:bg-white sm:shadow-[0_8px_32px_rgba(16,36,62,.04)] ${registration?"sm:p-6":"sm:p-7"}`}>{children}</section>
       <footer className={`${registration?"mt-4":"mt-5"} text-center text-xs leading-5 text-[#617083]`}>EngiCite · Engineering delivery, connected.</footer>
     </div>
   </main>;

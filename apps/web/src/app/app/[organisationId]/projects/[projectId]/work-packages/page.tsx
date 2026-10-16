@@ -31,7 +31,7 @@ export default async function WorkPackagesPage({
       .eq("project_id", projectId),
   ]);
   if(packageResult.error||documentResult.error)return <div className="mx-auto min-w-0 max-w-6xl">
-    <Link href={`/app/${organisationId}/projects/${projectId}/control`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16} aria-hidden="true"/>Document control centre</Link>
+    <Link href={`/app/${organisationId}/projects/${projectId}/control`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>Document control centre</Link>
     <section className="ev-card mt-3 p-4 sm:p-6"><AlertTriangle size={24} aria-hidden="true" className="text-[#a5452f]"/><h1 className="mt-3 text-2xl font-semibold">Work packages could not be loaded</h1><p className="mt-2 text-sm leading-6 text-[#526675]">EngiCite could not safely load the package history and discipline scope. Retry before creating another transmittal or package.</p><a href={`/app/${organisationId}/projects/${projectId}/work-packages`} className="ev-button mt-4 w-full sm:w-auto"><RefreshCw size={16} aria-hidden="true"/>Retry securely</a></section>
   </div>;
   const {data:packages}=packageResult;
@@ -42,7 +42,7 @@ export default async function WorkPackagesPage({
     <div className="mx-auto min-w-0 max-w-6xl">
       <Link
         href={`/app/${organisationId}/projects/${projectId}/control`}
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#0c5b45]"
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"
       >
         <ArrowLeft size={16} aria-hidden="true" /> Document control centre
       </Link>

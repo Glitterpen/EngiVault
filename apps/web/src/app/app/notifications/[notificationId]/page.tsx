@@ -60,7 +60,7 @@ export default async function NotificationPreviewPage({
   return (
     <div className="mx-auto min-w-0 max-w-3xl space-y-5">
       {!preview&&<NotificationReadReceipt notificationId={notification.id} unread={!notification.read_at} />}
-      <Link href="/app/notifications" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#084635]">
+      <Link href="/app/notifications" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e] transition hover:text-[#0b1b30]">
         <ArrowLeft size={16} aria-hidden="true"/> Return to notifications
       </Link>
       <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]"><WorkspacePageHeading title={notification.title} context={<><time dateTime={notification.created_at}>Received {new Date(notification.created_at).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})} UTC</time> · {notification.read_at?"Read":"Unread"}</>} help={<HelpTip label="Notification read status">{preview?"Read-only preview: this message remains unchanged. Opening it does not mark it as read for the team member.":"Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain."}</HelpTip>}/></div>
@@ -75,8 +75,8 @@ export default async function NotificationPreviewPage({
           )}
 
           {!destination && notification.href && (
-            <div className="mt-5 flex gap-3 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-sm leading-6 text-[#617083]">
-              <Info size={18} className="mt-0.5 shrink-0 text-[#0c5b45]" aria-hidden="true"/>
+            <div className="mt-5 flex gap-3 rounded-xl border border-[#d6e0ed] bg-[#f7f9fc] p-3 text-sm leading-6 text-[#617083]">
+              <Info size={18} className="mt-0.5 shrink-0 text-[#10243e]" aria-hidden="true"/>
               <p>The related project page is no longer available to your account. The notification remains here for reference.</p>
             </div>
           )}

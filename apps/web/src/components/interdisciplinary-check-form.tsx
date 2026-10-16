@@ -14,7 +14,7 @@ export function InterdisciplinaryCheckForm({organisationId,projectId,revisionId}
       <label className="block"><span className="ev-label">Interdisciplinary decision</span><select name="decision" className="ev-input" value={decision} onChange={event=>setDecision(event.target.value)}><option value="signed_off">Sign off — no objection</option><option value="changes_requested">Changes requested</option></select></label>
       <label className="block"><span className="ev-label">{decision==="changes_requested"?"Required changes":"Reference or comment (optional)"}</span><textarea name="comment" className="ev-input min-h-28 py-3" maxLength={2000} minLength={decision==="changes_requested"?5:undefined} required={decision==="changes_requested"}/></label>
       <label className="flex items-start gap-2 text-sm"><input className="mt-1" type="checkbox" name="reviewed" value="yes" required/>I have checked this approved revision.</label>
-      {state.message&&<p role={state.ok?"status":"alert"} className={`text-sm leading-6 ${state.ok?"text-[#0c5b45]":"text-[#a5452f]"}`}>{state.message}</p>}
+      {state.message&&<p role={state.ok?"status":"alert"} className={`text-sm leading-6 ${state.ok?"text-[#10243e]":"text-[#a5452f]"}`}>{state.message}</p>}
       <button className="ev-button" disabled={pending}>{pending?"Saving…":"Record interdisciplinary check"}</button>
     </form>
   </section>;

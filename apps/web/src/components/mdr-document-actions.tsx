@@ -28,13 +28,13 @@ export function MdrDocumentActions({
 
   return <div className="flex flex-col items-end gap-1.5">
     <div className={`flex justify-end gap-1.5 ${compact?"items-center":"flex-col items-stretch sm:flex-row sm:items-center"}`}>
-      <Link href={detailPath} className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#d8e0dc] py-2 text-xs font-bold text-[#0c5b45] transition hover:bg-[#eef4f1] ${compact?"w-11":"px-3"}`} aria-label={`Edit ${documentNumber}`} title="Edit MDR deliverable"><Pencil size={15} aria-hidden="true"/><span className={compact?"sr-only":""}>Edit</span></Link>
+      <Link href={detailPath} className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#d6e0ed] py-2 text-xs font-bold text-[#10243e] transition hover:bg-[#eef3fa] ${compact?"w-11":"px-3"}`} aria-label={`Edit ${documentNumber}`} title="Edit MDR deliverable"><Pencil size={15} aria-hidden="true"/><span className={compact?"sr-only":""}>Edit</span></Link>
       <form action={action} onSubmit={event=>{if(!window.confirm(prompt))event.preventDefault()}}>
         <input type="hidden" name="organisationId" value={organisationId}/>
         <input type="hidden" name="projectId" value={projectId}/>
         <input type="hidden" name="documentId" value={documentId}/>
         <input type="hidden" name="archived" value={String(!archived)}/>
-        <button disabled={pending} aria-busy={pending} className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold transition disabled:cursor-wait disabled:opacity-50 ${compact?"w-11 border-[#d8e0dc]":"w-full px-3"} ${archived?"text-[#0c5b45] hover:bg-[#eef4f1]":"text-[#a5452f] hover:bg-[#fff4ef]"} ${!compact?(archived?"border-[#bdd7cc]":"border-[#efc6b4]"):""}`} aria-label={`${archived?"Restore":"Delete"} ${documentNumber}`} title={archived?"Restore to active MDR":"Delete from active MDR"}>{archived?<ArchiveRestore size={15} aria-hidden="true"/>:<Trash2 size={15} aria-hidden="true"/>}<span className={compact?"sr-only":""}>{pending?"Saving…":archived?"Restore":"Delete"}</span></button>
+        <button disabled={pending} aria-busy={pending} className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-bold transition disabled:cursor-wait disabled:opacity-50 ${compact?"w-11 border-[#d6e0ed]":"w-full px-3"} ${archived?"text-[#10243e] hover:bg-[#eef3fa]":"text-[#a5452f] hover:bg-[#fff4ef]"} ${!compact?(archived?"border-[#d6e0ed]":"border-[#efc6b4]"):""}`} aria-label={`${archived?"Restore":"Delete"} ${documentNumber}`} title={archived?"Restore to active MDR":"Delete from active MDR"}>{archived?<ArchiveRestore size={15} aria-hidden="true"/>:<Trash2 size={15} aria-hidden="true"/>}<span className={compact?"sr-only":""}>{pending?"Saving…":archived?"Restore":"Delete"}</span></button>
       </form>
     </div>
     {state?.message&&!state.mutationId&&<p className="max-w-44 text-right text-[10px] leading-4 text-[#a5452f]" role="alert">{state.message}</p>}

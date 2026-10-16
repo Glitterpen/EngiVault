@@ -36,7 +36,7 @@ export function AccountMenu({email,initialRoleLabel,founderAccess=false}:{email:
   },[organisationId,projectId,projectKey]);
 
   return <details ref={panel} className="group relative" onKeyDown={e=>{if(e.key==="Escape"&&panel.current?.open){e.preventDefault();panel.current.open=false;panel.current.querySelector("summary")?.focus();}}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))e.currentTarget.open=false;}}>
-    <summary className="ev-account-trigger flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2 text-[#58687b] transition-colors hover:border-[#cbd7d1] hover:bg-white sm:gap-2 sm:pr-2.5" aria-label={`Open account details, ${currentRoleLabel}`}>
+    <summary className="ev-account-trigger flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#e1e7ec] bg-[#f8fafb] py-1.5 pl-1.5 pr-2 text-[#58687b] transition-colors hover:border-[#d6e0ed] hover:bg-white sm:gap-2 sm:pr-2.5" aria-label={`Open account details, ${currentRoleLabel}`}>
       <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{initial}</span>
       <span className="ev-account-role hidden max-w-52 truncate text-xs font-semibold text-[#35485d] sm:block">{currentRoleLabel}</span>
       <ChevronDown aria-hidden="true" size={14} className="shrink-0 transition-transform group-open:rotate-180"/>

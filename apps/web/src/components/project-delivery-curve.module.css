@@ -21,18 +21,18 @@
   width: 26px;
   flex-shrink: 0;
 }
-.acceptedKey { border-top: 3px solid #0c5b45; }
-.plannedKey { border-top: 2px dashed #a4470b; }
-.submittedKey { border-top: 2px dashed #24384f; }
+.acceptedKey { border-top: 3px solid #10243e; }
+.plannedKey { border-top: 2px dashed #647386; }
+.submittedKey { border-top: 2px dashed #b94d20; }
 .range {
   width: 100%;
   min-width: 0;
   height: 44px;
-  accent-color: #0c5b45;
+  accent-color: #10243e;
   cursor: pointer;
 }
 .range:focus-visible {
-  outline: 2px solid #0c5b45;
+  outline: 2px solid #10243e;
   outline-offset: 3px;
   border-radius: 4px;
 }

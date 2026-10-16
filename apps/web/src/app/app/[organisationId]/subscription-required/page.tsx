@@ -32,19 +32,19 @@ export default async function SubscriptionRequiredPage({
           The 90-day card-free pilot for {organisation.name} has ended and an active subscription is
           required to reopen its project workspaces.
         </p>
-        <div className="mt-6 rounded-2xl border border-[#bcd8cc] bg-[#f0f8f4] p-5 text-left">
+        <div className="mt-6 rounded-2xl border border-[#c3d3e6] bg-[#f2f5fa] p-5 text-left">
           <div className="flex items-start gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#0c5b45]">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#10243e]">
               <FileClock size={19} />
             </span>
             <div>
               <h2 className="font-semibold text-[#10243e]">Your project history is retained</h2>
-              <p className="mt-2 text-sm leading-6 text-[#47665b]">
+              <p className="mt-2 text-sm leading-6 text-[#40556b]">
                 Pilot expiry pauses workspace access; it does not delete the organisation, projects,
                 MDR, revisions, uploaded files, reports, transmittals or audit history. Activating the
                 subscription restores the same workspace exactly where the team stopped.
               </p>
-              <p className="mt-3 flex items-center gap-2 text-xs font-bold text-[#0c5b45]">
+              <p className="mt-3 flex items-center gap-2 text-xs font-bold text-[#10243e]">
                 <ShieldCheck size={15} /> Retained while the organisation account remains registered
               </p>
             </div>
@@ -55,11 +55,11 @@ export default async function SubscriptionRequiredPage({
             <CreditCard size={16} /> Continue to secure checkout
           </Link>
         ) : (
-          <div className="mt-7 rounded-xl bg-[#f5f8f7] p-4 text-sm text-[#24384f]">
+          <div className="mt-7 rounded-xl bg-[#f5f8fb] p-4 text-sm text-[#24384f]">
             Please ask your organisation administrator to activate the EngiCite subscription.
           </div>
         )}
-        <Link className="mt-5 block text-sm font-semibold text-[#0c5b45]" href="/app">
+        <Link className="mt-5 block text-sm font-semibold text-[#10243e]" href="/app">
           Return to organisations
         </Link>
       </section>

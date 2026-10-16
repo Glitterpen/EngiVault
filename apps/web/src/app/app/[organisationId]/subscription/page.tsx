@@ -73,7 +73,7 @@ export default async function SubscriptionPage({
     <div className="mx-auto max-w-6xl">
       <Link
         href={`/app/${organisationId}`}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"
+        className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"
       >
         <ArrowLeft size={16} /> Organisation
       </Link>
@@ -88,7 +88,7 @@ export default async function SubscriptionPage({
             One subscription protects and supports the organisation’s EngiCite workspace.
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ed] px-3 py-2 text-xs font-bold text-[#0c5b45]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#eef3fa] px-3 py-2 text-xs font-bold text-[#10243e]">
           <ShieldCheck size={15} /> Secure hosted payment
         </span>
       </div>
@@ -101,7 +101,7 @@ export default async function SubscriptionPage({
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section className="ev-card overflow-hidden">
-          <div className="border-b border-[#e6ebe8] bg-[linear-gradient(135deg,#10243e,#183c5f)] p-6 text-white sm:p-8">
+          <div className="border-b border-[#dce5ef] bg-[linear-gradient(135deg,#10243e,#183c5f)] p-6 text-white sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#ff9a6d]">
@@ -139,7 +139,7 @@ export default async function SubscriptionPage({
                 value={limit(entitlements.monthly_ai_tokens)}
               />
             </div>
-            <div className="mt-6 rounded-xl bg-[#f5f8f7] p-4">
+            <div className="mt-6 rounded-xl bg-[#f5f8fb] p-4">
               <p className="text-xs font-bold uppercase tracking-[.12em] text-[#617083]">
                 Recorded AI usage
               </p>
@@ -147,11 +147,11 @@ export default async function SubscriptionPage({
                 {(totals.get("ai_tokens") ?? 0).toLocaleString()} tokens
               </p>
             </div>
-            <div className="mt-4 rounded-xl border border-[#bcd8cc] bg-[#f0f8f4] p-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]">
+            <div className="mt-4 rounded-xl border border-[#c3d3e6] bg-[#f2f5fa] p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-[#10243e]">
                 <ShieldCheck size={16} /> Workspace continuity protected
               </p>
-              <p className="mt-2 text-xs leading-5 text-[#47665b]">
+              <p className="mt-2 text-xs leading-5 text-[#40556b]">
                 If the pilot or a subscription ends, EngiCite pauses paid workspace access without
                 deleting project history or files. Reactivation returns the organisation to the same
                 projects, records and audit trail.
@@ -205,7 +205,7 @@ export default async function SubscriptionPage({
               </div>
             )
           ) : pilotActive ? (
-            <div className="mt-6 rounded-xl border border-[#bcd8cc] bg-[#f0f8f4] p-4 text-sm leading-6 text-[#0c5b45]">
+            <div className="mt-6 rounded-xl border border-[#c3d3e6] bg-[#f2f5fa] p-4 text-sm leading-6 text-[#10243e]">
               <p className="font-semibold">No card required</p>
               <p className="mt-1">
                 Paystack checkout will become available after the pilot. You have {trialDays} day
@@ -258,7 +258,7 @@ function PaymentOption({
   name: string;
 }) {
   return (
-    <div className="rounded-xl border border-[#e2e8e5] p-4">
+    <div className="rounded-xl border border-[#dce5ef] p-4">
       <div className="flex items-start gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#eef3f7] text-[#183c5f]">
           {icon}
@@ -284,7 +284,7 @@ function ConfigurationNotice({ provider }: { provider: string }) {
 function Benefit({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5">
-      <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#e8f1ed] text-[#0c5b45]">
+      <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#eef3fa] text-[#10243e]">
         <Check size={12} strokeWidth={3} />
       </span>
       {children}
@@ -294,7 +294,7 @@ function Benefit({ children }: { children: React.ReactNode }) {
 
 function Entitlement({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[#e2e8e5] p-4">
+    <div className="rounded-xl border border-[#dce5ef] p-4">
       <p className="text-lg font-semibold text-[#10243e]">{value}</p>
       <p className="mt-1 text-[10px] font-bold uppercase tracking-[.1em] text-[#617083]">{label}</p>
     </div>
@@ -335,13 +335,13 @@ function pageMessage(query: SearchParams) {
   if (query.checkout === "success") {
     return {
       text: "Checkout completed. The payment provider is confirming the subscription; this page will update after verification.",
-      tone: "border-[#bcd8cc] bg-[#f0f8f4] text-[#0c5b45]",
+      tone: "border-[#c3d3e6] bg-[#f2f5fa] text-[#10243e]",
     };
   }
   if (query.checkout === "paystack-success") {
     return {
       text: "Payment verified. Your recurring subscription is being confirmed; this page will update shortly.",
-      tone: "border-[#bcd8cc] bg-[#f0f8f4] text-[#0c5b45]",
+      tone: "border-[#c3d3e6] bg-[#f2f5fa] text-[#10243e]",
     };
   }
   if (query.checkout === "cancelled") {

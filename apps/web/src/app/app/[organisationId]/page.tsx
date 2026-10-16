@@ -58,5 +58,5 @@ function PortfolioNotice({organisationId,children}:{organisationId:string;childr
 }
 
 function ProjectsUnavailable({organisationId}:{organisationId:string}){
-  return <div className="mx-auto max-w-5xl"><Link href="/app" className="inline-flex min-h-11 items-center text-sm font-semibold text-[#0c5b45]">Back to organisations</Link><h1 className="mt-2 text-3xl font-semibold">Projects</h1><section role="alert" className="mt-5 rounded-2xl border border-[#dde4eb] bg-white p-6"><h2 className="font-semibold">Projects could not be loaded.</h2><p className="mt-2 text-sm text-[#526675]">Try again shortly. No project records have been changed.</p><Link href={`/app/${organisationId}`} className="ev-button-secondary mt-4">Retry projects</Link></section></div>;
+  return <div className="mx-auto max-w-5xl"><Link href="/app" className="inline-flex min-h-11 items-center text-sm font-semibold text-[#10243e]">Back to organisations</Link><h1 className="mt-2 text-3xl font-semibold">Projects</h1><section role="alert" className="mt-5 rounded-2xl border border-[#dde4eb] bg-white p-6"><h2 className="font-semibold">Projects could not be loaded.</h2><p className="mt-2 text-sm text-[#526675]">Try again shortly. No project records have been changed.</p><Link href={`/app/${organisationId}`} className="ev-button-secondary mt-4">Retry projects</Link></section></div>;
 }

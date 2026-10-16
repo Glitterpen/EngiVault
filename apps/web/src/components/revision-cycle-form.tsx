@@ -19,7 +19,7 @@ export function RevisionCycleForm({organisationId,projectId,days,readOnly=false,
     {readOnly?<p className="mt-3 text-sm font-semibold">{days?`${days} working days`:"Not yet set by the Project Manager"}</p>:<form action={action} className="mt-4">
       <input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/>
       <label className="block" htmlFor={`${id}-working-days`}><span className="ev-label">Revision cycle (working days)</span><input id={`${id}-working-days`} className="ev-input max-w-xs" name="workingDays" type="number" min={1} max={365} step={1} required defaultValue={days??""} placeholder="e.g. 3"/></label>
-      {state.message&&<p role={state.ok?"status":"alert"} className={`mt-3 text-sm ${state.ok?"text-[#0c5b45]":"text-[#a5452f]"}`}>{state.message}</p>}
+      {state.message&&<p role={state.ok?"status":"alert"} className={`mt-3 text-sm ${state.ok?"text-[#10243e]":"text-[#a5452f]"}`}>{state.message}</p>}
       <button type="submit" className="ev-button mt-4" disabled={pending}>{pending?"Saving…":"Save revision cycle"}</button>
     </form>}
   </section>;

@@ -51,7 +51,7 @@ export default async function PackagePage({
 
   return (
     <div className="mx-auto min-w-0 max-w-6xl">
-      <Link href={`/app/${organisationId}/projects/${projectId}/work-packages`} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#0c5b45]">
+      <Link href={`/app/${organisationId}/projects/${projectId}/work-packages`} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]">
         <ArrowLeft size={16} aria-hidden="true" /> Transmittals & work packages
       </Link>
       <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"><div className="min-w-0 flex-1"><WorkspacePageHeading
@@ -69,7 +69,7 @@ export default async function PackagePage({
           />
         ) : null}</div>}</div>
 
-      <dl aria-label="Package summary" className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-[#dfe7e3] bg-white px-4 py-4 lg:grid-cols-4 sm:px-5">
+      <dl aria-label="Package summary" className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-[#d6e0ed] bg-white px-4 py-4 lg:grid-cols-4 sm:px-5">
         <Detail label="Status" value={pack.state.replaceAll("_", " ")} />
         <Detail label="Included" value={String(Number(manifest.included ?? 0))} />
         <Detail label="Exceptions" value={String(Number(manifest.exceptions ?? 0))} />
@@ -82,7 +82,7 @@ export default async function PackagePage({
             Recipient & issue details
             <ChevronDown size={16} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
           </summary>
-          <div className="border-t border-[#e5ece8] px-4 py-4 sm:px-5">
+          <div className="border-t border-[#dce5ef] px-4 py-4 sm:px-5">
             <dl className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Detail label="Recipient" value={manifest.recipient?.company ?? "—"} secondary={manifest.recipient?.contact} />
               <Detail label="Purpose" value={pack.purpose ?? "—"} />
@@ -92,7 +92,7 @@ export default async function PackagePage({
             </dl>
           </div>
         </details>
-        <section aria-label="Seal qualification" className="mt-3 flex gap-2.5 rounded-xl border border-[#dfe7e3] bg-[#f7f9f8] px-4 py-3 text-xs leading-5 text-[#526675]">
+        <section aria-label="Seal qualification" className="mt-3 flex gap-2.5 rounded-xl border border-[#d6e0ed] bg-[#f7f9fc] px-4 py-3 text-xs leading-5 text-[#526675]">
             <BadgeCheck className="mt-0.5 shrink-0 text-[#526675]" size={16} aria-hidden="true" />
             {isQualifiedSeal ? (
               <p><strong>Qualified organisation seal:</strong> the transmittal PDF contains a provider-verified qualified certificate. The embedded certificate, its issuer and signature format can be inspected in a trusted PDF reader.</p>
@@ -105,11 +105,11 @@ export default async function PackagePage({
       </>}
 
       <section aria-labelledby="package-documents-heading" className="ev-card mt-4 min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e5ece8] px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dce5ef] px-4 py-4 sm:px-5">
           <h2 id="package-documents-heading" className="text-base font-semibold text-[#10243e]">Package documents</h2>
           <span className="text-xs text-[#526675]">{items?.length ?? 0} document{items?.length === 1 ? "" : "s"}</span>
         </div>
-        {items?.length ? <ul className="divide-y divide-[#e5ece8]">
+        {items?.length ? <ul className="divide-y divide-[#dce5ef]">
           {items.map((item) => (
             <li key={item.id} className="min-w-0 px-4 py-4 sm:px-5">
               <article className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,0.6fr)] lg:items-start">
@@ -120,7 +120,7 @@ export default async function PackagePage({
                   <Detail label="Revision" value={item.revision_code ?? "—"} />
                   <Detail label="Issue status" value={item.issue_status ?? "—"} />
                 </dl>
-                <dl className="min-w-0"><dt className="mb-1 text-xs text-[#526675]">Readiness</dt><dd className={`inline-flex max-w-full rounded-md px-2 py-1 text-xs font-semibold leading-5 ${item.inclusion_state === "included" ? "bg-[#eef5f1] text-[#0c5b45]" : "bg-[#fff2ed] text-[#93402d]"}`}><span className="min-w-0 break-words">{item.inclusion_state.replaceAll("_", " ")}</span></dd></dl>
+                <dl className="min-w-0"><dt className="mb-1 text-xs text-[#526675]">Readiness</dt><dd className={`inline-flex max-w-full rounded-md px-2 py-1 text-xs font-semibold leading-5 ${item.inclusion_state === "included" ? "bg-[#eef3fa] text-[#10243e]" : "bg-[#fff2ed] text-[#93402d]"}`}><span className="min-w-0 break-words">{item.inclusion_state.replaceAll("_", " ")}</span></dd></dl>
               </article>
             </li>
           ))}

@@ -19,7 +19,7 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
       <Hidden organisationId={organisationId} projectId={projectId}/>
       <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#e8733f]"><CalendarClock size={19}/></span><div><h2 className="font-semibold">Weekly report schedule <HelpTip label="Weekly report schedule">Choose the day EngiCite should preserve the weekly project position.</HelpTip></h2></div></div>
       <label className="mt-5 block"><span className="ev-label">Generate every</span><select className="ev-input" name="weekday" defaultValue={String(weekday)}>{REPORT_WEEKDAYS.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
-      <div className="mt-4 flex items-center gap-1 rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-4 text-sm"><label className="flex items-center gap-3"><input type="checkbox" name="enabled" defaultChecked={enabled}/><strong className="text-[#24384f]">Automatic weekly generation</strong></label><HelpTip label="Automatic report timing">Runs after 06:00 UTC on the selected day and notifies project management.</HelpTip></div>
+      <div className="mt-4 flex items-center gap-1 rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] p-4 text-sm"><label className="flex items-center gap-3"><input type="checkbox" name="enabled" defaultChecked={enabled}/><strong className="text-[#24384f]">Automatic weekly generation</strong></label><HelpTip label="Automatic report timing">Runs after 06:00 UTC on the selected day and notifies project management.</HelpTip></div>
       <p className="mt-3 text-xs text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?formatDateTime(lastGeneratedAt):"No report generated yet"}</p>
       <Status state={scheduleState}/><button className="ev-button mt-5" disabled={schedulePending}>{schedulePending?"Saving report settings…":"Save report settings"}</button>
     </form>
@@ -32,5 +32,5 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
 }
 
 function Hidden({organisationId,projectId}:{organisationId:string;projectId:string}){return <><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/></>}
-function Status({state,inverted=false}:{state:ProjectReportActionState;inverted?:boolean}){return state?.message?<p className={`mt-4 rounded-xl p-3 text-xs ${inverted?"bg-white/10 text-white":"bg-[#f3f7f5] text-[#0c5b45]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
+function Status({state,inverted=false}:{state:ProjectReportActionState;inverted?:boolean}){return state?.message?<p className={`mt-4 rounded-xl p-3 text-xs ${inverted?"bg-white/10 text-white":"bg-[#f4f7fb] text-[#10243e]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
 function formatDateTime(value:string){return new Date(value).toLocaleString(undefined,{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}

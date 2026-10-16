@@ -28,7 +28,7 @@ export default async function AppHome(){
      <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#eadfd8] bg-white text-[#e8733f]"><OrganisationLogo organisationId={org.organisation_id} name={org.name} size={48} className="size-full object-contain p-1.5"/></span>
      <div className="min-w-0 flex-1"><h2 className="truncate font-semibold">{org.name}</h2><p className="mt-1 text-xs uppercase tracking-[.1em] text-[#617083]">{org.role==="organisation_admin"?"Organisation Administrator":org.role==="executive_viewer"?"Executive Viewer · Read only":"Project team member"}</p></div><ArrowUpRight size={18}/>
     </Link>
-    {org.role==="organisation_admin"&&<Link href={`/app/${org.organisation_id}/settings`} aria-label={`Manage ${org.name}`} title="Edit or delete organisation" className="grid size-10 shrink-0 place-items-center rounded-xl text-[#617083] transition hover:bg-[#eef4f1] hover:text-[#0c5b45]"><Settings size={18}/></Link>}
+    {org.role==="organisation_admin"&&<Link href={`/app/${org.organisation_id}/settings`} aria-label={`Manage ${org.name}`} title="Edit or delete organisation" className="grid size-10 shrink-0 place-items-center rounded-xl text-[#617083] transition hover:bg-[#eef3fa] hover:text-[#10243e]"><Settings size={18}/></Link>}
    </article>):<div className="ev-card p-10 text-center text-[#617083]">No organisation memberships yet.</div>}</section>
    {canCreateOrganisation&&<OrganisationCreateForm/>}
   </div>

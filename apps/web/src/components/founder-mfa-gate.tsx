@@ -65,7 +65,7 @@ export function FounderMfaGate({
     router.refresh();
   }
 
-  if(currentAal==="aal2")return <div className="ev-card p-7 text-center"><CheckCircle2 className="mx-auto text-[#0c684e]" size={32}/><h2 className="mt-3 text-xl font-semibold">Founder session verified</h2><p className="mt-2 text-sm text-[#617083]">Your high-assurance session is ready.</p><button onClick={()=>router.replace(continueTo)} className="ev-button mt-5">Continue securely</button></div>;
+  if(currentAal==="aal2")return <div className="ev-card p-7 text-center"><CheckCircle2 className="mx-auto text-[#10243e]" size={32}/><h2 className="mt-3 text-xl font-semibold">Founder session verified</h2><p className="mt-2 text-sm text-[#617083]">Your high-assurance session is ready.</p><button onClick={()=>router.replace(continueTo)} className="ev-button mt-5">Continue securely</button></div>;
 
   return <div className="ev-card overflow-hidden">
     <div className="border-b border-[#e2e8ee] bg-[#f8fafc] p-6 sm:p-8"><div className="flex items-start gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#10243e] text-white"><ShieldCheck size={23}/></span><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#e8733f]">Step-up security</p><h2 className="mt-1 text-xl font-semibold">Verify with an authenticator app</h2><p className="mt-2 max-w-xl text-sm leading-6 text-[#617083]">{purpose==="password-recovery"?"Changing the founder password requires the current authenticator code in addition to the secure email recovery link.":"Founder access contains cross-organisation business and account information. A password alone is not sufficient."}</p></div></div></div>

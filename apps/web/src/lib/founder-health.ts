@@ -14,7 +14,7 @@ export function licenceDurationLabel(days: number | null): string {
 }
 
 export function healthClasses(state: FounderHealthState): string {
-  if (state === "healthy") return "border-[#b9decf] bg-[#edf8f4] text-[#0c684e]";
+  if (state === "healthy") return "border-[#d6e0ed] bg-[#eef3fa] text-[#24384f]";
   if (state === "attention") return "border-[#f1d6a0] bg-[#fff8e8] text-[#8b5a0a]";
   return "border-[#efc1bd] bg-[#fff0ef] text-[#a33b35]";
 }

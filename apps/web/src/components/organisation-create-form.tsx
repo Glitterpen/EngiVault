@@ -25,11 +25,11 @@ export function OrganisationCreateForm({initialName="",initialSlug=""}:{initialN
     <label className="mt-4 block"><span className="ev-label">URL slug</span><input className="ev-input" name="slug" defaultValue={initialSlug} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="north-field-engineering" required/></label>
     <label className="mt-4 block">
       <span className="ev-label">Company logo</span>
-      <span className="mt-1 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#b9c8c1] bg-[#f8faf9] p-3 transition hover:border-[#0c5b45]">
+      <span className="mt-1 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#d6e0ed] bg-[#f4f7fb] p-3 transition hover:border-[#10243e]">
         <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-white text-[#e8733f] shadow-sm">
           {preview?<Image unoptimized src={preview} alt="Selected company logo preview" width={56} height={56} className="size-full object-contain p-1"/>:<Building2 size={24}/>} 
         </span>
-        <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ImagePlus size={16}/> {fileName?"Change logo":"Choose company logo"}</span><span className="mt-1 block truncate text-xs text-[#617083]">{fileName||"PNG, JPEG or WebP; maximum 2 MB"}</span></span>
+        <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ImagePlus size={16}/> {fileName?"Change logo":"Choose company logo"}</span><span className="mt-1 block truncate text-xs text-[#617083]">{fileName||"PNG, JPEG or WebP; maximum 2 MB"}</span></span>
         <input className="sr-only" type="file" name="logo" accept="image/png,image/jpeg,image/webp" required onChange={event=>selectLogo(event.target.files?.[0]??null)}/>
       </span>
     </label>

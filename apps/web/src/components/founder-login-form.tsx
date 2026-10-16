@@ -35,19 +35,19 @@ export function FounderLoginForm({
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Restricted platform access</p>
     <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Founder Control Centre <HelpTip label="Founder sign-in">Sign in with the approved founder identity. This route is separate from organisation workspaces and requires authenticator verification before account oversight is opened.</HelpTip></h2>
 
-    {notice&&<div className="mt-5 rounded-xl border border-[#b9d9cb] bg-[#eff8f4] p-3 text-sm leading-6 text-[#0c5b45]" role="status">{notice}</div>}
+    {notice&&<div className="mt-5 rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm leading-6 text-[#10243e]" role="status">{notice}</div>}
     <form action={formAction} className="mt-8 space-y-5">
       <input type="hidden" name="next" value={next?.startsWith("/founder")?next:"/founder"}/>
       <Field label="Founder email" name="email" type="email" autoComplete="email" error={state?.errors?.email?.[0]??resetState?.errors?.email?.[0]}/>
       <Field label="Password" name="password" type="password" autoComplete="current-password" error={state?.errors?.password?.[0]}/>
       {state?.message&&<div className="rounded-xl border border-[#e3cbc5] bg-[#fff7f4] p-3 text-sm leading-6 text-[#7f3b26]" role="alert">{state.message}</div>}
-      {resetState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm leading-6" role="status">{resetState.message}</div>}
+      {resetState?.message&&<div className="rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm leading-6" role="status">{resetState.message}</div>}
       <AuthTurnstile siteKey={captchaSiteKey} resetKey={captchaResetKey} onTokenChange={setCaptchaToken}/>
       <input type="hidden" name="captchaToken" value={captchaToken}/>
       <button className="ev-button w-full" disabled={busy||captchaIncomplete}>{pending?"Verifying founder identity…":"Continue securely"}</button>
       <button className="ev-button-secondary w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resetPending?"Requesting password reset…":"Forgot password?"}</button>
     </form>
-    <p className="mt-6 text-center text-xs leading-5 text-[#728093]">Organisation Administrator, Project Manager, Document Controller or Discipline Engineer? <Link href="/login" className="font-bold text-[#0c684e] hover:underline">Use organisation sign in</Link>.</p>
+    <p className="mt-6 text-center text-xs leading-5 text-[#728093]">Organisation Administrator, Project Manager, Document Controller or Discipline Engineer? <Link href="/login" className="font-bold text-[#10243e] hover:underline">Use organisation sign in</Link>.</p>
   </div>;
 }
 

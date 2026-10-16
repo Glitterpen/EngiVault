@@ -24,7 +24,7 @@ export function OrganisationBrandingGate({organisation,children}:{organisation:{
    .finally(()=>window.clearTimeout(timeout));
   return()=>{mounted=false;window.clearTimeout(timeout);controller.abort()};
  },[organisation.id]);
- if(status==="checking")return <div className="grid min-h-[45vh] place-items-center text-[#0c5b45]"><span className="flex items-center gap-2 text-sm font-semibold"><LoaderCircle className="animate-spin" size={18}/> Loading company identity…</span></div>;
+ if(status==="checking")return <div className="grid min-h-[45vh] place-items-center text-[#10243e]"><span className="flex items-center gap-2 text-sm font-semibold"><LoaderCircle className="animate-spin" size={18}/> Loading company identity…</span></div>;
  if(status==="missing")return <OrganisationLogoRequired organisation={organisation}/>;
  return children;
 }

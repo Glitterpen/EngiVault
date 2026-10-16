@@ -19,11 +19,11 @@ export function mdrFilterUrl(filters:MdrFilters,changes:Partial<MdrFilters>={}){
 }
 export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabel,filters,disciplines,total,canManage,canSeeRemoved,canUseAi,refreshKey,registerAction,importAction,assignmentPanel,assignmentNotice,notice}:Props){
   const base=`/app/${organisationId}/projects/${projectId}`,archived=filters.records==="removed";
-  const tab="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-[#617083] hover:bg-[#f3f7f5]";
-  const active="bg-[#edf3f0] font-semibold text-[#0c5b45]";
+  const tab="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-[#617083] hover:bg-[#f4f7fb]";
+  const active="bg-[#eef3fa] font-semibold text-[#10243e]";
   return <div className="mx-auto min-w-0 max-w-[1400px] space-y-4">
     <header>
-      <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16} aria-hidden="true"/>{backLabel}</Link>
+      <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>{backLabel}</Link>
       <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-3">
         <h1 className="flex min-w-0 flex-wrap items-center gap-x-2 break-words text-2xl font-semibold leading-tight tracking-tight text-[#10243e] sm:text-[1.75rem]">{archived?"Removed deliverables":"Master document register"}<HelpTip label="Master document register guidance">All disciplines with MDR documents appear as folders, collapsed on arrival. Open a folder to browse its documents, or search by document number, title, discipline or type. Each folder has its own pages. Due dates stay visible; the details icon holds schedule history and other metadata. Removed records retain revision and audit history.</HelpTip></h1>
       </div>
@@ -41,7 +41,7 @@ export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabe
       {archived&&<input type="hidden" name="records" value="removed"/>}
       <label className="min-w-0 flex-1 basis-56"><span className="ev-label">Search the MDR</span><input className="ev-input" name="q" type="search" maxLength={100} defaultValue={filters.q??""} placeholder="Document number, title, discipline or type"/></label>
       <button className="ev-button-secondary"><Search size={16} aria-hidden="true"/>Search</button>
-      {filters.q&&<Link href={mdrFilterUrl({records:filters.records})} className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#0c5b45]">Clear search</Link>}
+      {filters.q&&<Link href={mdrFilterUrl({records:filters.records})} className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#10243e]">Clear search</Link>}
     </form>
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dfe6e9] pb-2">
       <nav aria-label="Register records" className="flex flex-wrap gap-1">

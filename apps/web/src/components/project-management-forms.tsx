@@ -28,16 +28,16 @@ export function EditableProjectBrief({organisationId,projectId,introduction,obje
           <p className="mt-3 max-w-4xl whitespace-pre-line text-sm leading-7 text-[#24384f]">{introduction||"No project introduction has been recorded."}</p>
           <div className="mt-5"><p className="ev-label">Key objectives</p>{objectives.length?<ol className="mt-3 grid gap-2 text-sm text-[#24384f] sm:grid-cols-2">{objectives.map((objective,index)=><li className="flex gap-2" key={`${index}-${objective}`}><span className="font-bold text-[#e8733f]">{index+1}.</span><span>{objective}</span></li>)}</ol>:<p className="mt-2 text-sm text-[#617083]">No key objectives have been recorded.</p>}</div>
         </div>
-        <ShieldCheck className="shrink-0 text-[#0c5b45]" aria-hidden="true"/>
+        <ShieldCheck className="shrink-0 text-[#10243e]" aria-hidden="true"/>
       </div>
-      <div className="mt-5 grid gap-3 border-t border-[#edf1ef] pt-5 sm:grid-cols-2 xl:grid-cols-4"><BriefDatum label="Delivery stage" value={projectDeliveryStageLabel(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="100% issue milestone" value={projectTerminalIssueStatus(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="Planned start" value={formatDisplayDate(startDate)}/><BriefDatum label="Planned completion" value={formatDisplayDate(endDate)}/><BriefDatum label="DCC appointed" value={dccCount===null?"Unavailable":dccCount?`${dccCount} active`:"Not appointed"} warn={dccCount===0}/></div>
+      <div className="mt-5 grid gap-3 border-t border-[#d6e0ed] pt-5 sm:grid-cols-2 xl:grid-cols-4"><BriefDatum label="Delivery stage" value={projectDeliveryStageLabel(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="100% issue milestone" value={projectTerminalIssueStatus(deliveryStage)} warn={!deliveryStage}/><BriefDatum label="Planned start" value={formatDisplayDate(startDate)}/><BriefDatum label="Planned completion" value={formatDisplayDate(endDate)}/><BriefDatum label="DCC appointed" value={dccCount===null?"Unavailable":dccCount?`${dccCount} active`:"Not appointed"} warn={dccCount===0}/></div>
     </>}
   </article>;
 }
 
 export function ProjectBriefForm({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,embedded=false}:ProjectBriefProps&{embedded?:boolean}){
   const [state,action,pending]=useActionState<WorkflowState,FormData>(updateProjectBrief,undefined);
-  return <form action={action} className={embedded?"mt-5 border-t border-[#edf1ef] pt-5":"ev-card p-5 sm:p-6"}>
+  return <form action={action} className={embedded?"mt-5 border-t border-[#d6e0ed] pt-5":"ev-card p-5 sm:p-6"}>
     <Hidden organisationId={organisationId} projectId={projectId}/>
     {!embedded&&<div className="flex items-center gap-2"><CalendarRange size={18} className="text-[#e8733f]"/><h2 className="font-semibold">Project brief and timeline</h2></div>}
     <FieldWithHelp className={embedded?"block":"mt-4 block"} label={<>Engineering delivery stage</>} helpLabel="Engineering delivery stage" help={<>This controls revision credit throughout project dashboards and reports. Review and Approval remain partial progress unless they are the project&apos;s terminal milestone.</>}><select className="ev-input" name="deliveryStage" defaultValue={deliveryStage??""} required><option value="" disabled>Select Concept, FEED or DED</option>{PROJECT_DELIVERY_STAGES.map(stage=><option value={stage.value} key={stage.value}>{stage.label} — 100% at {stage.terminalIssueStatus}</option>)}</select></FieldWithHelp>
@@ -63,8 +63,8 @@ export function ResourcePlanForm({organisationId,projectId,disciplines,embedded=
   },[state]);
   return <form ref={form} action={action} aria-labelledby={titleId} aria-busy={pending} onInvalidCapture={revealDisclosure} className={embedded?"min-w-0":"ev-card min-w-0 p-4 sm:p-5"}>
     <Hidden organisationId={organisationId} projectId={projectId}/>
-    <div className="flex min-w-0 items-center gap-2"><UsersRound size={18} className="shrink-0 text-[#0c5b45]" aria-hidden="true"/><h2 id={titleId} className="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">Plan discipline resources</h2><HelpTip label="Resource planning">Set how many engineers the project needs, then use the invitation button at the top of this page to fill the requirement.</HelpTip></div>
-    {!disciplines.length&&<p className="mt-3 rounded-lg bg-[#f7f9f8] p-3 text-sm text-[#617083]">Add a project discipline before planning its resources.</p>}
+    <div className="flex min-w-0 items-center gap-2"><UsersRound size={18} className="shrink-0 text-[#10243e]" aria-hidden="true"/><h2 id={titleId} className="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">Plan discipline resources</h2><HelpTip label="Resource planning">Set how many engineers the project needs, then use the invitation button at the top of this page to fill the requirement.</HelpTip></div>
+    {!disciplines.length&&<p className="mt-3 rounded-lg bg-[#f4f7fb] p-3 text-sm text-[#617083]">Add a project discipline before planning its resources.</p>}
     <div className="mt-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,.65fr)]">
       <label className="min-w-0"><span className="ev-label">Discipline</span><select className="ev-input min-h-11 w-full" name="discipline" required defaultValue=""><option value="" disabled>Select discipline</option>{disciplines.map(item=><option key={item.name} value={item.name}>{disciplineLabel(item)}</option>)}</select></label>
       <label className="min-w-0"><span className="ev-label">Required engineers</span><input className="ev-input min-h-11 w-full" name="requiredCount" type="number" min="0" max="100" defaultValue="1" required/></label>
@@ -81,6 +81,6 @@ export function ProjectIssueForm({organisationId,projectId,embedded=false}:Base&
 
 function Hidden({organisationId,projectId}:Base){return <><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/></>}
 function Date({name,label,value}:{name:string;label:string;value:string}){return <label><span className="ev-label">{label}</span><input className="ev-input" name={name} type="date" defaultValue={value}/></label>}
-function Status({state}:{state:WorkflowState}){return state?.message?<p className={`mt-4 text-xs ${state.ok?"text-[#0c5b45]":"text-[#a5452f]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
+function Status({state}:{state:WorkflowState}){return state?.message?<p className={`mt-4 text-xs ${state.ok?"text-[#10243e]":"text-[#a5452f]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
 function BriefDatum({label,value,warn=false}:{label:string;value:string;warn?:boolean}){return <div><p className="ev-label">{label}</p><p className={`mt-1 text-sm font-semibold ${warn?"text-[#a5452f]":""}`}>{value}</p></div>}
 function formatDisplayDate(value:string){if(!value)return "Not planned";const date=new globalThis.Date(`${value}T00:00:00Z`);return Number.isNaN(date.getTime())?"Not planned":date.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"})}

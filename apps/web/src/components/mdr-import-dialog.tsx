@@ -87,7 +87,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
       <FileSpreadsheet size={16} /> Import Excel
     </button>
     <dialog ref={dialog} aria-label="Import Master Document Register from Excel" onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }} className="m-auto max-h-[94vh] w-[min(96vw,1050px)] overflow-hidden rounded-2xl border border-[#dce2e9] bg-white p-0 text-[#10243e] shadow-[0_28px_90px_rgba(16,36,62,.32)] backdrop:bg-[#10243e]/65 backdrop:backdrop-blur-sm">
-      <header className="flex items-center justify-between border-b border-[#dfe7e3] px-5 py-4 sm:px-6">
+      <header className="flex items-center justify-between border-b border-[#d6e0ed] px-5 py-4 sm:px-6">
         <div><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#e8733f]">Master document register</p><h2 className="mt-1 font-semibold">Import planned deliverables from Excel</h2></div>
         <button type="button" onClick={() => dialog.current?.close()} className="grid size-9 place-items-center rounded-lg border border-[#dce2e9] text-[#617083] hover:border-[#e8733f] hover:text-[#e8733f]" aria-label="Close Excel import"><X size={16} /></button>
       </header>
@@ -99,7 +99,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
           <Step number="2" title="Choose workbook" body="Excel .xlsx only, up to 5 MB and 500 rows.">
             <label htmlFor={inputId} className="ev-button-secondary mt-4 w-full cursor-pointer"><Upload size={16} /> Choose Excel file</label>
             <input id={inputId} className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} />
-            <p className="mt-2 truncate text-xs font-semibold text-[#0c5b45]">{file?.name ?? "No file selected"}</p>
+            <p className="mt-2 truncate text-xs font-semibold text-[#10243e]">{file?.name ?? "No file selected"}</p>
           </Step>
           <Step number="3" title="Preview and import" body="Nothing is saved until every row passes validation.">
             <button type="button" className="ev-button mt-4 w-full" disabled={busy || !file} onClick={previewWorkbook}><FileCheck2 size={16} /> {busy ? "Checking workbook..." : "Preview workbook"}</button>
@@ -116,28 +116,28 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
             <Summary label="Ready" value={preview.validCount} good />
             <Summary label="Need correction" value={preview.errorCount} warning={preview.errorCount > 0} />
           </div>
-          <div className="mt-4 overflow-x-auto rounded-xl border border-[#dfe7e3]">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-[#d6e0ed]">
             <table className="w-full min-w-[850px] text-left text-xs">
-              <thead className="bg-[#f8faf8] text-[10px] uppercase tracking-[.12em] text-[#617083]"><tr><th className="p-3">Excel row</th><th>Document</th><th>Title</th><th>Discipline</th><th>Type</th><th>Submission</th><th>Validation</th></tr></thead>
-              <tbody>{preview.rows.slice(0, 15).map((row) => <tr key={row.row_number} className="border-t border-[#edf1ef] align-top"><td className="p-3 font-bold">{row.row_number}</td><td className="max-w-44 p-3 font-semibold text-[#0c5b45]">{row.document_number ?? "-"}</td><td className="max-w-60 p-3">{row.title ?? "-"}</td><td className="p-3">{row.discipline ?? "-"}</td><td className="p-3">{row.document_type ?? "-"}</td><td className="p-3">{row.planned_submission_date ?? "-"}</td><td className={`max-w-72 p-3 ${row.is_valid ? "font-semibold text-[#0c5b45]" : "text-[#a5452f]"}`}>{row.is_valid ? "Ready" : row.errors.join(" ")}</td></tr>)}</tbody>
+              <thead className="bg-[#f4f7fb] text-[10px] uppercase tracking-[.12em] text-[#617083]"><tr><th className="p-3">Excel row</th><th>Document</th><th>Title</th><th>Discipline</th><th>Type</th><th>Submission</th><th>Validation</th></tr></thead>
+              <tbody>{preview.rows.slice(0, 15).map((row) => <tr key={row.row_number} className="border-t border-[#d6e0ed] align-top"><td className="p-3 font-bold">{row.row_number}</td><td className="max-w-44 p-3 font-semibold text-[#10243e]">{row.document_number ?? "-"}</td><td className="max-w-60 p-3">{row.title ?? "-"}</td><td className="p-3">{row.discipline ?? "-"}</td><td className="p-3">{row.document_type ?? "-"}</td><td className="p-3">{row.planned_submission_date ?? "-"}</td><td className={`max-w-72 p-3 ${row.is_valid ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{row.is_valid ? "Ready" : row.errors.join(" ")}</td></tr>)}</tbody>
             </table>
           </div>
           {preview.rows.length > 15 && <p className="mt-2 text-xs text-[#617083]">Showing the first 15 of {preview.rows.length} rows.</p>}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f7f9f8] p-4">
-            <p className={`text-sm ${preview.canImport ? "font-semibold text-[#0c5b45]" : "text-[#a5452f]"}`}>{message}</p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f4f7fb] p-4">
+            <p className={`text-sm ${preview.canImport ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{message}</p>
             <button type="button" className="ev-button" disabled={busy || !preview.canImport} onClick={importWorkbook}><Upload size={16} /> {busy ? "Importing..." : `Import ${preview.validCount} documents`}</button>
           </div>
         </section>}
-        {!preview && message && <p className="mt-4 rounded-xl border border-[#dfe7e3] bg-[#f8faf8] p-4 text-sm text-[#617083]" role="status">{message}</p>}
+        {!preview && message && <p className="mt-4 rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] p-4 text-sm text-[#617083]" role="status">{message}</p>}
       </div>
     </dialog>
   </>;
 }
 
 function Step({ number, title, body, children }: { number: string; title: string; body: string; children: React.ReactNode }) {
-  return <article className="rounded-xl border border-[#dfe7e3] p-4"><div className="flex items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{number}</span><h3 className="font-semibold">{title} <HelpTip label={`${title} guidance`}>{body}</HelpTip></h3></div>{children}</article>;
+  return <article className="rounded-xl border border-[#d6e0ed] p-4"><div className="flex items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#10243e] text-xs font-bold text-white">{number}</span><h3 className="font-semibold">{title} <HelpTip label={`${title} guidance`}>{body}</HelpTip></h3></div>{children}</article>;
 }
 
 function Summary({ label, value, good = false, warning = false }: { label: string; value: number; good?: boolean; warning?: boolean }) {
-  return <div className={`rounded-xl border p-4 ${warning ? "border-[#f0c8b7] bg-[#fff6f2]" : good ? "border-[#cce2d7] bg-[#f1f7f4]" : "border-[#dfe7e3] bg-white"}`}><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#617083]">{label}</p><p className={`mt-1 text-2xl font-semibold ${warning ? "text-[#a5452f]" : good ? "text-[#0c5b45]" : ""}`}>{value}</p></div>;
+  return <div className={`rounded-xl border p-4 ${warning ? "border-[#f0c8b7] bg-[#fff6f2]" : good ? "border-[#d6e0ed] bg-[#eef3fa]" : "border-[#d6e0ed] bg-white"}`}><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#617083]">{label}</p><p className={`mt-1 text-2xl font-semibold ${warning ? "text-[#a5452f]" : good ? "text-[#10243e]" : ""}`}>{value}</p></div>;
 }
