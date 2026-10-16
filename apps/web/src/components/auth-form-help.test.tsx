@@ -11,8 +11,8 @@ describe("authentication guidance",()=>{
   expect(screen.queryByText(/Lowercase letters/)).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:"Organisation URL name guidance"}));
   expect(screen.getByRole("tooltip").textContent).toContain("Lowercase letters");
+  fireEvent.click(screen.getByText("Need help registering?",{selector:"summary"}));
   expect(screen.getByRole("button",{name:"Forgot password?"})).toBeTruthy();
-  fireEvent.click(screen.getByText("Need help signing in?",{selector:"summary"}));
   expect(screen.getByRole("button",{name:"Account not verified? Resend verification"})).toBeTruthy();
  });
  it("never hides access errors or verification notices behind help",()=>{
