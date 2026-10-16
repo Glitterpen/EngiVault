@@ -1,20 +1,18 @@
-import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {redirect} from "next/navigation";
-import {AlertTriangle,ArrowLeft,ClipboardCheck,Clock3,ShieldCheck,Target,UserCheck,UserCog,Users,X} from "lucide-react";
+import {ArrowLeft,ClipboardCheck} from "lucide-react";
+import {HelpTip} from "@/components/help-tip";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {requireProject} from "@/lib/auth";
-import {can,canInviteProjectRole,canRemoveProjectMember,invitableProjectRoles} from "@/lib/permissions";
-import {setMemberDiscipline,setMemberRole} from "@/app/app/workflow-actions";
+import {invitableProjectRoles} from "@/lib/permissions";
 import {ProjectInviteDialog} from "@/components/project-invite-dialog";
 import {PendingProjectInvitations,type PendingProjectInvitation} from "@/components/pending-project-invitations";
-import {ProjectMemberRemove} from "@/components/project-member-remove";
 import {ProjectDisciplineManager} from "@/components/project-discipline-manager";
-import {disciplineLabel} from "@/lib/project-disciplines";
+import {ProjectTeamDirectory,type ProjectTeamMember} from "@/components/project-team-directory";
 import {activeProjectResourcePlans} from "@/lib/project-resource-readiness";
 import {ResourcePlanForm} from "@/components/project-management-forms";
 import {projectHomePath,workspacePersona} from "@/lib/role-experience";
 
-type Member={user_id:string;display_name:string;email:string;role:string;disciplines:string[]};
 type Discipline={code:string;name:string;kind:string};
 type Resource={id:string;discipline:string;required_count:number;notes:string|null};
 
@@ -27,16 +25,15 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
   const isDcc=role==="document_controller";
   const isOrganisationAdmin=role==="organisation_admin";
   const allowedRoles=invitableProjectRoles(role);
-  const canReview=isDcc;
-  const canManageEngineers=can(role,"engineers:manage");
-  const [{data:team},{data:categoryRows,error:categoryError},{data:pendingRows},{data:resourceRows,error:resourceError}]=await Promise.all([
+  const [{data:team,error:teamError},{data:categoryRows,error:categoryError},{data:pendingRows,error:pendingError},{data:resourceRows,error:resourceError}]=await Promise.all([
     supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),
     supabase.rpc("get_project_document_categories",{target_organisation:organisationId,target_project:projectId}),
-    allowedRoles.length?supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId}):Promise.resolve({data:[]}),
+    allowedRoles.length?supabase.rpc("get_pending_project_invitations",{target_organisation:organisationId,target_project:projectId}):Promise.resolve({data:[],error:null}),
     supabase.from("project_resource_plans").select("id,discipline,required_count,notes").eq("organisation_id",organisationId).eq("project_id",projectId).order("discipline")
   ]);
   if(categoryError||resourceError)throw new Error("Project resource readiness could not be loaded. Please retry.");
-  const allMembers=(team??[]) as Member[];
+  if(teamError||pendingError)throw new Error("Project team details could not be loaded. Please retry.");
+  const allMembers=(team??[]) as ProjectTeamMember[];
   const members=isDcc?allMembers.filter(member=>member.role==="engineer"):isOrganisationAdmin?allMembers.filter(member=>member.role==="project_admin"||member.role==="document_controller"):allMembers;
   const disciplines=((categoryRows??[]) as Discipline[]).filter(item=>item.kind==="discipline");
   const {data:removedRows,error:removedError}=role==="project_admin"?await supabase.from("project_disciplines").select("name,code").eq("organisation_id",organisationId).eq("project_id",projectId).eq("is_active",false).order("name"): {data:[],error:null};
@@ -45,49 +42,37 @@ export default async function TeamPage({params}:{params:Promise<{organisationId:
   const resources=activeProjectResourcePlans((resourceRows??[]) as Resource[],disciplines);
   const pending=((pendingRows??[]) as PendingProjectInvitation[]).filter(invitation=>allowedRoles.some(allowedRole=>allowedRole===invitation.project_role));
   const workspaceTitle=isDcc?"Discipline engineers":isOrganisationAdmin?"Project leadership appointments":"Project team & resources";
-  const workspaceKicker=isDcc?"Document control resources":isOrganisationAdmin?"Organisation governance":"Project management resources";
+  const context=isDcc?"Appointed engineers and authorised disciplines":isOrganisationAdmin?"Project Manager and Document Controller appointments":"People, discipline coverage and project resource planning";
   const activeEngineers=allMembers.filter(member=>member.role==="engineer");
   const requiredPositions=resources.reduce((sum,resource)=>sum+resource.required_count,0);
-  const vacancies=resources.reduce((sum,resource)=>sum+Math.max(0,resource.required_count-activeEngineers.filter(member=>member.disciplines.some(discipline=>sameDiscipline(discipline,resource.discipline))).length),0);
+  const coverage=resources.map(resource=>{const assigned=activeEngineers.filter(member=>member.disciplines.some(discipline=>sameDiscipline(discipline,resource.discipline))).length;return {...resource,assigned,gap:Math.max(0,resource.required_count-assigned)};});
+  const vacancies=coverage.reduce((sum,resource)=>sum+resource.gap,0);
+  const guidance=isDcc?"View discipline engineers appointed by the Project Manager. Allocate their deliverables from the MDR; Document Control cannot create project invitations.":isOrganisationAdmin?"Appoint the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Plan resource requirements, invite one work email for one or more disciplines, and manage accepted access. Open Manage access for role and discipline changes.";
 
-  return <div className="mx-auto max-w-[1500px]">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <Link href={isDcc?`/app/${organisationId}/projects/${projectId}/control`:`/app/${organisationId}/projects/${projectId}/overview`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16}/> {isDcc?"Document control centre":"Project overview"}</Link>
-      <div className="flex flex-wrap gap-2">{allowedRoles.length>0&&<ProjectInviteDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} allowedRoles={allowedRoles} label={isOrganisationAdmin?"Appoint Project Manager or DCC":"Invite discipline engineer"}/>} {canReview&&<Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="ev-button-secondary"><ClipboardCheck size={16}/> Review submissions</Link>}</div>
-    </div>
-    <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">{workspaceKicker}</p>
-    <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold"><Users/> {workspaceTitle}</h1>
-    <HelpTip label="Project team and resources guidance">{isDcc?"View discipline engineers already appointed by the Project Manager, then allocate their discipline deliverables from the Master Document Register. Document Control cannot create project invitations.":isOrganisationAdmin?"Appoint only the Project Manager and Document Controller. The Project Manager controls the wider team and discipline resource plan.":"Plan discipline requirements, invite one work email for one or more disciplines, follow pending invitations and manage active project resources. For existing engineers, add authorised disciplines below without creating another account."}</HelpTip>
+  return <div className="mx-auto min-w-0 max-w-[1500px] space-y-5">
+    <Link href={isDcc?`/app/${organisationId}/projects/${projectId}/control`:`/app/${organisationId}/projects/${projectId}/overview`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45]"><ArrowLeft size={16} aria-hidden="true"/> {isDcc?"Document control centre":"Project overview"}</Link>
+    <WorkspacePageHeading title={workspaceTitle} context={context} help={<HelpTip label="Project team and resources guidance">{guidance}</HelpTip>} actions={<>{allowedRoles.length>0&&<ProjectInviteDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} allowedRoles={allowedRoles} label={isOrganisationAdmin?"Appoint Project Manager or DCC":"Invite discipline engineer"}/>} {isDcc&&<Link href={`/app/${organisationId}/projects/${projectId}/reviews`} className="ev-button-secondary min-h-11"><ClipboardCheck size={16} aria-hidden="true"/> Review submissions</Link>}</>}/>
 
-    <section className={`ev-compact-metrics mt-4 grid grid-cols-2 gap-3 ${role==="project_admin"?"xl:grid-cols-4":"xl:grid-cols-2"}`}>
-      <TeamMetric label="Active members" value={members.length} icon={<UserCheck size={18}/>}/>
-      <TeamMetric label="Pending invitations" value={pending.length} icon={<Clock3 size={18}/>} warn={pending.length>0}/>
-      {role==="project_admin"&&<><TeamMetric label="Planned positions" value={requiredPositions} icon={<Target size={18}/>}/><TeamMetric label="Unfilled positions" value={vacancies} icon={<AlertTriangle size={18}/>} warn={vacancies>0}/></>}
+    <section aria-label="Team summary" className={`grid divide-x divide-[#e7ecef] overflow-hidden rounded-2xl border border-[#e0e7ec] bg-white ${role==="project_admin"?"grid-cols-2 sm:grid-cols-4":allowedRoles.length?"grid-cols-2":"grid-cols-1"}`}>
+      <TeamMetric label="Active members" value={members.length}/>
+      {allowedRoles.length>0&&<TeamMetric label="Pending invitations" value={pending.length}/>}
+      {role==="project_admin"&&<><TeamMetric label="Planned positions" value={requiredPositions}/><TeamMetric label="Unfilled positions" value={vacancies}/></>}
     </section>
 
-    {role==="project_admin"&&<ProjectDisciplineManager organisationId={organisationId} projectId={projectId} disciplines={disciplines} removedDisciplines={removedDisciplines} readOnly={Boolean(preview)}/>}
-    {role==="project_admin"&&<section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
-      <article className="ev-card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#edf1ef] px-5 py-4 sm:px-6"><div><h2 className="font-semibold">Discipline resource readiness <HelpTip label="Resource coverage">Planned positions compared with engineers who have accepted their invitation.</HelpTip></h2></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${vacancies?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{vacancies?`${vacancies} position${vacancies===1?"":"s"} open`:"Fully resourced"}</span></div><div className="grid gap-px bg-[#edf1ef] md:grid-cols-2">{resources.length?resources.map(resource=>{const assigned=activeEngineers.filter(member=>member.disciplines.some(discipline=>sameDiscipline(discipline,resource.discipline))).length;const gap=Math.max(0,resource.required_count-assigned);return <div className="bg-white p-5" key={resource.id}><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{resource.discipline}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${gap?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{gap?`${gap} open`:"Ready"}</span></div><p className="mt-3 text-2xl font-semibold">{assigned}<span className="text-sm font-normal text-[#617083]"> / {resource.required_count} active</span></p>{resource.notes&&<p className="mt-2 text-xs leading-5 text-[#617083]">{resource.notes}</p>}</div>}):<p className="bg-white p-8 text-center text-sm text-[#617083] md:col-span-2">No discipline requirements have been planned yet. Add the first requirement using the form.</p>}</div></article>
-      <ResourcePlanForm organisationId={organisationId} projectId={projectId} disciplines={disciplines}/>
-    </section>}
+    {allowedRoles.length>0&&(pending.length>0?<PendingProjectInvitations organisationId={organisationId} projectId={projectId} invitations={pending}/>:<details className="ev-card min-w-0"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#405566] sm:px-5">Pending invitations <span className="ml-2 text-xs font-normal text-[#526675]">0 awaiting acceptance</span></summary><p className="border-t border-[#e7ecef] px-4 py-3 text-sm text-[#526675] sm:px-5">No invitations are awaiting acceptance. Invite a team member using the invitation button above.</p></details>)}
 
-    {allowedRoles.length>0&&(pending.length>0?<PendingProjectInvitations organisationId={organisationId} projectId={projectId} invitations={pending}/>:<details className="ev-card mt-5"><summary className="min-h-11 cursor-pointer px-4 py-3.5 font-semibold text-[#24384f] sm:px-5">Pending invitations <span className="ml-2 inline-block rounded-full bg-[#e8f1ed] px-2.5 py-1 text-xs text-[#0c5b45]">0 awaiting acceptance</span></summary><p className="border-t border-[#edf1ef] px-4 py-3 text-sm text-[#617083] sm:px-5">No invitations are awaiting acceptance. Invite a team member using the invitation button above.</p></details>)}
+    <ProjectTeamDirectory organisationId={organisationId} projectId={projectId} members={members} disciplines={disciplines} role={role} currentUserId={user.id} emptyMessage={isDcc?"No discipline engineers have joined this project yet.":isOrganisationAdmin?"No Project Manager or Document Controller has joined this project yet.":"No active project members."}/>
 
-    <div className="mt-8 flex items-end justify-between gap-3"><div><p className="ev-label">Accepted access</p><h2 className="mt-1 text-xl font-semibold">Active team members</h2></div><span className="text-xs font-semibold text-[#617083]">{members.length} active</span></div>
-    <section className="mt-4 grid gap-4">
-      {members.map(member=>{const canEditRole=canInviteProjectRole(role,member.role);const canRemove=member.user_id!==user.id&&canRemoveProjectMember(role,member.role);return <article className="ev-card p-5" key={member.user_id}>
-        <div className="flex flex-wrap justify-between gap-3">
-          <div><h2 className="font-semibold">{member.display_name}</h2><p className="mt-1 text-xs text-[#617083]">{member.email} · {member.role.replaceAll("_"," ")}</p></div>
-          {member.role==="engineer"?<div className="flex flex-wrap justify-end gap-2">{member.disciplines?.length?member.disciplines.map(discipline=><div key={discipline} className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f1ed] px-3 py-1 text-xs font-semibold text-[#0c5b45]"><ShieldCheck size={13}/>{discipline}{canManageEngineers&&<form action={setMemberDiscipline}><Hidden organisationId={organisationId} projectId={projectId}/><input type="hidden" name="userId" value={member.user_id}/><input type="hidden" name="discipline" value={discipline}/><input type="hidden" name="enabled" value="false"/><button className="ml-1 grid size-11 shrink-0 place-items-center rounded-full hover:bg-[#cee0d8]" aria-label={`Remove ${discipline} access from ${member.display_name}`}><X size={15} aria-hidden="true"/></button></form>}</div>):<span className="text-xs font-semibold text-[#a5452f]">No discipline assigned</span>}</div>:<span className="text-xs font-semibold capitalize text-[#0c5b45]">{member.role.replaceAll("_"," ")}</span>}
-        </div>
-        {canEditRole&&<div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-[#edf1ef] pt-4"><form action={setMemberRole} className="flex flex-wrap items-end gap-2"><Hidden organisationId={organisationId} projectId={projectId}/><input type="hidden" name="userId" value={member.user_id}/><label className="min-w-56"><span className="ev-label">Project role</span><select className="ev-input" name="role" defaultValue={member.role}>{allowedRoles.map(value=><option key={value} value={value}>{value==="project_admin"?"Project Manager":value==="document_controller"?"Document Controller":"Discipline Engineer"}</option>)}</select></label><button className="ev-button-secondary"><UserCog size={16}/> Update role</button></form>{canRemove&&<ProjectMemberRemove organisationId={organisationId} projectId={projectId} member={{userId:member.user_id,name:member.display_name,role:member.role}}/>}</div>}
-        {member.role==="engineer"&&canManageEngineers&&<form action={setMemberDiscipline} className="mt-4 flex flex-wrap gap-2 border-t border-[#edf1ef] pt-4"><Hidden organisationId={organisationId} projectId={projectId}/><input type="hidden" name="userId" value={member.user_id}/><input type="hidden" name="enabled" value="true"/><label className="block w-full min-w-0 max-w-xs"><span className="sr-only">Add authorised discipline for {member.display_name}</span><select className="ev-input" name="discipline" required defaultValue=""><option value="" disabled>Add authorised discipline</option>{disciplines.map(item=><option key={item.name} value={item.name}>{disciplineLabel(item)}</option>)}</select></label><button className="ev-button-secondary" disabled={!disciplines.length}>Add discipline</button>{!disciplines.length&&<p className="w-full text-xs text-[#a5452f]">Configure an active MDR discipline category first.</p>}</form>}
-      </article>})}
-      {!members.length&&<div className="ev-card p-10 text-center text-[#617083]">{isDcc?"No discipline engineers have joined this project yet.":isOrganisationAdmin?"No Project Manager or Document Controller has joined this project yet.":"No active project members."}</div>}
-    </section>
+    {role==="project_admin"&&<>
+      <article aria-labelledby="team-resource-readiness" className="ev-card min-w-0 overflow-hidden">
+        <header className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-[#e7ecef] px-4 py-3 sm:px-5"><div className="flex min-w-0 items-center gap-1.5"><h2 id="team-resource-readiness" className="text-base font-semibold">Discipline resource readiness</h2><HelpTip label="Resource coverage">Planned positions compared with engineers who have accepted their invitation. A person authorised for multiple disciplines counts in each matching discipline.</HelpTip></div><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${!coverage.length?"bg-[#f0f3f6] text-[#405566]":vacancies?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{!coverage.length?"No requirements":vacancies?`${vacancies} position${vacancies===1?"":"s"} open`:"Fully resourced"}</span></header>
+        <div className="grid gap-px bg-[#e7ecef] lg:grid-cols-2">{coverage.length?coverage.map(resource=><section key={resource.id} aria-label={`${resource.discipline} resource coverage`} className="min-w-0 bg-white px-4 py-3 sm:px-5"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><div className="min-w-0 flex-1"><h3 className="text-sm font-semibold [overflow-wrap:anywhere]">{resource.discipline}</h3><p className="mt-1 text-xs text-[#526675]">{resource.assigned} / {resource.required_count} active</p></div><span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${resource.gap?"bg-[#fff0e9] text-[#a5452f]":"bg-[#e8f1ed] text-[#0c5b45]"}`}>{resource.gap?`${resource.gap} open`:"Ready"}</span></div>{resource.notes&&<p className="mt-1.5 text-xs leading-5 text-[#526675] [overflow-wrap:anywhere]">{resource.notes}</p>}</section>):<p className="bg-white px-4 py-6 text-sm text-[#526675] sm:px-5 lg:col-span-2">No discipline requirements have been planned yet. Add a resource requirement below.</p>}</div>
+        <details className="min-w-0 border-t border-[#e7ecef]"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#405566] sm:px-5">Plan discipline resources</summary><div className="border-t border-[#e7ecef] px-4 py-4 sm:px-5"><ResourcePlanForm organisationId={organisationId} projectId={projectId} disciplines={disciplines} embedded/></div></details>
+      </article>
+      <ProjectDisciplineManager organisationId={organisationId} projectId={projectId} disciplines={disciplines} removedDisciplines={removedDisciplines} readOnly={Boolean(preview)}/>
+    </>}
   </div>;
 }
 
-function Hidden({organisationId,projectId}:{organisationId:string;projectId:string}){return <><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/></>}
-function TeamMetric({label,value,icon,warn=false}:{label:string;value:number;icon:React.ReactNode;warn?:boolean}){return <article className="ev-card p-5"><span className={warn?"text-[#b6532b]":"text-[#e8733f]"}>{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#617083]">{label}</p></article>}
-function sameDiscipline(left:string,right:string){return left.trim().replaceAll(/\s+/g," ").toLocaleLowerCase("en")===right.trim().replaceAll(/\s+/g," ").toLocaleLowerCase("en")}
+function TeamMetric({label,value}:{label:string;value:number}){return <article className="min-w-0 px-4 py-3 sm:px-5"><p className="text-xs leading-5 text-[#526675]">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#10243e]">{value}</p></article>;}
+function sameDiscipline(left:string,right:string){return left.trim().replaceAll(/\s+/g," ").toLocaleLowerCase("en")===right.trim().replaceAll(/\s+/g," ").toLocaleLowerCase("en");}

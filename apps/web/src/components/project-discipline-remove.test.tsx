@@ -59,4 +59,27 @@ describe("discipline removal confirmation",()=>{
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
     await waitFor(()=>expect(removeProjectDiscipline).toHaveBeenCalled());
   });
+  it("preserves the scoped archive payload and accessible touch targets",async()=>{
+    vi.mocked(removeProjectDiscipline).mockResolvedValue({ok:true,message:"Mechanical removed from new selections."});
+    open();
+    expect(screen.getByRole("button",{name:"Remove Mechanical"}).classList.contains("min-h-11")).toBe(true);
+    expect(screen.getByRole("button",{name:"Close discipline removal"}).classList.contains("min-w-11")).toBe(true);
+    fireEvent.click(await screen.findByRole("checkbox"));
+    const form=screen.getByRole("form",{name:"Confirm removal of Mechanical"}) as HTMLFormElement;
+    expect(Object.fromEntries(new FormData(form))).toEqual({organisationId:"org",projectId:"project",name:"Mechanical",confirmed:"true",expectedEngineerCount:"2",mode:"archive",confirmedAssigned:"true"});
+    fireEvent.submit(form);
+    await screen.findByRole("status");
+    expect(removeProjectDiscipline).toHaveBeenCalledTimes(1);
+    expect(Object.fromEntries(vi.mocked(removeProjectDiscipline).mock.calls[0][1])).toEqual({organisationId:"org",projectId:"project",name:"Mechanical",confirmed:"true",expectedEngineerCount:"2",mode:"archive",confirmedAssigned:"true"});
+    expect(screen.queryByRole("button",{name:"Confirm removal"})).toBeNull();
+  });
+  it("preserves permanent-deletion acknowledgement and mode instead of silently archiving",async()=>{
+    vi.mocked(inspectProjectDisciplineRemoval).mockResolvedValue({message:"",impact:{...impact,engineerCount:0,documentCount:0,invitationCount:0,canDeletePermanently:true}});
+    vi.mocked(removeProjectDiscipline).mockResolvedValue({ok:true,message:"Mechanical permanently removed."});
+    open();fireEvent.click(await screen.findByRole("checkbox"));
+    const form=screen.getByRole("form",{name:"Confirm removal of Mechanical"}) as HTMLFormElement;
+    expect(Object.fromEntries(new FormData(form))).toEqual({organisationId:"org",projectId:"project",name:"Mechanical",confirmed:"true",expectedEngineerCount:"0",mode:"permanent",confirmedPermanent:"true"});
+    fireEvent.submit(form);await screen.findByRole("status");
+    expect(vi.mocked(removeProjectDiscipline).mock.calls[0][1].get("mode")).toBe("permanent");
+  });
 });

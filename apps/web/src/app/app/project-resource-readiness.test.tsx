@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import TeamPage from "./[organisationId]/projects/[projectId]/team/page";
 import ProjectOverview from "./[organisationId]/projects/[projectId]/overview/page";
 import { requireProject } from "@/lib/auth";
@@ -71,6 +71,7 @@ describe("discipline removal reflected in live resource readiness", () => {
     expect(within(screen.getByText("Planned positions").closest("article")!).getByText("2")).toBeTruthy();
     expect(within(screen.getByText("Unfilled positions").closest("article")!).getByText("1")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Mechanical Engineer Ada" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("article", { name: "Mechanical Engineer Ada" }).querySelector("summary")!);
     expect(screen.getByRole("button", { name: "Remove Mechanical access from Mechanical Engineer Ada" })).toBeTruthy();
     expect(rpc).toHaveBeenCalledWith("get_project_document_categories", { target_organisation: organisationId, target_project: projectId });
     expect(queries.project_resource_plans.eq).toHaveBeenCalledWith("organisation_id", organisationId);

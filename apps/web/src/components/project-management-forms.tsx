@@ -3,7 +3,7 @@ import {FieldWithHelp} from "@/components/field-with-help";
 import {HelpTip} from "@/components/help-tip";
 import {disciplineLabel} from "@/lib/project-disciplines";
 
-import {useActionState,useState} from "react";
+import {useActionState,useEffect,useId,useRef,useState} from "react";
 import {AlertTriangle,CalendarRange,Pencil,ShieldCheck,UsersRound,X} from "lucide-react";
 import {createProjectIssue,updateProjectBrief,upsertResourcePlan,type WorkflowState} from "@/app/app/workflow-actions";
 import {PROJECT_DELIVERY_STAGES,projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
@@ -48,9 +48,30 @@ export function ProjectBriefForm({organisationId,projectId,introduction,objectiv
   </form>;
 }
 
-export function ResourcePlanForm({organisationId,projectId,disciplines}:Base&{disciplines:Discipline[]}){
+export function ResourcePlanForm({organisationId,projectId,disciplines,embedded=false}:Base&{disciplines:Discipline[];embedded?:boolean}){
   const [state,action,pending]=useActionState<WorkflowState,FormData>(upsertResourcePlan,undefined);
-  return <form action={action} className="ev-card p-5 sm:p-6"><Hidden organisationId={organisationId} projectId={projectId}/><div className="flex items-center gap-2"><UsersRound size={18} className="text-[#e8733f]"/><h2 className="font-semibold">Plan discipline resources</h2></div><HelpTip label="Resource planning">Set how many engineers the project needs, then use the invitation button at the top of this page to fill the requirement.</HelpTip><label className="mt-4 block"><span className="ev-label">Discipline</span><select className="ev-input" name="discipline" required defaultValue=""><option value="" disabled>Select discipline</option>{disciplines.map(item=><option key={item.name} value={item.name}>{disciplineLabel(item)}</option>)}</select></label><label className="mt-4 block"><span className="ev-label">Required engineers</span><input className="ev-input" name="requiredCount" type="number" min="0" max="100" defaultValue="1" required/></label><label className="mt-4 block"><span className="ev-label">Notes</span><input className="ev-input" name="notes" maxLength={500} placeholder="Lead, seniority or mobilisation notes"/></label><Status state={state}/><button className="ev-button mt-5" disabled={pending||!disciplines.length}>{pending?"Saving…":"Save resource requirement"}</button></form>;
+  const form=useRef<HTMLFormElement>(null);
+  const titleId=useId();
+  function revealDisclosure(){
+    const disclosure=form.current?.closest("details");
+    if(disclosure)disclosure.open=true;
+  }
+  useEffect(()=>{
+    if(!state?.message)return;
+    const disclosure=form.current?.closest("details");
+    if(disclosure)disclosure.open=true;
+  },[state]);
+  return <form ref={form} action={action} aria-labelledby={titleId} aria-busy={pending} onInvalidCapture={revealDisclosure} className={embedded?"min-w-0":"ev-card min-w-0 p-4 sm:p-5"}>
+    <Hidden organisationId={organisationId} projectId={projectId}/>
+    <div className="flex min-w-0 items-center gap-2"><UsersRound size={18} className="shrink-0 text-[#0c5b45]" aria-hidden="true"/><h2 id={titleId} className="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">Plan discipline resources</h2><HelpTip label="Resource planning">Set how many engineers the project needs, then use the invitation button at the top of this page to fill the requirement.</HelpTip></div>
+    {!disciplines.length&&<p className="mt-3 rounded-lg bg-[#f7f9f8] p-3 text-sm text-[#617083]">Add a project discipline before planning its resources.</p>}
+    <div className="mt-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,.65fr)]">
+      <label className="min-w-0"><span className="ev-label">Discipline</span><select className="ev-input min-h-11 w-full" name="discipline" required defaultValue=""><option value="" disabled>Select discipline</option>{disciplines.map(item=><option key={item.name} value={item.name}>{disciplineLabel(item)}</option>)}</select></label>
+      <label className="min-w-0"><span className="ev-label">Required engineers</span><input className="ev-input min-h-11 w-full" name="requiredCount" type="number" min="0" max="100" defaultValue="1" required/></label>
+      <label className="min-w-0 sm:col-span-2"><span className="ev-label">Notes</span><input className="ev-input min-h-11 w-full" name="notes" maxLength={500} placeholder="Lead, seniority or mobilisation notes"/></label>
+    </div>
+    <Status state={state}/><button className="ev-button mt-4 min-h-11 w-full sm:w-auto" disabled={pending||!disciplines.length}>{pending?"Saving…":"Save resource requirement"}</button>
+  </form>;
 }
 
 export function ProjectIssueForm({organisationId,projectId,embedded=false}:Base&{embedded?:boolean}){
