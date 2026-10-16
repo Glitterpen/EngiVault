@@ -14,9 +14,12 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
   const [captchaToken,setCaptchaToken]=useState("");
   const [captchaResetKey,setCaptchaResetKey]=useState(0);
   const wasPending=useRef(false);
+  const helpDisclosure=useRef<HTMLDetailsElement>(null);
+  const titleId=useId();
   const registering=mode==="register";
   const invitation=next?.startsWith("/invite/")??false;
   const organisationRegistration=registering&&!invitation;
+  const Heading=registering?"h2":"h1";
   const alternateBase=registering?"/login":"/register";
   const alternateHref=next?`${alternateBase}?next=${encodeURIComponent(next)}`:alternateBase;
   const busy=pending||resendPending||resetPending;
@@ -26,13 +29,17 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
     if(wasPending.current&&!busy)setCaptchaResetKey(value=>value+1);
     wasPending.current=busy;
   },[busy]);
-  return <div className="w-full max-w-md">
-    <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">{organisationRegistration?"Organisation onboarding":invitation?"Workspace invitation":"Organisation-controlled access"}</p>
-    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Sign in to EngiCite"} <HelpTip label="Signing in and organisation registration">{organisationRegistration?"Create the organisation owner account and private company workspace. Team members and Executive Viewers join only through organisation-controlled invitations.":invitation?(registering?"Use the exact work email that received your invitation. Your approved access will be applied automatically.":"Sign in with the exact work email that received your invitation."):"Open your organisation-controlled workspace. Your assigned role determines what you can see and do; Executive Viewers have read-only access."}</HelpTip></h2>
+  useEffect(()=>{
+    if(helpDisclosure.current&&(state?.showResend||resendState?.message||resendState?.errors?.email?.length))helpDisclosure.current.open=true;
+  },[resendState,state?.showResend]);
+  const securityCheck=<AuthTurnstile siteKey={captchaSiteKey} resetKey={captchaResetKey} onTokenChange={setCaptchaToken}/>;
+  return <div className="w-full min-w-0 max-w-md">
+    <div className="flex min-w-0 items-start gap-2"><Heading id={titleId} className="min-w-0 text-2xl font-semibold leading-tight tracking-tight text-[#10243e] [overflow-wrap:anywhere] sm:text-[1.75rem]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Welcome back"}</Heading><span className="pt-0.5"><HelpTip label="Signing in and organisation registration">{organisationRegistration?"Create the organisation owner account and private company workspace. Team members and Executive Viewers join only through organisation-controlled invitations.":invitation?(registering?"Use the exact work email that received your invitation. Your approved access will be applied automatically.":"Sign in with the exact work email that received your invitation."):"Open your organisation-controlled workspace. Your assigned role determines what you can see and do; Executive Viewers have read-only access."}</HelpTip></span></div>
+    <p className="mt-2 text-sm leading-6 text-[#526675]">{organisationRegistration?"Create your private company workspace.":invitation?"Use the work email on your invitation.":"Sign in to your engineering workspace."}</p>
 
-    {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
+    {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
     {notice&&<div className="mt-5 rounded-xl border border-[#b9d9cb] bg-[#eff8f4] p-3 text-sm leading-6 text-[#0c5b45]" role="status">{notice}</div>}
-    <form action={formAction} className="mt-8 space-y-5">
+    <form action={formAction} aria-labelledby={titleId} aria-busy={busy} className="mt-6 min-w-0 space-y-4">
       {next&&<input type="hidden" name="next" value={next}/>}
       {registering&&<Field label="Full name" name="name" autoComplete="name" error={state?.errors?.name?.[0]}/>}
       {organisationRegistration&&<><Field label="Organisation name" name="organisationName" autoComplete="organization" error={state?.errors?.organisationName?.[0]}/><Field label="Organisation URL name" name="organisationSlug" hint="Lowercase letters, numbers and hyphens, e.g. north-field-engineering" error={state?.errors?.organisationSlug?.[0]}/></>}
@@ -40,30 +47,32 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       <Field label="Password" name="password" type="password" autoComplete={registering?"new-password":"current-password"} hint={registering?"Minimum 12 characters":undefined} error={state?.errors?.password?.[0]}/>
       {state?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm leading-6" role={state.showLogin?"alert":"status"}>
         <p>{state.message}</p>
-        {state.showLogin&&<div className="mt-3 rounded-lg border border-[#efc7bb] bg-[#fff7f4] p-3 text-[#8b3d1f]">
-          <p className="font-bold">Already have an account? Do not wait for another email.</p>
+        {state.showLogin&&<div className="mt-3 border-t border-[#d3ddd8] pt-3">
+          <p className="font-semibold">Already have an account? Do not wait for another email.</p>
           <p className="mt-1 text-xs leading-5">Verified accounts do not receive a second registration message. Sign in with this work email, or use Forgot password if needed.</p>
-          <Link className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#e8733f] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#d86130]" href={alternateHref}>Sign in instead</Link>
+          <Link className="mt-2 inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#0c5b45] underline underline-offset-4 hover:text-[#084635]" href={alternateHref}>Sign in instead</Link>
         </div>}
       </div>}
       {resendState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resendState.message}</div>}
       {resetState?.message&&<div className="rounded-xl border border-[#d3ddd8] bg-[#eef4f1] p-3 text-sm" role="status">{resetState.message}</div>}
-      <AuthTurnstile siteKey={captchaSiteKey} resetKey={captchaResetKey} onTokenChange={setCaptchaToken}/>
+      {captchaRequired?<div className="-mx-2 min-[360px]:mx-0">{securityCheck}</div>:securityCheck}
       <input type="hidden" name="captchaToken" value={captchaToken}/>
-      <button className="ev-button w-full" disabled={busy||captchaIncomplete}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
-      <div className="rounded-xl border border-[#dfe7e3] bg-[#f8faf9] p-3">
-        <HelpTip label="Sign-in help">Enter the exact work email above, then choose password reset or resend verification.</HelpTip>
-        <button className="ev-button-secondary mt-3 w-full justify-center" type="submit" formAction={resetFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resetPending?"Requesting password reset...":"Forgot password?"}</button>
-        <button className="mt-2 w-full rounded-lg px-3 py-2 text-xs font-bold text-[#0c5b45] hover:bg-[#eaf3ef] disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
-      </div>
+      <button className="ev-button min-h-11 w-full" disabled={busy||captchaIncomplete}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
+      <div className="flex justify-center"><button className="inline-flex min-h-11 max-w-full items-center justify-center rounded-lg px-3 text-sm font-medium text-[#0c5b45] hover:underline hover:underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50" type="submit" formAction={resetFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resetPending?"Requesting password reset...":"Forgot password?"}</button></div>
+      <details ref={helpDisclosure} className="min-w-0 border-t border-[#e3e9e6]">
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-[#526675]">Need help signing in?</summary>
+        <div className="pb-1"><div className="flex items-center gap-2"><span className="text-xs leading-5 text-[#526675]">Verification email</span><HelpTip label="Sign-in help">Enter the exact work email above, then choose password reset or resend verification.</HelpTip></div>
+          <button className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#dce2e9] px-3 py-2 text-sm font-medium text-[#0c5b45] hover:bg-[#f4f8f6] disabled:cursor-not-allowed disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
+        </div>
+      </details>
     </form>
-    <p className="mt-6 text-center text-sm text-[#617083]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="font-bold text-[#e8733f] hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>
+    <p className="mt-5 text-center text-sm leading-6 text-[#526675]">{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="inline-flex min-h-11 max-w-full items-center font-semibold text-[#0c5b45] underline-offset-4 hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>
   </div>;
 }
 
 function Field({label,name,type="text",autoComplete,hint,error}:{label:string;name:string;type?:string;autoComplete?:string;hint?:string;error?:string}){
   const id=useId();
-  const inputProps={id,className:"ev-input",name,autoComplete,required:true,"aria-invalid":!!error,"aria-describedby":error?`${id}-error`:undefined};
+  const inputProps={id,className:"ev-input min-h-11 min-w-0",name,autoComplete,required:true,"aria-invalid":!!error,"aria-describedby":error?`${id}-error`:undefined};
   const input=type==="password"?<PasswordInput {...inputProps}/>:<input {...inputProps} type={type}/>;
   return <div>{hint?<FieldWithHelp label={label} helpLabel={`${label} guidance`} help={hint}>{input}</FieldWithHelp>:<><label htmlFor={id} className="ev-label">{label}</label>{input}</>}{error&&<span id={`${id}-error`} className="mt-1.5 block text-xs text-red-700" role="alert">{error}</span>}</div>;
 }

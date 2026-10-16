@@ -1,7 +1,18 @@
+"use client";
+
 import { CheckCircle2, Quote } from "lucide-react";
 import { Brand } from "@/components/brand";
+import {usePathname} from "next/navigation";
 
 export default function AuthLayout({children}:{children:React.ReactNode}) {
+  const pathname=usePathname();
+  if(pathname==="/login")return <main className="flex min-h-svh min-w-0 flex-col items-center justify-center bg-white px-2 py-6 min-[360px]:px-5 sm:bg-[#f6f8f7] sm:px-6 sm:py-10">
+    <div className="w-full min-w-0 max-w-[440px]">
+      <header className="mb-5 flex justify-center sm:mb-6"><Brand/></header>
+      <section aria-label="EngiCite sign in" className="min-w-0 sm:rounded-2xl sm:border sm:border-[#dfe7e3] sm:bg-white sm:p-7 sm:shadow-[0_8px_32px_rgba(16,36,62,.04)]">{children}</section>
+      <footer className="mt-5 text-center text-xs leading-5 text-[#617083]">EngiCite · Engineering delivery, connected.</footer>
+    </div>
+  </main>;
   return <main className="grid min-h-screen lg:grid-cols-[.9fr_1.1fr]">
     <section className="engineering-grid relative flex min-h-[380px] flex-col overflow-hidden bg-[#10243e] p-8 text-white lg:min-h-screen lg:p-14">
       <div className="absolute -bottom-28 -right-28 size-80 rounded-full border-[64px] border-[#e8733f]/15" />
