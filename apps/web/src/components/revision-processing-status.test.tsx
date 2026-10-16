@@ -65,3 +65,15 @@ it("respects reduced motion while retaining the automatic-update text",()=>{
   expect(icon?.classList.contains("motion-reduce:animate-none")).toBe(true);
   expect(icon?.getAttribute("aria-hidden")).toBe("true");
 });
+it.each(["ready","queued","failed","dead_letter"])("preserves the exact %s run label without making the badge a live-region event",async state=>{
+  request.mockResolvedValue(response(state,state));
+  render(<RevisionProcessingStatus endpoint="/processing" initialRevisionState={state} initialRun={run(state)} canRetry={false}/>);
+  await waitFor(()=>expect(request).toHaveBeenCalled());
+  const badge=screen.getByText(state.replaceAll("_"," "));
+  expect(badge.className).toContain("bg-[#f3f6f9]");
+  expect(badge.className).toContain("capitalize");
+  expect(badge.hasAttribute("role")).toBe(false);
+  expect(badge.hasAttribute("aria-live")).toBe(false);
+  expect(screen.queryByText("Submitted")).toBeNull();expect(screen.queryByText("Transmitted")).toBeNull();
+  expect(screen.getByRole("button",{name:"Refresh status"})).toBeTruthy();
+});

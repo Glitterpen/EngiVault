@@ -49,8 +49,15 @@ it("assigns unique, stable input IDs to multiple forms",()=>{
 
 it("preserves pending creation feedback and disables only its mutation submit button",()=>{
   formState.pending=true;render(<ProjectCreateForm organisationId="organisation-A" embedded/>);
+  expect(screen.getByRole("form",{name:"Create project"}).getAttribute("aria-busy")).toBe("true");
   expect((screen.getByRole("button",{name:"Creating project…"}) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole("button",{name:"Project setup"}) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it("uses the action result identity rather than wording to classify project feedback",()=>{
+  formState.state={message:"Project created successfully, but its access could not be confirmed."};
+  render(<ProjectCreateForm organisationId="organisation-A"/>);
+  expect(screen.getByRole("alert").textContent).toBe(formState.state.message);expect(screen.queryByRole("status")).toBeNull();expect(screen.queryByRole("link",{name:"Appoint project leadership"})).toBeNull();
 });
 
 it("keeps action errors visible as an alert without a fabricated success link",()=>{

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import {useId,useState} from "react";
-import {Bell,ChevronRight,Search} from "lucide-react";
+import {ChevronRight,Search} from "lucide-react";
+import {PageState} from "@/components/page-state";
 import type {NotificationDocumentContext} from "@/lib/notification-document-context";
 
 export type NotificationInboxItem={
@@ -47,6 +48,7 @@ export function NotificationInbox({items}:{items:NotificationInboxItem[]}){
         </div>
         <ChevronRight size={17} aria-hidden="true" className="mt-1 shrink-0 text-[#718294] group-hover:text-[#10243e]"/>
       </Link>
-    </li>)}</ul>:<div className="px-4 py-9 text-center sm:px-5"><Bell size={24} aria-hidden="true" className="mx-auto text-[#718294]"/><p className="mt-3 text-sm font-medium text-[#405566]">{items.length?unreadOnly&&!query?"No unread notifications in the latest messages.":"No notifications match your filters.":"You have no notifications."}</p>{items.length>0&&<button type="button" data-preview-safe className="ev-button-secondary mt-4 min-h-11 w-full sm:w-auto" onClick={()=>{setSearch("");setUnreadOnly(false);}}>Show all loaded messages</button>}</div>}
+    </li>)}</ul>:<PageState kind="empty" headingLevel={3} title={items.length?unreadOnly&&!query?"No unread notifications in the latest messages.":"No notifications match your filters.":"You have no notifications."}
+      actions={items.length>0?<button type="button" data-preview-safe className="ev-button-secondary min-h-11" onClick={()=>{setSearch("");setUnreadOnly(false);}}>Show all loaded messages</button>:undefined}/>}
   </section>;
 }

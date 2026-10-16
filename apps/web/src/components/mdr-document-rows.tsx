@@ -5,6 +5,7 @@ import {MdrDocumentActions} from "@/components/mdr-document-actions";
 import type {DocumentSchedule} from "@/lib/document-schedule";
 import type {MdrDocument} from "@/lib/mdr-register-types";
 import {latestMdrSubmission} from "@/lib/mdr-submission-status";
+import {TableScrollRegion} from "@/components/table-scroll-region";
 
 export function MdrDocumentRows({docs,organisationId,projectId,canManage,title}:{docs:MdrDocument[];organisationId:string;projectId:string;canManage:boolean;title:string}){
   const base=`/app/${organisationId}/projects/${projectId}`;
@@ -16,7 +17,7 @@ export function MdrDocumentRows({docs,organisationId,projectId,canManage,title}:
       <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-[#617083]"><span className="min-w-0 break-words">{document.document_type} · </span><SubmissionStatus document={document}/><MetadataTip document={document}/></div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3"><CompactSchedule schedule={document.schedule}/>{canManage&&actions(document)}</div>
     </article>)}</div>
-    <div className="hidden min-w-0 overflow-x-auto md:block" role="region" aria-label={`Master document register — ${title} — scroll horizontally for all columns`} tabIndex={0}>
+    <TableScrollRegion className="hidden md:block" label={`Master document register — ${title} — scroll horizontally for all columns`}>
       <table className="min-w-[680px] w-full text-left text-sm">
         <caption className="sr-only">{title} MDR deliverables</caption>
         <thead className="border-y border-[#e7ecef] bg-[#f4f7fb] text-xs font-medium text-[#617083]"><tr>
@@ -27,7 +28,7 @@ export function MdrDocumentRows({docs,organisationId,projectId,canManage,title}:
           <td className="px-4 py-3"><CompactSchedule schedule={document.schedule}/></td><td className="px-4 py-3 text-xs text-[#526675]"><SubmissionStatus document={document}/></td>{canManage&&<td className="px-4 py-3">{actions(document)}</td>}
         </tr>)}</tbody>
       </table>
-    </div>
+    </TableScrollRegion>
   </>;
 }
 function SubmissionStatus({document}:{document:MdrDocument}){

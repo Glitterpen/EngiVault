@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronDown, Download, Eye, FileCog } from "lucide-react";
 import { RevisionProcessingStatus } from "@/components/revision-processing-status";
 import { RevisionReviewForm } from "@/components/revision-review-form";
+import {StatusBadge} from "@/components/status-badge";
 
 export type SubmissionReviewRow = {
   id: string;
@@ -46,9 +47,9 @@ export function SubmissionReviewQueue({ organisationId, projectId, rows, readOnl
               <span className="break-all font-semibold text-[#20384f]">{documentNumber}</span>
               <span>Revision {row.revision_code}</span>
               <span>{row.documents?.discipline}</span>
-              <span className={`max-w-28 break-words rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${failed ? "bg-[#fff0eb] text-[#9b3b27]" : ready ? "bg-[#eef3fa] text-[#10243e]" : processing ? "bg-[#fff7dd] text-[#7a5a00]" : "bg-[#f4f7fb] text-[#526675]"}`}>
+              <StatusBadge tone={failed?"danger":ready?"success":processing?"warning":"neutral"} className="max-w-28 break-words capitalize">
                 {stateLabel}
-              </span>
+              </StatusBadge>
             </div>
             <h2 className="mt-1 break-words text-base font-semibold text-[#102842]">{row.documents?.title ?? "Submitted document"}</h2>
             <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs leading-5 text-[#617083]">

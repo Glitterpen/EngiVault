@@ -3,6 +3,7 @@
 import {useId,useState} from "react";
 import Link from "next/link";
 import {ArrowRight,Package,Search,Send} from "lucide-react";
+import {StatusBadge} from "@/components/status-badge";
 
 export type WorkPackageListItem={id:string;package_number:string;name:string;version:number;state:string;destination:string;manifest:{kind?:string;recipient?:{company?:string}}|null;created_at:string};
 type View="all"|"transmittals"|"packages";
@@ -27,7 +28,7 @@ export function WorkPackageList({organisationId,projectId,packages}:{organisatio
       const transmittal=isTransmittal(item);
       return <li key={item.id} className="min-w-0"><Link href={`/app/${organisationId}/projects/${projectId}/work-packages/${item.id}`} className="group grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_1rem] items-start gap-3 px-4 py-4 transition-colors hover:bg-[#f8fafb] focus-visible:outline-offset-[-3px] motion-reduce:transition-none sm:px-5">
         <span className={`mt-0.5 grid size-8 place-items-center rounded-lg ${transmittal?"bg-[#eef3fa] text-[#10243e]":"bg-[#edf2f8] text-[#244b73]"}`}>{transmittal?<Send size={17} aria-hidden="true"/>:<Package size={18} aria-hidden="true"/>}</span>
-        <div className="min-w-0"><div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 max-w-full text-sm font-semibold text-[#14263d] [overflow-wrap:anywhere]">{item.package_number}</h3><span className="text-xs text-[#526675]">V{item.version}</span>{" "}<span className={`rounded-full px-2 py-0.5 text-xs font-medium ${item.state==="ready"?"bg-[#eef3fa] text-[#10243e]":item.state==="failed"?"bg-[#fff0e9] text-[#a5452f]":"bg-[#f0f3f6] text-[#405566]"}`}>{packageStateLabel(item.state,transmittal)}</span></div>
+        <div className="min-w-0"><div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 max-w-full text-sm font-semibold text-[#14263d] [overflow-wrap:anywhere]">{item.package_number}</h3><span className="text-xs text-[#526675]">V{item.version}</span>{" "}<StatusBadge tone={item.state==="ready"?"success":item.state==="failed"?"danger":"neutral"}>{packageStateLabel(item.state,transmittal)}</StatusBadge></div>
           <p className="mt-1 break-words text-sm text-[#405566]">{transmittal?"Client document transmittal":item.name}</p><p className="mt-1 break-words text-xs leading-5 text-[#526675]">{transmittal?`To ${item.manifest?.recipient?.company??"client"}`:item.destination.replaceAll("_"," ")}{" "}<span className="mx-1.5" aria-hidden="true">·</span>{" "}<time dateTime={item.created_at}>{formatDate(item.created_at)}</time></p></div><ArrowRight size={16} aria-hidden="true" className="mt-2 text-[#526675]"/>
       </Link></li>;
     })}</ul>

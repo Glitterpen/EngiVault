@@ -40,3 +40,25 @@ it("keeps Return before Approve so implicit form submission does not default to 
   expect(decisions[1].formNoValidate).toBe(false);
   expect((screen.getByRole("checkbox") as HTMLInputElement).required).toBe(true);
 });
+
+it("preserves the review payload and explicit comment label after shared form adoption",()=>{
+  render(form());
+  const comment=screen.getByLabelText("Review comment or return instructions") as HTMLInputElement;
+  expect(comment.id).toBeTruthy();
+  expect(comment.name).toBe("comment");
+  expect(comment.maxLength).toBe(1000);
+  const data=new FormData(comment.form!);
+  expect(data.get("organisationId")).toBe("organisation");
+  expect(data.get("projectId")).toBe("project");
+  expect(data.get("revisionId")).toBe("revision");
+  expect(data.get("comment")).toBe("");
+  expect((screen.getByRole("checkbox") as HTMLInputElement).value).toBe("yes");
+});
+
+it("retains a successful review as a status while keeping both decision controls locked",()=>{
+  formState.state={ok:true,message:"Submission approved."};
+  render(form());
+  expect(screen.getByRole("status").textContent).toBe("Submission approved.");
+  for(const button of screen.getAllByRole("button"))expect((button as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole("alert")).toBeNull();
+});

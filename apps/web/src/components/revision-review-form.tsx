@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { CheckCircle2, RotateCcw } from "lucide-react";
 import { reviewRevision } from "@/app/app/workflow-actions";
+import {FormField} from "@/components/form-field";
+import {FormFeedback} from "@/components/form-feedback";
 
 export function RevisionReviewForm({ organisationId, projectId, revisionId, ready, readOnly = false }: {
   organisationId: string; projectId: string; revisionId: string; ready: boolean; readOnly?: boolean;
@@ -27,14 +29,14 @@ export function RevisionReviewForm({ organisationId, projectId, revisionId, read
       {readOnly && <p className="mt-2 text-xs text-[#617083]">This audited member preview is read-only.</p>}
     </fieldset>
     <div className="mt-4 space-y-3">
-      <label className="block text-sm text-[#526675]">Review comment or return instructions
+      <FormField label="Review comment or return instructions">
         <input className="ev-input mt-1 min-h-11 min-w-0" name="comment" placeholder="Add a comment" maxLength={1000} disabled={disabled} />
-      </label>
+      </FormField>
       <div className="flex flex-wrap gap-2">
         <button name="decision" value="returned" formNoValidate disabled={disabled} className="ev-button-secondary min-h-11 disabled:cursor-not-allowed disabled:opacity-45"><RotateCcw aria-hidden="true" size={16} /> Return</button>
         <button name="decision" value="accepted" disabled={disabled} className="ev-button min-h-11 disabled:cursor-not-allowed disabled:opacity-45"><CheckCircle2 aria-hidden="true" size={16} /> {pending ? "Saving review…" : "Approve submission"}</button>
       </div>
     </div>
-    {state?.message && <p role={state.ok ? "status" : "alert"} className="mt-3 text-sm">{state.message}</p>}
+    {state?.message && <FormFeedback tone={state.ok?"success":"error"} className="mt-3">{state.message}</FormFeedback>}
   </form>;
 }

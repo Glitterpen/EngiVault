@@ -3,6 +3,7 @@ import {notFound} from "next/navigation";
 import {ArrowLeft} from "lucide-react";
 import {requireUser} from "@/lib/auth";
 import {ReadUnavailable} from "@/components/read-unavailable";
+import {TableScrollRegion} from "@/components/table-scroll-region";
 
 export default async function AuditPage({params,searchParams}:{params:Promise<{organisationId:string}>;searchParams:Promise<{action?:string}>}){
   const {organisationId}=await params;
@@ -20,6 +21,6 @@ export default async function AuditPage({params,searchParams}:{params:Promise<{o
     <Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16}/> Organisation</Link>
     <h1 className="mt-6 text-3xl font-semibold">Audit log</h1>
     <form className="mt-5 ev-card p-4"><input name="action" defaultValue={action} aria-label="Filter by exact action" className="ev-input w-full" placeholder="Filter exact action, e.g. revision.upload_completed"/></form>
-    {data?.length?<div className="ev-card mt-5 overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead><tr className="border-b bg-[#f8fafc] text-xs uppercase text-[#617083]"><th className="p-4">Time</th><th>Action</th><th>Outcome</th><th>Target</th><th>Actor</th></tr></thead><tbody>{data.map(e=><tr key={e.id} className="border-b last:border-0"><td className="p-4 text-xs">{new Date(e.created_at).toLocaleString()}</td><td>{e.action}</td><td>{e.outcome}</td><td>{e.target_type}</td><td className="text-xs">{e.actor_user_id??"System"}</td></tr>)}</tbody></table></div>:<p className="ev-card mt-5 p-6 text-sm text-[#526675]">{action?"No audit events match this action.":"No audit events are recorded yet."}</p>}
+    {data?.length?<TableScrollRegion label="Organisation audit log — scroll horizontally" className="ev-card mt-5"><table className="w-full min-w-[800px] text-left text-sm"><caption className="sr-only">Organisation audit log</caption><thead><tr className="border-b bg-[#f8fafc] text-xs uppercase text-[#617083]"><th scope="col" className="p-4">Time</th><th scope="col">Action</th><th scope="col">Outcome</th><th scope="col">Target</th><th scope="col">Actor</th></tr></thead><tbody>{data.map(e=><tr key={e.id} className="border-b last:border-0"><td className="p-4 text-xs">{new Date(e.created_at).toLocaleString()}</td><td>{e.action}</td><td>{e.outcome}</td><td>{e.target_type}</td><td className="text-xs">{e.actor_user_id??"System"}</td></tr>)}</tbody></table></TableScrollRegion>:<p className="ev-card mt-5 p-6 text-sm text-[#526675]">{action?"No audit events match this action.":"No audit events are recorded yet."}</p>}
   </div>;
 }

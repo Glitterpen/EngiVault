@@ -1,0 +1,10 @@
+.state{display:flex;align-items:flex-start;gap:1rem;min-width:0;padding:1.25rem;color:#10243e}
+.icon{display:grid;place-items:center;flex-shrink:0;width:2.75rem;height:2.75rem;border:1px solid #dbe3e9;border-radius:.875rem;background:#f4f7fb;color:#405566}
+.error .icon{border-color:#f0c8b7;background:#fff6f2;color:#a64019}
+.content{min-width:0;flex:1}
+.title{margin:0;font-size:1rem;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.description{margin-top:.5rem;font-size:.875rem;line-height:1.65;color:#526675;overflow-wrap:anywhere}
+.actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem}
+.actions>*{max-width:100%}
+@media(min-width:640px){.state{padding:1.75rem}.title{font-size:1.125rem}}
+@media(max-width:399px){.state{gap:.75rem;padding:1rem}.icon{width:2.25rem;height:2.25rem}.actions>*{width:100%}}

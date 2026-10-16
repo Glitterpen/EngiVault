@@ -1,6 +1,7 @@
 "use client";
 
-import {HelpTip} from "@/components/help-tip";
+import {FormField} from "@/components/form-field";
+import {FormFeedback} from "@/components/form-feedback";
 import Link from "next/link";
 import {useActionState,useId} from "react";
 import {Plus} from "lucide-react";
@@ -10,15 +11,14 @@ export function ProjectCreateForm({organisationId,embedded=false}:{organisationI
   const [state,action,pending]=useActionState<MutationState,FormData>(createProject,undefined);
   const id=useId();
 
-  return <form action={action} className={embedded?"min-w-0":"ev-card h-fit p-6"}>
+  return <form action={action} aria-label="Create project" aria-busy={pending} className={embedded?"min-w-0":"ev-card h-fit min-w-0 p-6"}>
     <input type="hidden" name="organisationId" value={organisationId}/>
     {!embedded&&<div className="flex items-center gap-2"><Plus size={18} className="text-[#e8733f]" aria-hidden="true"/><h2 className="font-semibold">Create project</h2></div>}
-    <div className={embedded?"":"mt-6"}>
-      <div className="flex items-center gap-2"><label className="ev-label" htmlFor={`${id}-code`}>Project code</label><HelpTip label="Project setup">Create the project record, then appoint its Project Manager and Document Controller. The Project Manager will complete the client identity, brief, objectives, schedule and resource plan, and upload the approved project template ZIP from the overview or project settings.</HelpTip></div>
-      <input id={`${id}-code`} className="ev-input" name="code" placeholder="ENG-001" required/>
-    </div>
-    <label className="mt-4 block" htmlFor={`${id}-name`}><span className="ev-label">Project name</span><input id={`${id}-name`} className="ev-input" name="name" required/></label>
-    {state?.message&&<div className={`mt-4 rounded-lg border p-3 text-xs leading-5 ${state.projectId?"border-[#d6e0ed] bg-[#eef3fa] text-[#10243e]":"border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]"}`} role={state.projectId?"status":"alert"}><p>{state.message}</p>{state.projectId&&<Link className="mt-2 inline-flex font-bold underline" href={`/app/${organisationId}/projects/${state.projectId}/overview`}>Appoint project leadership</Link>}</div>}
+    <FormField id={`${id}-code`} label="Project code" className={embedded?"":"mt-6"} help={{label:"Project setup",content:"Create the project record, then appoint its Project Manager and Document Controller. The Project Manager will complete the client identity, brief, objectives, schedule and resource plan, and upload the approved project template ZIP from the overview or project settings."}}>
+      <input className="ev-input min-h-11 min-w-0" name="code" placeholder="ENG-001" required/>
+    </FormField>
+    <FormField id={`${id}-name`} label="Project name" className="mt-4"><input className="ev-input min-h-11 min-w-0" name="name" required/></FormField>
+    {state?.message&&<FormFeedback tone={state.projectId?"success":"error"} className="mt-4"><p>{state.message}</p>{state.projectId&&<Link className="mt-2 inline-flex min-h-11 max-w-full items-center rounded-lg font-semibold underline" href={`/app/${organisationId}/projects/${state.projectId}/overview`}>Appoint project leadership</Link>}</FormFeedback>}
     <button className="ev-button mt-5 w-full" disabled={pending}>{pending?"Creating project…":"Create project"}</button>
   </form>;
 }

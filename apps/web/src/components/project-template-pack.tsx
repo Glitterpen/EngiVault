@@ -3,6 +3,7 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {Download,Upload} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
+import {FormFeedback} from "@/components/form-feedback";
 import {createClient} from "@/lib/supabase/browser";
 import {TEMPLATE_PACK_MAX_BYTES,type TemplatePackStatus} from "@/lib/project-template-packs";
 import {customerErrorMessage} from "@/lib/customer-messages";
@@ -78,7 +79,7 @@ function TemplatePackContent({organisationId,projectId,canManage=false}:Props){
       <button className="ev-button mt-3" disabled={busy||loading||!pack}><Upload size={16}/>{busy?"Processing…":pack?.current?"Upload replacement ZIP":"Upload template ZIP"}</button>
     </form>}
     {canManage&&pack?.pending&&!busy&&<div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span className="break-words">Unpublished upload: {pack.pending.filename}</span><button type="button" className="ev-button-secondary" disabled={loading} onClick={()=>void run(()=>publish(pack.pending!.id))}>Retry security checks</button></div>}
-    {message&&<p className="mt-4 text-sm text-[#10243e]" role="status">{message}</p>}
-    {error&&<div className="mt-4"><p className="text-sm text-[#a5452f]" role="alert">{error}</p><button type="button" data-preview-safe className="ev-button-secondary mt-3" disabled={loading||busy} onClick={()=>void retryLoad()}>{loading?"Loading templates…":"Retry loading templates"}</button></div>}
+    {message&&<FormFeedback tone="info" className="mt-4">{message}</FormFeedback>}
+    {error&&<div className="mt-4"><FormFeedback tone="error">{error}</FormFeedback><button type="button" data-preview-safe className="ev-button-secondary mt-3" disabled={loading||busy} onClick={()=>void retryLoad()}>{loading?"Loading templates…":"Retry loading templates"}</button></div>}
   </section>;
 }

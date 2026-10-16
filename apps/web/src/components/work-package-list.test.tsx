@@ -14,6 +14,17 @@ it("preserves server order and exact package links while labelling generated ver
   expect(screen.getByText("Transmittal generated")).toBeTruthy();expect(screen.getByText("Frozen · awaiting ZIP")).toBeTruthy();expect(screen.getByText("Generation failed")).toBeTruthy();
   expect(screen.getAllByText("16 Oct 2026")).toHaveLength(3);
 });
+it("keeps a ready package distinct from a generated transmittal and frozen or failed history",()=>{
+  const items=[row("download","package"),row("transmitted","transmittal"),row("frozen","transmittal","frozen"),row("failed","transmittal","failed")];
+  render(<WorkPackageList {...props} packages={items}/>);
+  const ready=screen.getByText("Ready to download"),generated=screen.getByText("Transmittal generated");
+  expect(ready.className).toContain("bg-[#edf2f8]");expect(generated.className).toContain("bg-[#edf2f8]");
+  expect(screen.getByText("Frozen · awaiting ZIP").className).toContain("bg-[#f3f6f9]");
+  expect(screen.getByText("Generation failed").className).toContain("bg-[#fff0eb]");
+  for(const badge of [ready,generated]){expect(badge.hasAttribute("role")).toBe(false);expect(badge.hasAttribute("aria-live")).toBe(false);}
+  expect(screen.queryByText("Submitted")).toBeNull();
+  expect(screen.getAllByRole("link").map(link=>link.getAttribute("href"))).toEqual(items.map(item=>`/app/org/projects/project/work-packages/${item.id}`));
+});
 it.each(["PKG-middle","engineering middle","coastal refinery"])("searches numbers, names and recipients without mutation: %s",search=>{
   render(<WorkPackageList {...props} packages={packages}/>);
   fireEvent.change(screen.getByRole("searchbox",{name:"Search transmittals and packages"}),{target:{value:search}});

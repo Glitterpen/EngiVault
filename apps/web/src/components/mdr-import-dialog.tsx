@@ -1,6 +1,7 @@
 "use client";
 import {HelpTip} from "@/components/help-tip";
 import { customerErrorMessage, supportReference } from "@/lib/customer-messages";
+import {TableScrollRegion} from "@/components/table-scroll-region";
 
 
 import { useId, useRef, useState } from "react";
@@ -142,13 +143,14 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
             <button type="button" className="ev-button-secondary" aria-pressed={rowView === "all"} onClick={() => { setRowView("all"); setPage(1); }}>All rows ({preview.rows.length})</button>
             <button type="button" className="ev-button-secondary" aria-pressed={rowView === "errors"} onClick={() => { setRowView("errors"); setPage(1); }}>Need correction ({preview.rows.filter(row => !row.is_valid).length})</button>
           </div>
-          <div className="mt-3 overflow-x-auto rounded-xl border border-[#d6e0ed]" role="region" aria-label="Workbook validation preview" tabIndex={0}>
+          <TableScrollRegion label="Workbook validation preview" className="mt-3 rounded-xl border border-[#d6e0ed]">
             <table className="w-full min-w-[850px] text-left text-xs">
-              <thead className="bg-[#f4f7fb] text-[10px] uppercase tracking-[.12em] text-[#617083]"><tr><th className="p-3">Excel row</th><th>Document</th><th>Title</th><th>Discipline</th><th>Type</th><th>Submission</th><th>Validation</th></tr></thead>
+              <caption className="sr-only">Workbook validation preview</caption>
+              <thead className="bg-[#f4f7fb] text-[10px] uppercase tracking-[.12em] text-[#617083]"><tr><th scope="col" className="p-3">Excel row</th><th scope="col">Document</th><th scope="col">Title</th><th scope="col">Discipline</th><th scope="col">Type</th><th scope="col">Submission</th><th scope="col">Validation</th></tr></thead>
               <tbody>{visibleRows.map((row) => <tr key={row.row_number} className="border-t border-[#d6e0ed] align-top"><td className="p-3 font-bold">{row.row_number}</td><td className="max-w-44 p-3 font-semibold text-[#10243e]">{row.document_number ?? "-"}</td><td className="max-w-60 p-3">{row.title ?? "-"}</td><td className="p-3">{row.discipline ?? "-"}</td><td className="p-3">{row.document_type ?? "-"}</td><td className="p-3">{row.planned_submission_date ?? "-"}</td><td className={`max-w-72 p-3 ${row.is_valid ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{row.is_valid ? "Ready" : row.errors.join(" ")}</td></tr>)}</tbody>
             </table>
             {!rows.length && <p className="p-4 text-sm text-[#617083]">No rows need correction.</p>}
-          </div>
+          </TableScrollRegion>
           <nav className="mt-3 flex flex-wrap items-center justify-between gap-3" aria-label="Workbook preview pages">
             <p className="text-xs text-[#617083]" role="status">{rows.length ? `Showing ${pageStart + 1}–${pageStart + visibleRows.length} of ${rows.length} rows · Page ${currentPage} of ${pageCount}` : "0 rows"}</p>
             {pageCount > 1 && <div className="flex gap-2"><button type="button" className="ev-button-secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous rows</button><button type="button" className="ev-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Next rows</button></div>}

@@ -1,0 +1,11 @@
+.region {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.region:focus-visible {
+  outline: 3px solid var(--focus, #10243e);
+  outline-offset: -3px;
+}
