@@ -77,6 +77,9 @@ button:not(:disabled), summary { cursor: pointer; }
 .ev-button:focus-visible, .ev-button-secondary:focus-visible, .ev-input:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
 .ev-button > svg, .ev-button-secondary > svg { flex-shrink: 0; }
 .ev-button-secondary:disabled { opacity: .5; box-shadow: none; transform: none; }
+/* Public landing-page interactions stay within the navy/orange logo palette. */
+.ev-landing :is(a, button, summary, input, select, textarea):focus-visible { outline: 3px solid #10243e; outline-offset: 3px; }
+.ev-landing .ev-input:focus { border-color: #10243e; --tw-ring-color: rgb(16 36 62 / .12); }
 .ev-label { text-transform: none; letter-spacing: normal; }
 textarea.ev-input { min-height: 100px; padding-block: .75rem; resize: vertical; }
 .ev-help-trigger { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; opacity: .8; cursor: help; vertical-align: middle; }
