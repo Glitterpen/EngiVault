@@ -26,17 +26,94 @@ it("removes a selected revision from submission when refreshed props mark it iss
   expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(0);
   expect(screen.getByRole("button",{name:"Create transmittal"}).hasAttribute("disabled")).toBe(true);
 });
-it("search selects only matching ready revisions and preserves hidden intentional selections", () => {
+it("adds matching search results without replacing hidden intentional selections", () => {
   const {container} = render(<TransmittalCreateForm {...props} revisions={[row("3"),row("4")]} />);
   fireEvent.change(screen.getByLabelText("Find deliverable"),{target:{value:"DOC-4"}});
   fireEvent.click(screen.getByRole("button", {name:"Select visible (max 100)"}));
   fireEvent.change(screen.getByLabelText("Find deliverable"),{target:{value:"DOC-3"}});
   expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(el=>el.value)).toEqual(["4"]);
+  fireEvent.click(screen.getByRole("button", {name:"Select visible (max 100)"}));
+  expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(el=>el.value)).toEqual(["4","3"]);
 });
 it("limits bulk selection to 100", () => {
   const {container} = render(<TransmittalCreateForm {...props} history={[]} revisions={Array.from({length:101},(_,i)=>row(String(i)))} />);
   fireEvent.click(screen.getByRole("button", {name:"Select visible (max 100)"}));
   expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(100);
+});
+
+it("adds another discipline's visible deliverables and retains the first discipline's selections", () => {
+  const {container}=render(<TransmittalCreateForm {...props} history={[]} revisions={[row("A"),{...row("B"),discipline:"Electrical"}]} />);
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Process"}});
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Electrical"}});
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(input=>input.value)).toEqual(["A","B"]);
+  expect(screen.getByText("Includes selections outside the current filters.")).toBeTruthy();
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:""}});
+  expect((screen.getByRole("checkbox",{name:"Select DOC-A revision A01"}) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByRole("checkbox",{name:"Select DOC-B revision A01"}) as HTMLInputElement).checked).toBe(true);
+});
+
+it("deduplicates bulk additions without clearing already-selected visible revisions", () => {
+  const {container}=render(<TransmittalCreateForm {...props} history={[]} revisions={[row("A"),row("B")]} />);
+  fireEvent.click(screen.getByRole("checkbox",{name:"Select DOC-A revision A01"}));
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  const selectVisible=screen.getByRole("button",{name:"Select visible (max 100)"}) as HTMLButtonElement;
+  expect(selectVisible.disabled).toBe(true);
+  fireEvent.click(selectVisible);
+  expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(input=>input.value)).toEqual(["A","B"]);
+});
+
+it("unselects one visible revision without dropping a hidden selected revision", () => {
+  const {container}=render(<TransmittalCreateForm {...props} history={[]} revisions={[row("A"),{...row("B"),discipline:"Electrical"}]} />);
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Electrical"}});
+  fireEvent.click(screen.getByRole("checkbox",{name:"Select DOC-B revision A01"}));
+  expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(input=>input.value)).toEqual(["A"]);
+  expect((screen.getByRole("checkbox",{name:"Select DOC-B revision A01"}) as HTMLInputElement).checked).toBe(false);
+});
+
+it("distinguishes clearing visible revisions from clearing all selections, including hidden selections", () => {
+  const {container}=render(<TransmittalCreateForm {...props} history={[]} revisions={[row("A"),{...row("B"),discipline:"Electrical"}]} />);
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Electrical"}});
+  fireEvent.click(screen.getByRole("button",{name:"Clear visible"}));
+  expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(input=>input.value)).toEqual(["A"]);
+  fireEvent.change(screen.getByRole("searchbox",{name:"Find deliverable"}),{target:{value:"No matching document"}});
+  expect((screen.getByRole("button",{name:"Clear visible"}) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Clear all selections"}) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole("button",{name:"Clear all selections"}));
+  expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(0);
+  expect((screen.getByRole("button",{name:"Clear all selections"}) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Create transmittal"}) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("counts hidden selections toward the 100-revision limit and never replaces them to make room", () => {
+  const process=Array.from({length:99},(_,index)=>row(`P${index}`));
+  const electrical=[{...row("E1"),discipline:"Electrical"},{...row("E2"),discipline:"Electrical"}];
+  const {container}=render(<TransmittalCreateForm {...props} history={[]} revisions={[...process,...electrical]} />);
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Process"}});
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Electrical"}});
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  const ids=[...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(input=>input.value);
+  expect(ids).toEqual([...process.map(revision=>revision.id),"E1"]);
+  expect(ids).toHaveLength(100);
+  expect((screen.getByRole("checkbox",{name:"Select DOC-E1 revision A01"}) as HTMLInputElement).disabled).toBe(false);
+  expect((screen.getByRole("checkbox",{name:"Select DOC-E2 revision A01"}) as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Select visible (max 100)"}) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("revalidates hidden selections against refreshed issued and reserved data before bulk additions", () => {
+  const revisions=[row("A"),row("B"),{...row("C"),discipline:"Electrical"}];
+  const {container,rerender}=render(<TransmittalCreateForm {...props} history={[]} revisions={revisions} />);
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Process"}});
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Discipline filter"}),{target:{value:"Electrical"}});
+  rerender(<TransmittalCreateForm {...props} revisions={revisions} history={[issue("A","failed")]} issuedRevisionNumbers={{B:["TR-B"]}} />);
+  expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button",{name:"Select visible (max 100)"}));
+  expect([...container.querySelectorAll<HTMLInputElement>('input[name="revisionIds"]')].map(input=>input.value)).toEqual(["C"]);
 });
 
 it("allows preview search without unlocking selection or submission",()=>{

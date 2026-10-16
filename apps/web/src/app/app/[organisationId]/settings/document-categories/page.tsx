@@ -1,9 +1,21 @@
 import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
-import { DocumentCategoryCreateForm } from "@/components/document-category-create-form";
-import { toggleDocumentCategory } from "@/app/app/actions";
+import {ArrowLeft} from "lucide-react";
+import {notFound} from "next/navigation";
+import {requireUser} from "@/lib/auth";
+import {DocumentCategoryCreateForm} from "@/components/document-category-create-form";
+import {toggleDocumentCategory} from "@/app/app/actions";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
-export default async function CategorySettingsPage({params}:{params:Promise<{organisationId:string}>}){const {organisationId}=await params;const {supabase}=await requireUser();const {data:organisations}=await supabase.rpc("get_my_organisations");if(!organisations?.some((o:{organisation_id:string;role:string})=>o.organisation_id===organisationId&&o.role==="organisation_admin"))notFound();const {data}=await supabase.from("document_categories").select("id,kind,code,name,is_active").eq("organisation_id",organisationId).order("kind").order("sort_order");const categories=data??[];return <div className="mx-auto max-w-6xl"><Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16}/> Organisation</Link><div className="mt-6"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">MDR administration</p><h1 className="mt-2 text-3xl font-semibold">Document categories <HelpTip label="Organisation categories">Control the disciplines and document types available across this organisation.</HelpTip></h1></div><div className="mt-7 grid items-start gap-5 lg:grid-cols-[1fr_340px]"><section className="ev-card overflow-hidden"><table className="w-full text-left text-sm"><thead className="border-b bg-[#f8fafc] text-xs uppercase text-[#617083]"><tr><th className="p-4">Kind</th><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead><tbody>{categories.map(c=><tr key={c.id} className="border-b last:border-0"><td className="p-4 capitalize">{c.kind.replaceAll("_"," ")}</td><td className="font-mono text-xs">{c.code}</td><td>{c.name}</td><td>{c.is_active?"Active":"Inactive"}</td><td className="pr-4 text-right"><form action={toggleDocumentCategory}><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="categoryId" value={c.id}/><input type="hidden" name="isActive" value={String(!c.is_active)}/><button className="ev-button-secondary">{c.is_active?"Disable":"Enable"}</button></form></td></tr>)}</tbody></table></section><DocumentCategoryCreateForm organisationId={organisationId}/></div></div>}
+export default async function CategorySettingsPage({params}:{params:Promise<{organisationId:string}>}){
+  const {organisationId}=await params;
+  const {supabase}=await requireUser();
+  const retryHref=`/app/${organisationId}/settings/document-categories`;
+  const {data:organisations,error:accessError}=await supabase.rpc("get_my_organisations");
+  if(accessError)return <ReadUnavailable title="Category access could not be checked" href={retryHref}/>;
+  if(!organisations?.some((o:{organisation_id:string;role:string})=>o.organisation_id===organisationId&&o.role==="organisation_admin"))notFound();
+  const {data,error}=await supabase.from("document_categories").select("id,kind,code,name,is_active").eq("organisation_id",organisationId).order("kind").order("sort_order");
+  if(error)return <ReadUnavailable title="Document categories are temporarily unavailable" href={retryHref}/>;
+  const categories=data??[];
+  return <div className="mx-auto max-w-6xl"><Link href={`/app/${organisationId}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16}/> Organisation</Link><div className="mt-6"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">MDR administration</p><h1 className="mt-2 text-3xl font-semibold">Document categories <HelpTip label="Organisation categories">Control the disciplines and document types available across this organisation.</HelpTip></h1></div><div className="mt-7 grid items-start gap-5 lg:grid-cols-[1fr_340px]"><section className="ev-card overflow-hidden">{categories.length?<table className="w-full text-left text-sm"><thead className="border-b bg-[#f8fafc] text-xs uppercase text-[#617083]"><tr><th className="p-4">Kind</th><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead><tbody>{categories.map(c=><tr key={c.id} className="border-b last:border-0"><td className="p-4 capitalize">{c.kind.replaceAll("_"," ")}</td><td className="font-mono text-xs">{c.code}</td><td>{c.name}</td><td>{c.is_active?"Active":"Inactive"}</td><td className="pr-4 text-right"><form action={toggleDocumentCategory}><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="categoryId" value={c.id}/><input type="hidden" name="isActive" value={String(!c.is_active)}/><button className="ev-button-secondary">{c.is_active?"Disable":"Enable"}</button></form></td></tr>)}</tbody></table>:<p className="p-6 text-sm text-[#526675]">No document categories are registered yet.</p>}</section><DocumentCategoryCreateForm organisationId={organisationId}/></div></div>;
+}

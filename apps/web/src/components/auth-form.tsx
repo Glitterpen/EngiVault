@@ -6,6 +6,7 @@ import {useActionState,useEffect,useId,useRef,useState} from "react";
 import {FieldWithHelp} from "@/components/field-with-help";
 import type {AuthState} from "@/app/(auth)/actions";
 import {AuthTurnstile} from "@/components/auth-turnstile";
+import {isInvitationAuthDestination,safeAuthDestination} from "@/lib/auth-destination";
 
 export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied=false,notice,captchaSiteKey}:{mode:"login"|"register";action:(s:AuthState,d:FormData)=>Promise<AuthState>;resendAction:(s:AuthState,d:FormData)=>Promise<AuthState>;resetAction:(s:AuthState,d:FormData)=>Promise<AuthState>;next?:string;accessDenied?:boolean;notice?:string;captchaSiteKey?:string}){
   const [state,formAction,pending]=useActionState(action,undefined);
@@ -17,10 +18,12 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
   const helpDisclosure=useRef<HTMLDetailsElement>(null);
   const titleId=useId();
   const registering=mode==="register";
-  const invitation=next?.startsWith("/invite/")??false;
+  const destination=next?safeAuthDestination(next):undefined;
+  const invitation=isInvitationAuthDestination(destination);
+  const invalidInvitation=Boolean(next&&/^\/invite\//i.test(next.trim())&&!invitation);
   const organisationRegistration=registering&&!invitation;
   const alternateBase=registering?"/login":"/register";
-  const alternateHref=next?`${alternateBase}?next=${encodeURIComponent(next)}`:alternateBase;
+  const alternateHref=destination?`${alternateBase}?next=${encodeURIComponent(destination)}`:alternateBase;
   const busy=pending||resendPending||resetPending;
   const captchaRequired=Boolean(captchaSiteKey?.trim());
   const captchaIncomplete=captchaRequired&&!captchaToken;
@@ -40,10 +43,11 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
     <div className="flex min-w-0 items-start gap-2"><h1 id={titleId} className="min-w-0 text-2xl font-semibold leading-tight tracking-tight text-[#10243e] [overflow-wrap:anywhere] sm:text-[1.75rem]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Welcome back"}</h1><span className="pt-0.5"><HelpTip label="Signing in and organisation registration">{organisationRegistration?"Create the organisation owner account and private company workspace. Team members and Executive Viewers join only through organisation-controlled invitations.":invitation?(registering?"Use the exact work email that received your invitation. Your approved access will be applied automatically.":"Sign in with the exact work email that received your invitation."):"Open your organisation-controlled workspace. Your assigned role determines what you can see and do; Executive Viewers have read-only access."}</HelpTip></span></div>
     <p className="mt-2 text-sm leading-6 text-[#526675]">{organisationRegistration?"Set up your workspace and owner account.":invitation?"Use the work email on your invitation.":"Sign in to your engineering workspace."}</p>
 
+    {invalidInvitation&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This invitation link is invalid or incomplete. Ask the Organisation Administrator or Project Manager for a new invitation.{registering&&" The form below registers a new organisation, not an invited team account."}</div>}
     {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
     {notice&&<div className="mt-5 rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm leading-6 text-[#10243e]" role="status">{notice}</div>}
     <form action={formAction} aria-labelledby={titleId} aria-busy={busy} className={registering?"mt-5 min-w-0 space-y-3":"mt-6 min-w-0 space-y-4"}>
-      {next&&<input type="hidden" name="next" value={next}/>}
+      {destination&&<input type="hidden" name="next" value={destination}/>}
       {organisationRegistration?<>
         <fieldset className="min-w-0">
           <legend className="mb-2 text-sm font-semibold text-[#24384f]">Organisation</legend>

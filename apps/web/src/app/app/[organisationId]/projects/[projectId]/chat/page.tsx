@@ -3,6 +3,8 @@ import { ArrowLeft } from "lucide-react";
 import { ProjectChat } from "@/components/project-chat";
 import { requireProject } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import {canOpenOperationalMdr,projectHomePath} from "@/lib/role-experience";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
 export default async function ChatPage({
   params,
@@ -12,8 +14,10 @@ export default async function ChatPage({
   const { organisationId, projectId } = await params;
   const { supabase, access } = await requireProject(organisationId, projectId);
   const base = `/app/${organisationId}/projects/${projectId}`;
+  const role=String(access.role),canOpenMdr=canOpenOperationalMdr(role);
+  const backHref=canOpenMdr?`${base}/documents`:projectHomePath(organisationId,projectId,role);
 
-  if (!can(String(access.role), "ai:use")) {
+  if (!can(role, "ai:use")) {
     return (
       <div className="ev-card mx-auto max-w-2xl p-8">
         <h1 className="text-2xl font-semibold">AI chat unavailable</h1>
@@ -22,9 +26,9 @@ export default async function ChatPage({
         </p>
         <Link
           className="mt-5 inline-flex text-sm font-bold text-[#10243e]"
-          href={`${base}/documents`}
+          href={backHref}
         >
-          Return to documents
+          {canOpenMdr?"Return to documents":"Return to project workspace"}
         </Link>
       </div>
     );
@@ -40,14 +44,15 @@ export default async function ChatPage({
     .eq("state", "ready")
     .order("created_at", { ascending: false })
     .limit(100);
+  if(scopeResult.error)return <ReadUnavailable title="Project evidence is temporarily unavailable" href={`${base}/chat`}>Your authorised revision scope could not be loaded. Retry before starting a question.</ReadUnavailable>;
 
   return (
     <div className="mx-auto w-full max-w-[1500px]">
       <Link
-        href={`${base}/documents`}
+        href={backHref}
         className="inline-flex items-center gap-2 text-sm font-semibold text-[#10243e]"
       >
-        <ArrowLeft size={16} /> Back to document register
+        <ArrowLeft size={16} />{canOpenMdr?"Back to document register":"Back to project workspace"}
       </Link>
       <div className="mt-5">
         <ProjectChat

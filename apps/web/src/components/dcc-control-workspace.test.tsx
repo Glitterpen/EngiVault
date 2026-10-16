@@ -31,4 +31,15 @@ describe("compact document control heading and unchanged workflows",()=>{
     expect([...container.querySelectorAll("details")].every(disclosure=>!disclosure.open)).toBe(true);
     expect(screen.getByRole("link",{name:"Open MDR"})).toBeTruthy();
   });
+  it("opens a named MDR folder without sending obsolete discipline filters",()=>{
+    const {container}=workspace({disciplines:[{name:"Electrical & Instrumentation",count:4},{name:"Process",count:6}]});
+    const disclosure=[...container.querySelectorAll("details")].find(element=>element.querySelector("summary")?.textContent?.startsWith("MDR by discipline"))!;
+    disclosure.open=true;
+    for(const name of ["Electrical & Instrumentation","Process"]){
+      const link=screen.getByRole("link",{name:new RegExp(`^${name}`)});
+      const target=new URL(link.getAttribute("href")!,"https://engicite.test");
+      expect(target.pathname).toBe("/app/org/projects/project/documents");
+      expect(Object.fromEntries(target.searchParams)).toEqual({folder:name});
+    }
+  });
 });

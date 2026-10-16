@@ -6,9 +6,9 @@ import {MdrDocumentRows} from "@/components/mdr-document-rows";
 import type {MdrDisciplineSummary,MdrFolderPage} from "@/lib/mdr-register-types";
 import {disciplineFolderColour} from "@/lib/discipline-folder-colour";
 
-type Props={organisationId:string;projectId:string;disciplines:MdrDisciplineSummary[];search:string;records:string;canManage:boolean;refreshKey?:string};
+type Props={organisationId:string;projectId:string;disciplines:MdrDisciplineSummary[];initialDiscipline?:string;search:string;records:string;canManage:boolean;refreshKey?:string};
 export function MdrDisciplineFolders(props:Props){
-  const [active,setActive]=useState<string|null>(null);
+  const [active,setActive]=useState<string|null>(()=>props.disciplines.find(discipline=>discipline.name===props.initialDiscipline)?.name??null);
   const disciplines=[...props.disciplines].sort((a,b)=>a.name.localeCompare(b.name));
   return <section aria-label="MDR disciplines" className="min-w-0 space-y-2">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold text-[#24384f]">Discipline folders</h2>{disciplines.length>0&&<button type="button" data-preview-safe onClick={()=>setActive(null)} aria-label="Collapse all disciplines" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-[#526675]"><FoldVertical size={15} aria-hidden="true"/>Collapse all</button>}</div>

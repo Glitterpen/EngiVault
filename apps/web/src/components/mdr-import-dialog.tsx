@@ -27,18 +27,31 @@ type Preview = {
   rows: PreviewRow[];
 };
 
+const PREVIEW_PAGE_SIZE = 15;
+
 export function MdrImportDialog({ organisationId, projectId }: { organisationId: string; projectId: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const inputId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [operation, setOperation] = useState<"preview" | "import" | null>(null);
+  const [rowView, setRowView] = useState<"all" | "errors">("all");
+  const [page, setPage] = useState(1);
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
+  const busy = operation !== null;
+  const rows = preview?.rows.filter(row => rowView === "all" || !row.is_valid) ?? [];
+  const pageCount = Math.max(1, Math.ceil(rows.length / PREVIEW_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * PREVIEW_PAGE_SIZE;
+  const visibleRows = rows.slice(pageStart, pageStart + PREVIEW_PAGE_SIZE);
   const endpoint = `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/import`;
 
   async function previewWorkbook() {
+    if (busy) return;
     if (!file) return setMessage("Choose an Excel .xlsx file first.");
-    setBusy(true);
+    setOperation("preview");
+    setFailed(false);
     setMessage("");
     setPreview(null);
     try {
@@ -48,17 +61,21 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
       const body = await response.json() as Preview & { error?: { message?: string } };
       if (!response.ok) throw new Error(body.error?.message ?? "The workbook could not be previewed.");
       setPreview(body);
-      setMessage(body.canImport ? "All rows passed validation and are ready to import." : "Correct the highlighted rows in Excel, save the file and preview it again.");
+      setRowView(body.rows.some(row => !row.is_valid) ? "errors" : "all");
+      setPage(1);
+      setMessage(body.canImport ? "All rows passed validation and are ready to import." : "Correct the rows that need correction in Excel, save the file and preview it again.");
     } catch (error) {
+      setFailed(true);
       setMessage(customerErrorMessage(error,"The workbook could not be previewed."));
     } finally {
-      setBusy(false);
+      setOperation(null);
     }
   }
 
   async function importWorkbook() {
-    if (!preview?.canImport) return;
-    setBusy(true);
+    if (busy || !preview?.canImport) return;
+    setOperation("import");
+    setFailed(false);
     setMessage("");
     try {
       const response = await fetch(endpoint, {
@@ -71,14 +88,18 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
       setMessage(`${body.created_count ?? preview.rowCount} documents were added to the MDR.`);
       window.setTimeout(() => window.location.reload(), 700);
     } catch (error) {
+      setFailed(true);
       setMessage(customerErrorMessage(error,"The MDR could not be imported."));
-      setBusy(false);
+      setOperation(null);
     }
   }
 
   function chooseFile(next: File | null) {
     setFile(next);
     setPreview(null);
+    setRowView("all");
+    setPage(1);
+    setFailed(false);
     setMessage(next ? `${next.name} selected. Preview it before importing.` : "");
   }
 
@@ -98,11 +119,11 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
           </Step>
           <Step number="2" title="Choose workbook" body="Excel .xlsx only, up to 5 MB and 500 rows.">
             <label htmlFor={inputId} className="ev-button-secondary mt-4 w-full cursor-pointer"><Upload size={16} /> Choose Excel file</label>
-            <input id={inputId} className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} />
+            <input id={inputId} className="sr-only" type="file" disabled={busy} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => chooseFile(event.target.files?.[0] ?? null)} />
             <p className="mt-2 truncate text-xs font-semibold text-[#10243e]">{file?.name ?? "No file selected"}</p>
           </Step>
           <Step number="3" title="Preview and import" body="Nothing is saved until every row passes validation.">
-            <button type="button" className="ev-button mt-4 w-full" disabled={busy || !file} onClick={previewWorkbook}><FileCheck2 size={16} /> {busy ? "Checking workbook..." : "Preview workbook"}</button>
+            <button type="button" className="ev-button mt-4 w-full" disabled={busy || !file} onClick={previewWorkbook}><FileCheck2 size={16} /> {operation === "preview" ? "Checking workbook..." : "Preview workbook"}</button>
           </Step>
         </section>
 
@@ -116,19 +137,27 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
             <Summary label="Ready" value={preview.validCount} good />
             <Summary label="Need correction" value={preview.errorCount} warning={preview.errorCount > 0} />
           </div>
-          <div className="mt-4 overflow-x-auto rounded-xl border border-[#d6e0ed]">
+          <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Workbook preview rows">
+            <button type="button" className="ev-button-secondary" aria-pressed={rowView === "all"} onClick={() => { setRowView("all"); setPage(1); }}>All rows ({preview.rows.length})</button>
+            <button type="button" className="ev-button-secondary" aria-pressed={rowView === "errors"} onClick={() => { setRowView("errors"); setPage(1); }}>Need correction ({preview.rows.filter(row => !row.is_valid).length})</button>
+          </div>
+          <div className="mt-3 overflow-x-auto rounded-xl border border-[#d6e0ed]" role="region" aria-label="Workbook validation preview" tabIndex={0}>
             <table className="w-full min-w-[850px] text-left text-xs">
               <thead className="bg-[#f4f7fb] text-[10px] uppercase tracking-[.12em] text-[#617083]"><tr><th className="p-3">Excel row</th><th>Document</th><th>Title</th><th>Discipline</th><th>Type</th><th>Submission</th><th>Validation</th></tr></thead>
-              <tbody>{preview.rows.slice(0, 15).map((row) => <tr key={row.row_number} className="border-t border-[#d6e0ed] align-top"><td className="p-3 font-bold">{row.row_number}</td><td className="max-w-44 p-3 font-semibold text-[#10243e]">{row.document_number ?? "-"}</td><td className="max-w-60 p-3">{row.title ?? "-"}</td><td className="p-3">{row.discipline ?? "-"}</td><td className="p-3">{row.document_type ?? "-"}</td><td className="p-3">{row.planned_submission_date ?? "-"}</td><td className={`max-w-72 p-3 ${row.is_valid ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{row.is_valid ? "Ready" : row.errors.join(" ")}</td></tr>)}</tbody>
+              <tbody>{visibleRows.map((row) => <tr key={row.row_number} className="border-t border-[#d6e0ed] align-top"><td className="p-3 font-bold">{row.row_number}</td><td className="max-w-44 p-3 font-semibold text-[#10243e]">{row.document_number ?? "-"}</td><td className="max-w-60 p-3">{row.title ?? "-"}</td><td className="p-3">{row.discipline ?? "-"}</td><td className="p-3">{row.document_type ?? "-"}</td><td className="p-3">{row.planned_submission_date ?? "-"}</td><td className={`max-w-72 p-3 ${row.is_valid ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{row.is_valid ? "Ready" : row.errors.join(" ")}</td></tr>)}</tbody>
             </table>
+            {!rows.length && <p className="p-4 text-sm text-[#617083]">No rows need correction.</p>}
           </div>
-          {preview.rows.length > 15 && <p className="mt-2 text-xs text-[#617083]">Showing the first 15 of {preview.rows.length} rows.</p>}
+          <nav className="mt-3 flex flex-wrap items-center justify-between gap-3" aria-label="Workbook preview pages">
+            <p className="text-xs text-[#617083]" role="status">{rows.length ? `Showing ${pageStart + 1}–${pageStart + visibleRows.length} of ${rows.length} rows · Page ${currentPage} of ${pageCount}` : "0 rows"}</p>
+            {pageCount > 1 && <div className="flex gap-2"><button type="button" className="ev-button-secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous rows</button><button type="button" className="ev-button-secondary" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Next rows</button></div>}
+          </nav>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f4f7fb] p-4">
-            <p className={`text-sm ${preview.canImport ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{message}</p>
-            <button type="button" className="ev-button" disabled={busy || !preview.canImport} onClick={importWorkbook}><Upload size={16} /> {busy ? "Importing..." : `Import ${preview.validCount} documents`}</button>
+            <p role={failed ? "alert" : "status"} className={`text-sm ${preview.canImport && !failed ? "font-semibold text-[#10243e]" : "text-[#a5452f]"}`}>{message}</p>
+            <button type="button" className="ev-button" disabled={busy || !preview.canImport} onClick={importWorkbook}><Upload size={16} /> {operation === "import" ? "Importing..." : `Import ${preview.validCount} documents`}</button>
           </div>
         </section>}
-        {!preview && message && <p className="mt-4 rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] p-4 text-sm text-[#617083]" role="status">{message}</p>}
+        {!preview && message && <p className="mt-4 rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] p-4 text-sm text-[#617083]" role={failed ? "alert" : "status"}>{message}</p>}
       </div>
     </dialog>
   </>;

@@ -43,6 +43,31 @@ it("sorts every discipline alphabetically instead of relying on the first global
   expect([...container.querySelectorAll("details > summary h3")].map(heading=>heading.textContent)).toEqual(["Electrical","Mechanical","Technical Safety"]);
 });
 
+it("opens only a recognised shortcut folder while keeping every discipline available",async()=>{
+  render(<MdrDisciplineFolders {...props} initialDiscipline="Electrical"/>);
+  await screen.findByRole("region",{name:/Master document register — Electrical — scroll horizontally/});
+  expect(folder("Electrical").open).toBe(true);
+  for(const name of ["Mechanical","Technical Safety"])expect(folder(name).open).toBe(false);
+  expect(request).toHaveBeenCalledTimes(1);
+  const target=new URL(String(request.mock.calls[0][0]),"https://engicite.test");
+  expect(target.searchParams.get("discipline")).toBe("Electrical");
+});
+
+it("ignores unavailable shortcut folders without eagerly requesting documents",()=>{
+  render(<MdrDisciplineFolders {...props} initialDiscipline="Unknown discipline"/>);
+  expect(disciplines.every(({name})=>!folder(name).open)).toBe(true);
+  expect(request).not.toHaveBeenCalled();
+});
+
+it("does not reopen a shortcut folder after Collapse all and a server refresh",async()=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} initialDiscipline="Electrical" refreshKey="first"/>);
+  await screen.findByRole("region",{name:/Master document register — Electrical — scroll horizontally/});
+  fireEvent.click(screen.getByRole("button",{name:"Collapse all disciplines"}));
+  rerender(<MdrDisciplineFolders {...props} initialDiscipline="Electrical" refreshKey="second"/>);
+  expect(disciplines.every(({name})=>!folder(name).open)).toBe(true);
+  expect(request).toHaveBeenCalledTimes(1);
+});
+
 it("loads only the opened discipline using project-scoped same-origin uncached requests",async()=>{
   render(<MdrDisciplineFolders {...props} search="load list" records="removed"/>);
   await expand("Electrical");

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireProject } from "@/lib/auth";
 import { WorkPackageGenerate } from "@/components/work-package-generate";
 import { WorkspacePageHeading } from "@/components/workspace-page-heading";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
 type PackageManifest = {
   kind?: string;
@@ -31,7 +32,8 @@ export default async function PackagePage({
 }) {
   const { organisationId, projectId, packageId } = await params;
   const { supabase } = await requireProject(organisationId, projectId);
-  const [{ data: pack }, { data: items }] = await Promise.all([
+  const retryHref=`/app/${organisationId}/projects/${projectId}/work-packages/${packageId}`;
+  const [{ data: pack, error: packageError }, { data: items, error: itemsError }] = await Promise.all([
     supabase
       .from("work_packages")
       .select("*")
@@ -41,7 +43,9 @@ export default async function PackagePage({
       .maybeSingle(),
     supabase.from("work_package_items").select("*").eq("work_package_id", packageId).order("discipline").order("document_number"),
   ]);
+  if(packageError)return <ReadUnavailable title="Work package is temporarily unavailable" href={retryHref}/>;
   if (!pack) notFound();
+  if(itemsError)return <ReadUnavailable title="Package documents are temporarily unavailable" href={retryHref}>The frozen document list could not be loaded. Retry before generating or checking this package.</ReadUnavailable>;
   const manifest = (pack.manifest ?? {}) as PackageManifest;
   const isTransmittal = manifest.kind === "document_transmittal";
   const seal = manifest.electronic_seal;

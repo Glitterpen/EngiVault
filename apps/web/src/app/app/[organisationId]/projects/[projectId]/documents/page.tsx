@@ -31,6 +31,8 @@ export default async function DocumentsPage({params,searchParams}:{params:Promis
     indexPromise,
   ]);
   if(indexResult.error||!indexResult.data)return <RegisterUnavailable href={`${base}/documents${mdrFilterUrl(filters)}`}/>;
+  // A shortcut opens an existing folder; it never narrows the register's discipline index.
+  const initialDiscipline=indexResult.data.disciplines.find(discipline=>discipline.name===search.folder)?.name;
   const canManage=can(role,"document:write")&&!preview;
   const canAssign=lifecycle==="active"&&can(role,"document:assign");
   const engineers=((teamResult.data??[]) as TeamMember[]).filter(member=>member.role==="engineer").map(member=>({userId:member.user_id,name:member.display_name,email:member.email,disciplines:member.disciplines??[]}));
@@ -39,7 +41,7 @@ export default async function DocumentsPage({params,searchParams}:{params:Promis
   const disciplines=categoryRows.filter(category=>category.kind==="discipline"),types=categoryRows.filter(category=>category.kind==="document_type");
   const canRegister=can(role,"document:register")&&Boolean(registrationResult.data)&&!registrationResult.error&&!categoryResult.error&&!preview;
   return <MdrRegisterWorkspace organisationId={organisationId} projectId={projectId} backHref={role==="document_controller"?`${base}/control`:`/app/${organisationId}`} backLabel={role==="document_controller"?"Document control centre":"Back to projects"}
-    filters={filters} disciplines={indexResult.data.disciplines} total={indexResult.data.total} canManage={canManage} canSeeRemoved={can(role,"document:write")} canUseAi={can(role,"ai:use")} refreshKey={new Date().toISOString()}
+    filters={filters} disciplines={indexResult.data.disciplines} initialDiscipline={initialDiscipline} total={indexResult.data.total} canManage={canManage} canSeeRemoved={can(role,"document:write")} canUseAi={can(role,"ai:use")} refreshKey={new Date().toISOString()}
     registerAction={canRegister&&lifecycle==="active"?<DocumentCreateDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} documentTypes={types}/>:undefined}
     importAction={canRegister&&lifecycle==="active"?<MdrImportDialog organisationId={organisationId} projectId={projectId}/>:undefined}
     assignmentPanel={canAssign&&assignments.available&&assignments.scopes.length?<DisciplineAssignmentManager organisationId={organisationId} projectId={projectId} disciplines={assignments.scopes} readOnly={Boolean(preview)} embedded/>:undefined}

@@ -14,6 +14,8 @@ import {
   type TransmittalHistoryItem,
 } from "@/lib/transmittal-revisions";
 
+const MAX_SELECTED_REVISIONS = 100;
+
 export function TransmittalCreateForm({
   organisationId,
   projectId,
@@ -49,9 +51,10 @@ export function TransmittalCreateForm({
     (!discipline || row.discipline === discipline) &&
     `${row.documentNumber} ${row.revisionCode} ${row.discipline} ${row.title ?? ""}`.toLowerCase().includes(search.trim().toLowerCase());
   const visibleRevisions = eligible.filter(matches);
-  const selectableIds = visibleRevisions.slice(0, 100).map((revision) => revision.id);
-  const selectedSet = new Set(selected.filter((id) => eligible.some((revision) => revision.id === id)));
-  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedSet.has(id));
+  const eligibleIds = new Set(eligible.map((revision) => revision.id));
+  const visibleIds = new Set(visibleRevisions.map((revision) => revision.id));
+  const selectedSet = new Set(selected.filter((id) => eligibleIds.has(id)).slice(0, MAX_SELECTED_REVISIONS));
+  const visibleSelectedCount = [...selectedSet].filter((id) => visibleIds.has(id)).length;
   const disciplines = [...new Set([...revisions, ...preparing, ...history].map((row) => row.discipline))].sort();
   const clientConfigured = Boolean(clientName?.trim());
   const activePreparing = preparing.some((revision) =>
@@ -89,10 +92,26 @@ export function TransmittalCreateForm({
   }, [activePreparing, processEndpoint, router]);
 
   function toggle(id: string) {
-    if (!eligible.some((revision) => revision.id === id)) return;
-    setSelected((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...selectedSet, id].slice(0, 100),
-    );
+    if (pending || !eligibleIds.has(id)) return;
+    setSelected((current) => {
+      const next = new Set(current.filter((value) => eligibleIds.has(value)));
+      if (next.has(id)) next.delete(id);
+      else if (next.size < MAX_SELECTED_REVISIONS) next.add(id);
+      return [...next].slice(0, MAX_SELECTED_REVISIONS);
+    });
+  }
+
+  function selectVisible() {
+    if (pending) return;
+    setSelected((current) => [...new Set([
+      ...current.filter((id) => eligibleIds.has(id)),
+      ...visibleIds,
+    ])].slice(0, MAX_SELECTED_REVISIONS));
+  }
+
+  function clearVisible() {
+    if (pending) return;
+    setSelected((current) => current.filter((id) => eligibleIds.has(id) && !visibleIds.has(id)));
   }
 
   return (
@@ -156,14 +175,18 @@ export function TransmittalCreateForm({
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <p className="text-xs leading-5 text-[#526675]">{visibleRevisions.length} ready · Select up to 100</p>
-            <button
-              type="button"
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[#10243e] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={pending || !visibleRevisions.length}
-              onClick={() => setSelected(allSelected ? [] : selectableIds)}
-            >
-              <CheckCheck size={16} aria-hidden="true" /> {allSelected ? "Clear selection" : "Select visible (max 100)"}
-            </button>
+            <div role="group" aria-label="Deliverable selection" className="flex flex-wrap items-center gap-x-2">
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[#10243e] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={pending || !visibleRevisions.length || selectedSet.size >= MAX_SELECTED_REVISIONS || visibleSelectedCount === visibleIds.size}
+                onClick={selectVisible}
+              >
+                <CheckCheck size={16} aria-hidden="true" /> Select visible (max 100)
+              </button>
+              <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#526675] disabled:cursor-not-allowed disabled:opacity-50" disabled={pending || !visibleSelectedCount} onClick={clearVisible}>Clear visible</button>
+              <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#526675] disabled:cursor-not-allowed disabled:opacity-50" disabled={pending || !selectedSet.size} onClick={() => setSelected([])}>Clear all selections</button>
+            </div>
           </div>
         </div>
         {preparing.length > 0 && (
@@ -206,7 +229,7 @@ export function TransmittalCreateForm({
                 type="checkbox"
                 value={revision.id}
                 aria-label={`Select ${revision.documentNumber} revision ${revision.revisionCode}`}
-                disabled={pending || (!selectedSet.has(revision.id) && selectedSet.size >= 100)}
+                disabled={pending || (!selectedSet.has(revision.id) && selectedSet.size >= MAX_SELECTED_REVISIONS)}
                 checked={selectedSet.has(revision.id)}
                 onChange={() => toggle(revision.id)}
                 className="mt-1 size-5 shrink-0 accent-[#10243e]"

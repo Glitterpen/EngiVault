@@ -12,6 +12,7 @@ import {
 import { requireUser } from "@/lib/auth";
 import { ORGANISATION_TRIAL_DAYS, trialDaysRemaining } from "@/lib/billing";
 import { isPaystackCheckoutConfigured } from "@/lib/paystack";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
 type SearchParams = { checkout?: string; billing?: string };
 type Entitlements = {
@@ -30,14 +31,19 @@ export default async function SubscriptionPage({
 }) {
   const [{ organisationId }, query] = await Promise.all([params, searchParams]);
   const { supabase } = await requireUser();
-  const { data: organisation } = await supabase
+  const retryParams=new URLSearchParams();
+  if(query.checkout)retryParams.set("checkout",query.checkout);
+  if(query.billing)retryParams.set("billing",query.billing);
+  const retryHref=`/app/${organisationId}/subscription${retryParams.size?`?${retryParams}`:""}`;
+  const { data: organisation, error: accessError } = await supabase
     .rpc("get_my_organisations")
     .eq("organisation_id", organisationId)
     .eq("role", "organisation_admin")
     .maybeSingle();
+  if(accessError)return <ReadUnavailable title="Billing access could not be checked" href={retryHref}/>;
   if (!organisation) notFound();
 
-  const [{ data: subscription }, { data: billingCustomer }, { data: usage }] = await Promise.all([
+  const [{ data: subscription, error: subscriptionError }, { data: billingCustomer, error: customerError }, { data: usage, error: usageError }] = await Promise.all([
     supabase
       .from("subscriptions")
       .select(
@@ -54,11 +60,13 @@ export default async function SubscriptionPage({
       .maybeSingle(),
     supabase.from("usage_ledger").select("metric,quantity").eq("organisation_id", organisationId),
   ]);
+  if(subscriptionError||customerError||usageError)return <ReadUnavailable title="Subscription information is temporarily unavailable" href={retryHref}>Your current plan and usage could not be verified. No plan or usage figures are shown until they can be checked. Please retry before starting another checkout.</ReadUnavailable>;
   const totals = new Map<string, number>();
   usage?.forEach((row) =>
     totals.set(row.metric, (totals.get(row.metric) ?? 0) + Number(row.quantity)),
   );
   const plan = Array.isArray(subscription?.plans) ? subscription.plans[0] : subscription?.plans;
+  if(subscription&&(!plan||!plan.entitlements||typeof plan.entitlements!=="object"||Array.isArray(plan.entitlements)))return <ReadUnavailable title="Plan details are temporarily unavailable" href={retryHref}>Your subscription record is available, but its included capacity could not be verified. Retry loading or contact EngiCite support before making another payment.</ReadUnavailable>;
   const entitlements = (plan?.entitlements ?? {}) as Entitlements;
   const trialDays = trialDaysRemaining(subscription?.trial_ends_at ?? null);
   const pilotActive = subscription?.status === "trialing" && trialDays > 0;
@@ -107,7 +115,7 @@ export default async function SubscriptionPage({
                 <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#ff9a6d]">
                   Current plan
                 </p>
-                <h2 className="mt-2 text-3xl font-semibold">{plan?.name ?? "EngiCite Trial"}</h2>
+                <h2 className="mt-2 text-3xl font-semibold">{plan?.name ?? (subscription?"Plan details unavailable":"No plan assigned")}</h2>
                 <p className="mt-2 text-sm text-white/65">
                   {pilotActive
                     ? `${trialDays} day${trialDays === 1 ? "" : "s"} remaining in the card-free pilot`
@@ -311,12 +319,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function limit(value?: number) {
   if (value === -1) return "Unlimited";
-  return (value ?? 0).toLocaleString();
+  return typeof value==="number"&&Number.isFinite(value)&&value>=0?value.toLocaleString():"Not available";
 }
 
 function storage(value?: number) {
   if (value === -1) return "Unlimited";
-  return `${Math.round((value ?? 0) / 1_073_741_824)} GB`;
+  return typeof value==="number"&&Number.isFinite(value)&&value>=0?`${Math.round(value / 1_073_741_824)} GB`:"Not available";
 }
 
 function statusDescription(status?: string) {

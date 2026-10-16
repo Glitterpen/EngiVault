@@ -5,13 +5,21 @@ import {Download,Upload} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import {createClient} from "@/lib/supabase/browser";
 import {TEMPLATE_PACK_MAX_BYTES,type TemplatePackStatus} from "@/lib/project-template-packs";
+import {customerErrorMessage} from "@/lib/customer-messages";
 
-export function ProjectTemplatePack({organisationId,projectId,canManage=false}:{organisationId:string;projectId:string;canManage?:boolean}){
+type Props={organisationId:string;projectId:string;canManage?:boolean};
+
+export function ProjectTemplatePack(props:Props){
+  return <TemplatePackContent key={`${props.organisationId}:${props.projectId}`} {...props}/>;
+}
+
+function TemplatePackContent({organisationId,projectId,canManage=false}:Props){
   const base=`/api/v1/organisations/${organisationId}/projects/${projectId}/templates`;
   const [pack,setPack]=useState<TemplatePackStatus|null>(null);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
+  const [loading,setLoading]=useState(true);
   const input=useRef<HTMLInputElement>(null);
   const load=useCallback(async()=>{
     const response=await fetch(base,{cache:"no-store"});
@@ -21,9 +29,14 @@ export function ProjectTemplatePack({organisationId,projectId,canManage=false}:{
   },[base]);
   useEffect(()=>{
     let active=true;
-    void load().then(data=>{if(active)setPack(data);}).catch(error=>{if(active)setError(error.message);});
+    void load().then(data=>{if(active)setPack(data);}).catch(error=>{if(active)setError(customerErrorMessage(error,"Project templates could not be loaded. Please retry."));}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[load]);
+  async function retryLoad(){
+    if(loading||busy)return;
+    setLoading(true);setError("");
+    try{setPack(await load());}catch(error){setError(customerErrorMessage(error,"Project templates could not be loaded. Please retry."));}finally{setLoading(false);}
+  }
   async function publish(id:string){
     setMessage("Running security checks. Keep this page open…");
     const response=await fetch(`${base}/complete`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id})});
@@ -32,8 +45,9 @@ export function ProjectTemplatePack({organisationId,projectId,canManage=false}:{
     setPack(await load());setMessage("Template ZIP published for the project team.");
   }
   async function run(action:()=>Promise<void>){
+    if(busy||loading||!pack)return;
     setBusy(true);setError("");setMessage("");
-    try{await action();}catch(error){setMessage("");setError(error instanceof Error?error.message:"Template upload failed. Please retry.");await load().then(setPack).catch(()=>undefined);}finally{setBusy(false);}
+    try{await action();}catch(error){setMessage("");setError(customerErrorMessage(error,"Template upload failed. Please retry."));await load().then(setPack).catch(()=>undefined);}finally{setBusy(false);}
   }
   async function upload(event:React.FormEvent){
     event.preventDefault();const file=input.current?.files?.[0];
@@ -54,17 +68,17 @@ export function ProjectTemplatePack({organisationId,projectId,canManage=false}:{
       await publish(session.id);if(input.current)input.current.value="";
     });
   }
-  return <section className="ev-card min-w-0 p-5 sm:p-6" aria-label="Project template pack">
+  return <section className="ev-card min-w-0 p-5 sm:p-6" aria-label="Project template pack" aria-busy={loading||busy}>
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Project templates <HelpTip label="Project template pack guidance">Download the Project Manager’s approved drawing backsheet, list/MTO spreadsheet and Word templates together as one ZIP. Replacements become available only after security checks.</HelpTip></h2>
       {pack?.current&&<a className="ev-button-secondary" href={`${base}/download`}><Download size={16}/> Download all templates (.zip)</a>}</div>
-    {pack?.current?<p className="mt-3 break-words text-sm text-[#617083]">{pack.current.filename} · {pack.current.fileCount} files · {(pack.current.byteSize/1024/1024).toFixed(1)} MB</p>:<p className="mt-3 text-sm text-[#617083]">{pack?"No template pack published yet.":"Loading project templates…"}</p>}
+    {pack?.current?<p className="mt-3 break-words text-sm text-[#617083]">{pack.current.filename} · {pack.current.fileCount} files · {(pack.current.byteSize/1024/1024).toFixed(1)} MB</p>:<p className="mt-3 text-sm text-[#617083]">{loading?"Loading project templates…":pack?"No template pack published yet.":"Project template availability could not be confirmed."}</p>}
     {canManage&&<form className="mt-5 border-t border-[#d6e0ed] pt-4" onSubmit={upload}>
-      <label className="block"><span className="ev-label">Approved template ZIP (up to 50 MB)</span><input ref={input} className="ev-input mt-2 max-w-full" type="file" accept=".zip,application/zip" disabled={busy} required/></label>
+      <label className="block"><span className="ev-label">Approved template ZIP (up to 50 MB)</span><input ref={input} className="ev-input mt-2 max-w-full" type="file" accept=".zip,application/zip" disabled={busy||loading||!pack} required/></label>
       <HelpTip label="Preparing the template ZIP">Include drawing backsheet files (DWG, DWT, DXF or PDF), list and MTO spreadsheets (XLSX or XLTX), and Word templates (DOCX or DOTX). TXT instructions are supported. Up to 250 files and 100 MB expanded. No password protection, nested ZIPs, macros or executables.</HelpTip>
-      <button className="ev-button mt-3" disabled={busy}><Upload size={16}/>{busy?"Processing…":pack?.current?"Upload replacement ZIP":"Upload template ZIP"}</button>
+      <button className="ev-button mt-3" disabled={busy||loading||!pack}><Upload size={16}/>{busy?"Processing…":pack?.current?"Upload replacement ZIP":"Upload template ZIP"}</button>
     </form>}
-    {canManage&&pack?.pending&&!busy&&<div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span className="break-words">Unpublished upload: {pack.pending.filename}</span><button type="button" className="ev-button-secondary" onClick={()=>void run(()=>publish(pack.pending!.id))}>Retry security checks</button></div>}
+    {canManage&&pack?.pending&&!busy&&<div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span className="break-words">Unpublished upload: {pack.pending.filename}</span><button type="button" className="ev-button-secondary" disabled={loading} onClick={()=>void run(()=>publish(pack.pending!.id))}>Retry security checks</button></div>}
     {message&&<p className="mt-4 text-sm text-[#10243e]" role="status">{message}</p>}
-    {error&&<p className="mt-4 text-sm text-[#a5452f]" role="alert">{error}</p>}
+    {error&&<div className="mt-4"><p className="text-sm text-[#a5452f]" role="alert">{error}</p><button type="button" data-preview-safe className="ev-button-secondary mt-3" disabled={loading||busy} onClick={()=>void retryLoad()}>{loading?"Loading templates…":"Retry loading templates"}</button></div>}
   </section>;
 }

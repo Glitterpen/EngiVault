@@ -4,7 +4,7 @@ import {useEffect, useState} from "react";
 import type {Session} from "@supabase/supabase-js";
 import {createClient} from "@/lib/supabase/browser";
 import {watchIdleSession} from "@/lib/idle-session";
-import {protectedSignInPath} from "@/lib/protected-route";
+import {protectedSignInUrl} from "@/lib/protected-route";
 
 export function IdleSessionGuard({children}: {children: React.ReactNode}) {
   const [locked, setLocked] = useState(false);
@@ -19,7 +19,7 @@ export function IdleSessionGuard({children}: {children: React.ReactNode}) {
       if (expiring || disposed) return;
       expiring = true;
       setLocked(true);
-      const destination = `${protectedSignInPath(window.location.pathname)}?session=expired`;
+      const destination = protectedSignInUrl(window.location.pathname,window.location.search,"expired");
       const logout = async () => {
         try {
           const response = await fetch("/auth/idle-logout", {
@@ -43,7 +43,7 @@ export function IdleSessionGuard({children}: {children: React.ReactNode}) {
         stop?.(); stop = undefined;
         if (sessionKey) {
           setLocked(true);
-          window.location.replace(protectedSignInPath(window.location.pathname));
+          window.location.replace(protectedSignInUrl(window.location.pathname,window.location.search));
         }
         sessionKey = undefined;
         return;

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { projectHomePath } from "@/lib/role-experience";
 import { switchInvitationAccount } from "./actions";
 import {z} from "zod";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
 export default async function InvitePage({params}:{params:Promise<{token:string}>}){
   const {token}=await params;
@@ -15,13 +16,19 @@ export default async function InvitePage({params}:{params:Promise<{token:string}
 
   const {data:accepted,error}=await supabase.rpc("accept_workspace_invitation",{raw_token:token});
   if(error){
+    const expectedDenial=["42501","22023","23505","23514","P0001"].includes(error.code??"")&&[
+      "invitation unavailable","invitation discipline unavailable","verified email required",
+      "authentication required","active project role differs from invitation","operational appointment must be removed first",
+      "inviter no longer has authority; request a fresh invitation",
+    ].includes(error.message??"");
+    if(!expectedDenial)return <main className="grid min-h-screen place-items-center bg-[#f5f7f9] p-6"><div className="w-full max-w-lg"><ReadUnavailable title="Invitation could not be checked" href={destination}>EngiCite could not confirm this invitation right now. You are still signed in. Retry loading, or return to your current workspace.</ReadUnavailable><Link href="/app" className="mt-4 inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#10243e]">Return to current workspace</Link></div></main>;
     const switchAccount=switchInvitationAccount.bind(null,token);
     return <main className="grid min-h-screen place-items-center bg-[#f5f7f9] p-6">
       <div className="ev-card w-full max-w-lg p-8 text-center sm:p-10">
         <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Secure workspace invitation</p>
-        <h1 className="mt-3 text-2xl font-semibold text-[#10243e]">Use the invited account</h1>
-        <p className="mt-3 text-sm leading-6 text-[#617083]">You are currently signed in as <strong className="text-[#10243e]">{user.email}</strong>, but this invitation cannot be accepted by that account.</p>
-        <p className="mt-3 text-sm leading-6 text-[#617083]">Switch accounts and sign in with the exact email address that received the invitation. If the link has expired or was already used, ask the Organisation Administrator or Project Manager for a new invitation.</p>
+        <h1 className="mt-3 text-2xl font-semibold text-[#10243e]">Invitation unavailable</h1>
+        <p className="mt-3 text-sm leading-6 text-[#617083]">You are signed in as <strong className="text-[#10243e]">{user.email}</strong>. EngiCite could not accept this invitation.</p>
+        <p className="mt-3 text-sm leading-6 text-[#617083]">The invitation may have expired, been revoked or already been used, or its approved access may have changed. Check that you are using the exact email address that received it. If needed, ask the authorised inviter to check the invitation and your project role before sending a new link.</p>
         <form action={switchAccount} className="mt-6">
           <button className="ev-button w-full">Sign out and use invited email</button>
         </form>

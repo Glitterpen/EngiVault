@@ -65,6 +65,32 @@ describe("organisation and invited registration redesign",()=>{
     await submit();expect(Object.fromEntries(handlers.action.mock.calls[0][1])).toEqual({next:invitation,name:"Synthetic Engineer",email:"invited@example.test",password:"synthetic-invited-password",captchaToken:""});
     expect(screen.getByRole("link",{name:"Sign in"}).getAttribute("href")).toBe(`/login?next=${encodeURIComponent(invitation)}`);
   });
+  it.each(["/invite/not-a-token",`/invite/${"a".repeat(63)}`,`/invite/${"g".repeat(64)}`,`${invitation}?extra=value`,`${invitation}/extra`])("does not hide mandatory organisation fields for malformed invitation destination %s",next=>{
+    render(<AuthForm mode="register" {...actions()} next={next}/>);
+    expect(screen.getByRole("heading",{name:"Register your organisation"})).toBeTruthy();
+    for(const label of ["Organisation name","Organisation URL name"]){
+      expect((screen.getByLabelText(label) as HTMLInputElement).required).toBe(true);
+    }
+    expect(screen.queryByRole("button",{name:"Create invited account"})).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("This invitation link is invalid or incomplete.");
+    expect(screen.getByRole("alert").textContent).toContain("not an invited team account");
+    expect(new FormData(form()).get("next")).toBe("/app");
+    expect(screen.getByRole("link",{name:"Sign in"}).getAttribute("href")).toBe("/login?next=%2Fapp");
+  });
+  it.each([`/invite/${"A".repeat(64)}`,`/INVITE/${"a".repeat(64)}`])("uses the same trimmed, case-insensitive valid invitation destination %s as the server",destination=>{
+    render(<AuthForm mode="register" {...actions()} next={`  ${destination}  `}/>);
+    expect(screen.getByRole("heading",{name:"Create your invited account"})).toBeTruthy();
+    expect(screen.queryByLabelText("Organisation name")).toBeNull();
+    expect(new FormData(form()).get("next")).toBe(destination);
+    expect(screen.getByRole("link",{name:"Sign in"}).getAttribute("href")).toBe(`/login?next=${encodeURIComponent(destination)}`);
+  });
+  it.each(["https://attacker.example/invite/invalid","//attacker.example/invite/invalid","/app\\redirect"])("keeps unsafe next %s out of registration fields and navigation",next=>{
+    render(<AuthForm mode="register" {...actions()} next={next}/>);
+    expect(screen.getByRole("heading",{name:"Register your organisation"})).toBeTruthy();
+    expect((screen.getByLabelText("Organisation name") as HTMLInputElement).required).toBe(true);
+    expect(new FormData(form()).get("next")).toBe("/app");
+    expect(screen.getByRole("link",{name:"Sign in"}).getAttribute("href")).toBe("/login?next=%2Fapp");
+  });
   it("keeps server-side errors visible and associated with their exact owner or account field",async()=>{
     const handlers=actions();handlers.action.mockResolvedValue({errors:{organisationName:["Check organisation name."],organisationSlug:["Check organisation URL name."],name:["Check full name."],email:["Check work email."],password:["Check password."]}});
     render(<AuthForm mode="register" {...handlers}/>);await submit();

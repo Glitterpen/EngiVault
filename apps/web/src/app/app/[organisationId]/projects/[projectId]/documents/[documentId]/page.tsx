@@ -17,6 +17,7 @@ import {DocumentAssignmentManager,type AssignableEngineer} from "@/components/do
 import {disciplineMatches} from "@/lib/discipline-access";
 import {projectHomePath,workspacePersona} from "@/lib/role-experience";
 import {projectDeliveryStageLabel,projectIssueProgressCredit,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
 export default async function DocumentPage({params}:{params:Promise<{organisationId:string;projectId:string;documentId:string}>}){
   const {organisationId,projectId,documentId}=await params;
@@ -26,26 +27,34 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
   const isEngineer=role==="engineer";
   if(workspacePersona(role)==="management")redirect(projectHomePath(organisationId,projectId,role));
 
-  const {data:doc}=await supabase.from("documents").select("*").eq("id",documentId).eq("organisation_id",organisationId).eq("project_id",projectId).maybeSingle();
+  const retryHref=`/app/${organisationId}/projects/${projectId}/documents/${documentId}`;
+  const {data:doc,error:documentError}=await supabase.from("documents").select("*").eq("id",documentId).eq("organisation_id",organisationId).eq("project_id",projectId).maybeSingle();
+  if(documentError)return <ReadUnavailable title="Document information is temporarily unavailable" href={retryHref}/>;
   if(!doc)notFound();
   const schedules=await loadDocumentSchedules(supabase,organisationId,projectId,[documentId]);
-  const {data:project}=await supabase.from("projects").select("delivery_stage").eq("organisation_id",organisationId).eq("id",projectId).maybeSingle();
+  const {data:project,error:projectError}=await supabase.from("projects").select("delivery_stage").eq("organisation_id",organisationId).eq("id",projectId).maybeSingle();
+  if(projectError)return <ReadUnavailable title="Project issue requirements are temporarily unavailable" href={retryHref}/>;
+  if(!project)notFound();
   const deliveryStage=((project?.delivery_stage as ProjectDeliveryStage|null)??"feed");
-  const {data:disciplineAccess}=role==="engineer"?await supabase.rpc("can_upload_document",{org:organisationId,project:projectId,document:documentId}):{data:false};
+  const {data:disciplineAccess,error:permissionError}=role==="engineer"?await supabase.rpc("can_upload_document",{org:organisationId,project:projectId,document:documentId}):{data:false,error:null};
+  if(permissionError)return <ReadUnavailable title="Document access could not be checked" href={retryHref}/>;
   if(role==="engineer"&&!disciplineAccess)notFound();
 
-  const [{data:teamData},{data:assignmentData}]=canWrite?await Promise.all([
+  const [{data:teamData,error:teamError},{data:assignmentData,error:assignmentError}]=canWrite?await Promise.all([
     supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),
     supabase.from("document_assignments").select("user_id,status").eq("organisation_id",organisationId).eq("project_id",projectId).eq("document_id",documentId),
-  ]):[{data:[]},{data:[]}];
+  ]):[{data:[],error:null},{data:[],error:null}];
+  if(teamError||assignmentError)return <ReadUnavailable title="Deliverable assignments are temporarily unavailable" href={retryHref}/>;
   const assignedUsers=new Set((assignmentData??[]).filter(assignment=>assignment.status==="active").map(assignment=>assignment.user_id));
   const assignableEngineers=((teamData??[]) as {user_id:string;display_name:string;email:string;role:string;disciplines:string[]}[])
     .filter(member=>member.role==="engineer"&&(member.disciplines??[]).some(discipline=>disciplineMatches(discipline,String(doc.discipline))))
     .map<AssignableEngineer>(member=>({userId:member.user_id,name:member.display_name,email:member.email,assigned:assignedUsers.has(member.user_id)}));
 
-  const {data:revisions}=await supabase.from("document_revisions").select("id,uploaded_by,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,control_status,review_comment,submission_version,overridden_by_revision_id").eq("document_id",documentId).order("created_at",{ascending:false});
+  const {data:revisions,error:revisionError}=await supabase.from("document_revisions").select("id,uploaded_by,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,control_status,review_comment,submission_version,overridden_by_revision_id").eq("document_id",documentId).order("created_at",{ascending:false});
+  if(revisionError)return <ReadUnavailable title="Revision history is temporarily unavailable" href={retryHref}>Existing submissions could not be verified. Retry loading before starting another upload.</ReadUnavailable>;
   const revisionIds=(revisions??[]).map(revision=>revision.id);
-  const {data:runs}=revisionIds.length?await supabase.from("processing_runs").select("revision_id,state,attempt,error_code,metrics,updated_at").in("revision_id",revisionIds):{data:[]};
+  const {data:runs,error:processingError}=revisionIds.length?await supabase.from("processing_runs").select("revision_id,state,attempt,error_code,metrics,updated_at").in("revision_id",revisionIds):{data:[],error:null};
+  if(processingError)return <ReadUnavailable title="Revision processing status is temporarily unavailable" href={retryHref}/>;
   const runByRevision=new Map((runs??[]).map(run=>[run.revision_id,run]));
   const canUpload=isEngineer&&Boolean(disciplineAccess);
   const completedIssueStatuses=[...new Set((revisions??[])

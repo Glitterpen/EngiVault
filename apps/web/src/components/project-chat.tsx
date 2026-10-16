@@ -90,7 +90,12 @@ export function ProjectChat({
 
   async function ask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    if (busy) return;
+    // React clears currentTarget after dispatch; keep the form before awaiting.
+    const formElement = event.currentTarget;
+    const questionField = formElement.elements.namedItem("question") as HTMLTextAreaElement;
+    const submittedValue = questionField.value;
+    const form = new FormData(formElement);
     const question = String(form.get("question") ?? "").trim();
     if (!question) return;
     if (!selected.length) {
@@ -148,7 +153,8 @@ export function ProjectChat({
           ? "Answer verified against retrieved project evidence."
           : "Insufficient evidence in the selected revisions.",
       );
-      event.currentTarget.reset();
+      // Do not erase a new question typed while the previous answer was loading.
+      if (questionField.value === submittedValue) formElement.reset();
     } catch (error) {
       setNotice(customerErrorMessage(error,"Question failed."));
     } finally {

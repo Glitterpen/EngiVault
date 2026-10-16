@@ -1,15 +1,20 @@
 const invitationPath = /^\/invite\/[a-f0-9]{64}$/i;
 
+export function isInvitationAuthDestination(value: string | null | undefined) {
+  return invitationPath.test(value?.trim() ?? "");
+}
+
 function primaryDestination(candidate: string) {
   if (
     candidate === "/app" ||
     candidate === "/organisation/setup" ||
     candidate === "/founder" ||
+    candidate.startsWith("/founder?") ||
     candidate === "/founder/security" ||
     candidate.startsWith("/founder/") ||
     candidate.startsWith("/app/") ||
     candidate.startsWith("/app?") ||
-    invitationPath.test(candidate)
+    isInvitationAuthDestination(candidate)
   ) {
     return candidate;
   }

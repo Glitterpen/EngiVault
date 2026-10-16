@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { safeAuthDestination } from "./auth-destination";
+import { isInvitationAuthDestination, safeAuthDestination } from "./auth-destination";
 
 describe("safeAuthDestination", () => {
   it("preserves workspace destinations", () => {
     expect(safeAuthDestination("/app/example/projects/123")).toBe("/app/example/projects/123");
     expect(safeAuthDestination("/organisation/setup")).toBe("/organisation/setup");
     expect(safeAuthDestination("/founder")).toBe("/founder");
+    expect(safeAuthDestination("/founder?q=Example")).toBe("/founder?q=Example");
     expect(safeAuthDestination("/founder/deleted")).toBe("/founder/deleted");
   });
 
@@ -33,5 +34,14 @@ describe("safeAuthDestination", () => {
     "/app\\redirect",
   ])("rejects unsafe or unsupported destination %s", (destination) => {
     expect(safeAuthDestination(destination)).toBe("/app");
+  });
+});
+
+describe("isInvitationAuthDestination",()=>{
+  it.each([`/invite/${"a".repeat(64)}`,` /INVITE/${"B".repeat(64)} `])("recognises only a complete token route using the server's case-insensitive rule: %s",destination=>{
+    expect(isInvitationAuthDestination(destination)).toBe(true);
+  });
+  it.each([undefined,null,"/invite/not-a-token",`/invite/${"a".repeat(63)}`,`/invite/${"g".repeat(64)}`,`/invite/${"a".repeat(64)}?extra=true`,`/invite/${"a".repeat(64)}/extra`,"https://attacker.example/invite/token"])("rejects unavailable or malformed invitation destination %s",destination=>{
+    expect(isInvitationAuthDestination(destination)).toBe(false);
   });
 });

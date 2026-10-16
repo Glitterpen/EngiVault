@@ -95,6 +95,19 @@ describe("compact progress and health summary",()=>{
 });
 
 describe("authorised scope and navigation",()=>{
+  it.each(["organisation_admin","project_admin","executive_viewer","unknown"])("keeps %s document summaries readable without dead-end operational links",role=>{
+    workspace({role});openDetails();
+    expect(within(results()).queryByRole("link")).toBeNull();
+    expect(within(results()).getByText("DOC-1")).toBeTruthy();
+    expect(within(results()).getByText("Deliverable 1")).toBeTruthy();
+    expect(captures.schedule.mock.calls.map(([schedule])=>schedule.document_id)).toContain("1");
+    search("DOC-1");
+    expect(within(results()).getAllByRole("listitem")).toHaveLength(1);
+  });
+  it.each(["document_controller","engineer","viewer"])("preserves the authorised operational document destination for %s",role=>{
+    workspace({role});openDetails();
+    expect(within(results()).getByRole("link",{name:"DOC-1"}).getAttribute("href")).toBe("/app/org-A/projects/project-A/documents/1");
+  });
   it.each([["organisation_admin","overview"],["project_admin","overview"],["document_controller","control"]])("keeps history/report navigation scoped for %s",(role,destination)=>{
     workspace({role,includeHistory:true});
     expect(screen.getByRole("link",{name:"Role workspace"}).getAttribute("href")).toBe(`/app/org-A/projects/project-A/${destination}`);
@@ -127,7 +140,7 @@ describe("authorised scope and navigation",()=>{
 
 describe("collapsed searchable deliverable details",()=>{
   it("starts collapsed and retains scoped document links, issue purposes and actual schedule rows",()=>{
-    workspace();
+    workspace({role:"document_controller"});
     expect((details() as HTMLDetailsElement).open).toBe(false);
     openDetails();
     expect((details() as HTMLDetailsElement).open).toBe(true);
@@ -138,7 +151,7 @@ describe("collapsed searchable deliverable details",()=>{
     expect(within(results()).getByText("100% earned")).toBeTruthy();
   });
   it("paginates 25 rows into 12, 12 and 1 with natural document ordering and focus on the results region",()=>{
-    workspace({rows:Array.from({length:25},(_,index)=>row(String(25-index)))});
+    workspace({role:"document_controller",rows:Array.from({length:25},(_,index)=>row(String(25-index)))});
     openDetails();
     expect(within(results()).getAllByRole("listitem")).toHaveLength(12);
     expect(within(results()).getByRole("link",{name:"DOC-1"})).toBeTruthy();
@@ -157,7 +170,7 @@ describe("collapsed searchable deliverable details",()=>{
   });
   it("searches every authorised row including unopened pages by number, title, discipline and issue purpose",()=>{
     const data=Array.from({length:25},(_,index)=>row(String(index+1),index===24?{title:"Special compressor layout",discipline:"Mechanical",issue_status:"Issued for Approval (IFA)"}:{}));
-    workspace({rows:data});openDetails();
+    workspace({role:"document_controller",rows:data});openDetails();
     for(const query of [" doc-25 ","COMPRESSOR","mechanical","issued for approval"]){
       search(query);
       expect(within(results()).getAllByRole("listitem")).toHaveLength(1);
@@ -173,7 +186,7 @@ describe("collapsed searchable deliverable details",()=>{
   });
   it("resets paging after search and moves Previous immediately after refreshed rows clamp a stale page",()=>{
     const data=Array.from({length:25},(_,index)=>row(String(index+1)));
-    const {rerender,props}=workspace({rows:data});openDetails();
+    const {rerender,props}=workspace({role:"document_controller",rows:data});openDetails();
     fireEvent.click(screen.getByRole("button",{name:"Next"}));
     search("DOC-25");
     expect(within(results()).getByRole("link",{name:"DOC-25"})).toBeTruthy();

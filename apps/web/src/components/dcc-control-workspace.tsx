@@ -50,7 +50,7 @@ export function DccControlWorkspace({organisationId,projectId,project,summary,di
         <details className="ev-card min-w-0 overflow-hidden">
           <summary className="min-h-11 cursor-pointer break-words px-4 py-3 text-sm font-semibold sm:px-5">MDR by discipline <span className="ml-2 text-xs font-normal text-[#617083]">{disciplines.length} {disciplines.length===1?"discipline":"disciplines"}</span></summary>
           <div className="border-t border-[#e7ecef] px-4 pb-2 sm:px-5">{disciplines.length?<ul className="divide-y divide-[#edf1f3]">{disciplines.map(({name,count})=><li key={name}>
-            <Link href={`${base}/documents?${new URLSearchParams({discipline:name,view:"flat"})}`} className="flex min-h-11 min-w-0 items-center justify-between gap-3 py-2 text-sm text-[#24384f] hover:text-[#10243e]">
+            <Link href={`${base}/documents?${new URLSearchParams({folder:name})}`} className="flex min-h-11 min-w-0 items-center justify-between gap-3 py-2 text-sm text-[#24384f] hover:text-[#10243e]">
               <span className="min-w-0 break-words">{name}</span><span className="shrink-0 text-xs text-[#617083]">{count} {count===1?"deliverable":"deliverables"}<span aria-hidden="true" className="ml-2">→</span></span>
             </Link>
           </li>)}</ul>:<p className="py-4 text-sm text-[#617083]">The MDR is empty. Use Open MDR to register the first deliverable.</p>}</div>

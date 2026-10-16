@@ -67,6 +67,37 @@ it("offers one register search with no discipline, type, status, area or layout 
   expect(screen.getByRole("heading",{name:"Mechanical"})).toBeTruthy();
 });
 
+it("opens the DCC shortcut folder without filtering out any other discipline",async()=>{
+  request.mockResolvedValueOnce(Response.json({documents:[],total:0,page:1,pageSize:25,canManage:false}));
+  render(await page({folder:"Electrical"}));
+  expect(screen.getByRole("heading",{name:"Electrical"}).closest("details")!.open).toBe(true);
+  expect(screen.getByRole("heading",{name:"Mechanical"}).closest("details")!.open).toBe(false);
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledExactlyOnceWith(expect.anything(),"org","project","active","");
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(new URL(String(request.mock.calls[0][0]),"https://engicite.test").searchParams.get("discipline")).toBe("Electrical");
+  expect(await screen.findByText("No documents remain in this discipline for this search.")).toBeTruthy();
+});
+
+it("ignores a missing shortcut folder and keeps the full register collapsed",async()=>{
+  render(await page({folder:"Removed discipline"}));
+  for(const name of ["Electrical","Mechanical"])expect(screen.getByRole("heading",{name}).closest("details")!.open).toBe(false);
+  expect(request).not.toHaveBeenCalled();
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledExactlyOnceWith(expect.anything(),"org","project","active","");
+});
+
+it("opens a different navigation target and returns to collapsed folders on the plain MDR URL",async()=>{
+  request.mockImplementation(async()=>Response.json({documents:[],total:0,page:1,pageSize:25,canManage:false}));
+  const {rerender}=render(await page({folder:"Electrical"}));
+  await screen.findByText("No documents remain in this discipline for this search.");
+  rerender(await page({folder:"Mechanical"}));
+  expect(screen.getByRole("heading",{name:"Mechanical"}).closest("details")!.open).toBe(true);
+  expect(screen.getByRole("heading",{name:"Electrical"}).closest("details")!.open).toBe(false);
+  await screen.findByText("No documents remain in this discipline for this search.");
+  rerender(await page());
+  for(const name of ["Electrical","Mechanical"])expect(screen.getByRole("heading",{name}).closest("details")!.open).toBe(false);
+  expect(request).toHaveBeenCalledTimes(2);
+});
+
 it("uses the central sanitized search when loading the organisation and project scoped index",async()=>{
   vi.mocked(cleanMdrSearch).mockReturnValueOnce("ELload");
   render(await page({q:"EL,(%load)"}));

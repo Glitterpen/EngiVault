@@ -109,16 +109,21 @@ it("keeps supplementary information in collapsed, keyboard-operable native discl
   expect(within(disclosure("Project issues")).getByRole("button",{name:"Report issue",hidden:true})).toBeTruthy();
 });
 
-it("links each MDR discipline directly to its filtered flat register",async()=>{
+it("links every MDR discipline to its folder without narrowing the register",async()=>{
   render(await dashboard());
   const links=Array.from(disclosure("MDR by discipline").querySelectorAll("a"));
+  expect(links).toHaveLength(2);
   const disciplines=links.map(link=>{
     const url=new URL(link.getAttribute("href")!,"https://app.engicite.com");
     expect(url.pathname).toBe(`${base}/documents`);
-    expect(url.searchParams.get("view")).toBe("flat");
-    return url.searchParams.get("discipline");
+    const folder=url.searchParams.get("folder");
+    expect(folder).toBeTruthy();
+    expect(Object.fromEntries(url.searchParams)).toEqual({folder});
+    expect(link.textContent).toContain(folder);
+    return folder;
   });
   expect(disciplines.sort()).toEqual(["Electrical & Instrumentation","Mechanical"]);
+  expect(screen.getByRole("link",{name:"Open MDR"}).getAttribute("href")).toBe(`${base}/documents`);
 });
 
 it("omits issue mutation controls during an audited read-only preview",async()=>{
