@@ -59,7 +59,7 @@ export default async function NewTransmittalPage({
   params: Promise<{ organisationId: string; projectId: string }>;
 }) {
   const { organisationId, projectId } = await params;
-  const { supabase, access } = await requireProject(organisationId, projectId);
+  const { supabase, access, preview } = await requireProject(organisationId, projectId);
   const role = String(access.role);
   if (role !== "document_controller") redirect(projectHomePath(organisationId, projectId, role));
 
@@ -177,6 +177,7 @@ export default async function NewTransmittalPage({
           preparing={preparing}
           issuedRevisionNumbers={issuedRevisionNumbers}
           history={issueRecords}
+          readOnly={Boolean(preview)}
         />
       </div>
     </div>

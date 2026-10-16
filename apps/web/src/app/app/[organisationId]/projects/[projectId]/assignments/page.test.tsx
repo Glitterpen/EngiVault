@@ -73,7 +73,56 @@ it("groups by the latest completed upload, retains revision codes and ignores pe
   expect(region.querySelector("summary")?.textContent).toContain("Issued for Approval (IFA)");
   expect(region.querySelector("summary")?.textContent).toContain("1 deliverable");
   expect(within(region).getByText("Latest B · IFA")).toBeTruthy();
-  expect(region.querySelector(":scope > details")?.hasAttribute("open")).toBe(true);
+  expect(region.querySelector(":scope > details")?.hasAttribute("open")).toBe(false);
+});
+it("starts every issue-purpose group collapsed without changing labels, counts or item order",async()=>{
+  state.documents=[makeDocument("construction"),makeDocument("review-first"),makeDocument("unsubmitted"),makeDocument("design"),makeDocument("review-second"),makeDocument("approval")];
+  state.assignedIds=state.documents.map(document=>String(document.id));
+  state.revisions=[
+    {document_id:"construction",issue_status:"IFC",revision_code:"C01",state:"ready",control_status:"submitted"},
+    {document_id:"review-first",issue_status:"IFR",revision_code:"R01",state:"ready",control_status:"submitted"},
+    {document_id:"design",issue_status:"IFD",revision_code:"D01",state:"ready",control_status:"submitted"},
+    {document_id:"review-second",issue_status:"Issued for Review (IFR)",revision_code:"R02",state:"ready",control_status:"submitted"},
+    {document_id:"approval",issue_status:"IFA",revision_code:"A01",state:"ready",control_status:"submitted"},
+  ];
+  render(await page());
+  const region=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  const groups=Array.from(region.querySelectorAll<HTMLDetailsElement>(":scope > details"));
+  expect(groups.map(group=>group.querySelector("summary")?.textContent?.replace(/\s+/g," ").trim())).toEqual([
+    "Not submitted 1 deliverable",
+    "Issued for Review (IFR) 2 deliverables",
+    "Issued for Approval (IFA) 1 deliverable",
+    "Issued for Design (IFD) 1 deliverable",
+    "Issued for Construction (IFC) 1 deliverable",
+  ]);
+  for(const group of groups){
+    expect(group.open).toBe(false);
+    expect(group.hasAttribute("open")).toBe(false);
+    expect(group.firstElementChild?.tagName).toBe("SUMMARY");
+    expect(group.querySelector("summary")?.getAttribute("role")).toBeNull();
+    expect(group.querySelector("summary")?.getAttribute("tabindex")).toBeNull();
+    expect(group.querySelector("summary")?.className).toContain("min-h-11");
+    expect(group.querySelector("summary button,summary a,summary input")).toBeNull();
+  }
+  expect(Array.from(groups[1].querySelectorAll("h3")).map(heading=>heading.textContent)).toEqual(["Deliverable review-first","Deliverable review-second"]);
+  expect(groups[0].textContent).toContain("No revision submitted");
+  expect(groups[1].textContent).toContain("Latest R02 · Issued for Review (IFR)");
+});
+it("uses independent native disclosures that can expand without changing deliverable routes",async()=>{
+  state.documents=[makeDocument("unsubmitted"),makeDocument("review")];state.assignedIds=["unsubmitted","review"];
+  state.revisions=[{document_id:"review",issue_status:"IFR",revision_code:"R01",state:"ready",control_status:"submitted"}];
+  render(await page());
+  const region=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  const groups=Array.from(region.querySelectorAll<HTMLDetailsElement>(":scope > details"));
+  const summary=groups[1].querySelector("summary")!;
+  summary.focus();expect(document.activeElement).toBe(summary);
+  fireEvent.click(summary);
+  expect(groups[1].open).toBe(true);expect(groups[0].open).toBe(false);
+  expect(within(groups[1]).getByRole("link",{name:"Open deliverable"}).getAttribute("href")).toBe("/app/org/projects/project/documents/review#submit-revision");
+  fireEvent.click(groups[0].querySelector("summary")!);
+  expect(groups[0].open).toBe(true);expect(groups[1].open).toBe(true);
+  expect(within(groups[0]).getByRole("link",{name:"Submit first revision"}).getAttribute("href")).toBe("/app/org/projects/project/documents/unsubmitted#submit-revision");
+  fireEvent.click(summary);expect(groups[1].open).toBe(false);
 });
 it("keeps unsubmitted deliverables separate and respects status filtering",async()=>{
   state.hasDocument=true;
@@ -136,6 +185,8 @@ it("retains the direct request, upload and date-change routes and DCC feedback",
   expect(screen.getByRole("link",{name:"Create request: date change or additional deliverable"}).getAttribute("href")).toBe("/app/org/projects/project/requests");
   const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
   const issueGroup=submissions.querySelector(":scope > details");
+  expect(issueGroup?.hasAttribute("open")).toBe(false);
+  fireEvent.click(issueGroup!.querySelector("summary")!);
   const upload=within(submissions).getByRole("link",{name:"Upload corrected revision"});
   expect(upload.getAttribute("href")).toBe("/app/org/projects/project/documents/doc#submit-revision");
   expect(upload.closest("details")).toBe(issueGroup);

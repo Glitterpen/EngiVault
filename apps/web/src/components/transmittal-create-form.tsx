@@ -25,6 +25,7 @@ export function TransmittalCreateForm({
   preparing,
   issuedRevisionNumbers,
   history,
+  readOnly = false,
 }: {
   organisationId: string;
   projectId: string;
@@ -34,6 +35,7 @@ export function TransmittalCreateForm({
   preparing: PreparingTransmittalRevision[];
   issuedRevisionNumbers: Record<string, string[]>;
   history: TransmittalHistoryItem[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const formId = useId();
@@ -53,7 +55,7 @@ export function TransmittalCreateForm({
   const visibleRevisions = eligible.filter(matches);
   const eligibleIds = new Set(eligible.map((revision) => revision.id));
   const visibleIds = new Set(visibleRevisions.map((revision) => revision.id));
-  const selectedSet = new Set(selected.filter((id) => eligibleIds.has(id)).slice(0, MAX_SELECTED_REVISIONS));
+  const selectedSet = new Set(readOnly ? [] : selected.filter((id) => eligibleIds.has(id)).slice(0, MAX_SELECTED_REVISIONS));
   const visibleSelectedCount = [...selectedSet].filter((id) => visibleIds.has(id)).length;
   const disciplines = [...new Set([...revisions, ...preparing, ...history].map((row) => row.discipline))].sort();
   const clientConfigured = Boolean(clientName?.trim());
@@ -63,14 +65,16 @@ export function TransmittalCreateForm({
   const processEndpoint = `/api/v1/organisations/${organisationId}/projects/${projectId}/work-packages/transmittals/process`;
 
   useEffect(() => {
-    if (!activePreparing) return;
+    if (readOnly || !activePreparing) return;
+    const controller = new AbortController();
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function advanceQueue() {
+      if (cancelled) return;
       setPreparingMessage("Preparing recently accepted files for transmission...");
       try {
-        const response = await fetch(processEndpoint, { method: "POST", cache: "no-store" });
+        const response = await fetch(processEndpoint, { method: "POST", cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error("Processing is temporarily unavailable.");
         if (!cancelled) {
           router.refresh();
@@ -87,12 +91,13 @@ export function TransmittalCreateForm({
     void advanceQueue();
     return () => {
       cancelled = true;
+      controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [activePreparing, processEndpoint, router]);
+  }, [activePreparing, processEndpoint, readOnly, router]);
 
   function toggle(id: string) {
-    if (pending || !eligibleIds.has(id)) return;
+    if (readOnly || pending || !eligibleIds.has(id)) return;
     setSelected((current) => {
       const next = new Set(current.filter((value) => eligibleIds.has(value)));
       if (next.has(id)) next.delete(id);
@@ -102,7 +107,7 @@ export function TransmittalCreateForm({
   }
 
   function selectVisible() {
-    if (pending) return;
+    if (readOnly || pending) return;
     setSelected((current) => [...new Set([
       ...current.filter((id) => eligibleIds.has(id)),
       ...visibleIds,
@@ -110,12 +115,13 @@ export function TransmittalCreateForm({
   }
 
   function clearVisible() {
-    if (pending) return;
+    if (readOnly || pending) return;
     setSelected((current) => current.filter((id) => eligibleIds.has(id) && !visibleIds.has(id)));
   }
 
   return (
-    <form action={action} aria-label="Create document transmittal" aria-busy={pending} className="min-w-0 space-y-4">
+    <form action={action} onSubmit={(event) => { if (readOnly) event.preventDefault(); }} aria-label="Create document transmittal" aria-busy={pending} className="min-w-0 space-y-4">
+      {readOnly && <p className="text-sm leading-6 text-[#526675]">Read-only preview. Automatic preparation, selection and transmittal creation are unavailable.</p>}
       <p className="flex items-start gap-2 text-sm leading-6 text-[#526675]"><Clock3 size={16} className="mt-1 shrink-0" aria-hidden="true" />{TRANSMITTAL_DAILY_NOTICE}</p>
       <input type="hidden" name="organisationId" value={organisationId} />
       <input type="hidden" name="projectId" value={projectId} />
@@ -134,7 +140,7 @@ export function TransmittalCreateForm({
       <section aria-labelledby={`${formId}-details`} className="rounded-xl border border-[#d6e0ed] bg-white p-4 sm:p-5">
         <div className="flex items-center gap-1.5"><h2 id={`${formId}-details`} className="font-semibold text-[#24384f]">Transmission details</h2><HelpTip label="Recipient company">The recipient company is inherited from the controlled project information and frozen into the audit record. The Project Manager controls this information; the DCC cannot change it here.</HelpTip></div>
         <div className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2">
-          <Field name="transmittalNumber" label="Transmittal number" defaultValue={defaultNumber} />
+          <Field name="transmittalNumber" label="Transmittal number" defaultValue={defaultNumber} disabled={readOnly} />
           <div className="min-w-0">
             <span className="ev-label">Client / recipient company</span>
             <div className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${clientConfigured ? "border-[#d6e0ed] bg-[#f4f7fb] text-[#24384f]" : "border-[#f0c8b7] bg-[#fff6f2] text-[#8b3d1f]"}`}>
@@ -146,14 +152,15 @@ export function TransmittalCreateForm({
         <details className="mt-3 border-t border-[#d6e0ed]" onInvalidCapture={(event) => { event.currentTarget.open = true; }}>
           <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-[#526675]">Recipient details & cover message <span className="font-normal">(optional)</span></summary>
           <div className="grid min-w-0 gap-4 pb-1 sm:grid-cols-2">
-            <Field name="recipientContact" label="Attention" placeholder="Client representative" optional />
-            <Field name="recipientEmail" label="Recipient email" type="email" placeholder="representative@client.com" optional />
+            <Field name="recipientContact" label="Attention" placeholder="Client representative" optional disabled={readOnly} />
+            <Field name="recipientEmail" label="Recipient email" type="email" placeholder="representative@client.com" optional disabled={readOnly} />
             <label className="min-w-0 sm:col-span-2">
               <span className="ev-label">Cover message (optional)</span>
               <textarea
                 className="ev-input min-h-24 resize-y"
                 name="message"
                 maxLength={2000}
+                disabled={readOnly}
                 placeholder="Please sign and date the enclosed acknowledgement and return it to the issuing Document Controller."
               />
             </label>
@@ -165,7 +172,7 @@ export function TransmittalCreateForm({
         <div className="border-b border-[#d6e0ed] p-4 sm:px-5">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-1.5"><h2 id={`${formId}-ready`} className="font-semibold text-[#24384f]">Ready for transmission</h2><HelpTip label="Eligible transmittal revisions">Only the latest approved and securely prepared revision is selectable. Previously staged or transmitted revisions are excluded. Select up to 100 revisions per transmittal.</HelpTip></div>
-            <button type="button" className="ev-button-secondary min-h-11 w-full sm:w-auto" onClick={() => router.refresh()}>
+            <button type="button" data-preview-safe className="ev-button-secondary min-h-11 w-full sm:w-auto" onClick={() => router.refresh()}>
               <RefreshCw size={16} aria-hidden="true" /> Refresh accepted list
             </button>
           </div>
@@ -179,13 +186,13 @@ export function TransmittalCreateForm({
               <button
                 type="button"
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[#10243e] disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={pending || !visibleRevisions.length || selectedSet.size >= MAX_SELECTED_REVISIONS || visibleSelectedCount === visibleIds.size}
+                disabled={readOnly || pending || !visibleRevisions.length || selectedSet.size >= MAX_SELECTED_REVISIONS || visibleSelectedCount === visibleIds.size}
                 onClick={selectVisible}
               >
                 <CheckCheck size={16} aria-hidden="true" /> Select visible (max 100)
               </button>
-              <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#526675] disabled:cursor-not-allowed disabled:opacity-50" disabled={pending || !visibleSelectedCount} onClick={clearVisible}>Clear visible</button>
-              <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#526675] disabled:cursor-not-allowed disabled:opacity-50" disabled={pending || !selectedSet.size} onClick={() => setSelected([])}>Clear all selections</button>
+              <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#526675] disabled:cursor-not-allowed disabled:opacity-50" disabled={readOnly || pending || !visibleSelectedCount} onClick={clearVisible}>Clear visible</button>
+              <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#526675] disabled:cursor-not-allowed disabled:opacity-50" disabled={readOnly || pending || !selectedSet.size} onClick={() => { if (!readOnly) setSelected([]); }}>Clear all selections</button>
             </div>
           </div>
         </div>
@@ -214,7 +221,7 @@ export function TransmittalCreateForm({
                   ))}
                 </div>
             </details>
-            {preparingMessage && <p className="mt-1 text-xs leading-5 text-[#526675]" role="status">{preparingMessage}</p>}
+            {!readOnly && preparingMessage && <p className="mt-1 text-xs leading-5 text-[#526675]" role="status">{preparingMessage}</p>}
           </div>
         )}
         <div role="group" aria-label="Ready deliverables" className="max-h-[60vh] divide-y divide-[#d6e0ed] overflow-y-auto overscroll-contain">
@@ -229,7 +236,7 @@ export function TransmittalCreateForm({
                 type="checkbox"
                 value={revision.id}
                 aria-label={`Select ${revision.documentNumber} revision ${revision.revisionCode}`}
-                disabled={pending || (!selectedSet.has(revision.id) && selectedSet.size >= MAX_SELECTED_REVISIONS)}
+                disabled={readOnly || pending || (!selectedSet.has(revision.id) && selectedSet.size >= MAX_SELECTED_REVISIONS)}
                 checked={selectedSet.has(revision.id)}
                 onChange={() => toggle(revision.id)}
                 className="mt-1 size-5 shrink-0 accent-[#10243e]"
@@ -262,7 +269,7 @@ export function TransmittalCreateForm({
               {selectedSet.size} document{selectedSet.size === 1 ? "" : "s"} selected
               {[...selectedSet].some((id) => !visibleRevisions.some((revision) => revision.id === id)) && <span className="mt-0.5 block text-xs font-normal text-[#526675]">Includes selections outside the current filters.</span>}
             </p>
-            <button className="ev-button min-h-11 w-full sm:w-auto" disabled={pending || !selectedSet.size || !eligible.length || !clientConfigured}>
+            <button className="ev-button min-h-11 w-full sm:w-auto" disabled={readOnly || pending || !selectedSet.size || !eligible.length || !clientConfigured}>
               <Send size={16} aria-hidden="true" /> {pending ? "Freezing transmittal..." : "Create transmittal"}
             </button>
           </div>
@@ -305,6 +312,7 @@ function Field({
   placeholder,
   type = "text",
   optional = false,
+  disabled = false,
 }: {
   name: string;
   label: string;
@@ -312,6 +320,7 @@ function Field({
   placeholder?: string;
   type?: string;
   optional?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <label className="min-w-0">
@@ -323,6 +332,7 @@ function Field({
         defaultValue={defaultValue}
         placeholder={placeholder}
         required={!optional}
+        disabled={disabled}
       />
     </label>
   );

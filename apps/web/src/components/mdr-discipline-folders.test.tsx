@@ -14,6 +14,11 @@ const document=(number="EL-001",discipline="Electrical"):MdrDocument=>({
 });
 const payload=(overrides:Partial<MdrFolderPage>={}):MdrFolderPage=>({documents:[document()],total:27,page:1,pageSize:25,canManage:true,...overrides});
 const response=(overrides:Partial<MdrFolderPage>={})=>Response.json(payload(overrides));
+function pendingResponse(){
+  let resolve:(value:Response)=>void=()=>{};
+  const promise=new Promise<Response>(complete=>{resolve=complete;});
+  return {promise,resolve};
+}
 const props={organisationId:"org",projectId:"project",disciplines,search:"",records:"",canManage:true};
 const folder=(name:string)=>[...documentElement().querySelectorAll("details")].find(item=>item.querySelector("summary")?.textContent?.includes(name))!;
 function documentElement(){return window.document;}
@@ -196,14 +201,192 @@ it("drops an obsolete pending response when the user opens another discipline",a
   expect(screen.getAllByRole("link",{name:/^ME-001/})).not.toHaveLength(0);
 });
 
-it("invalidates an open folder after a server refresh instead of keeping obsolete rows",async()=>{
+it("retains the current rows during same-scope refresh and replaces them only after a validated success",async()=>{
   const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
   await expand("Electrical");
   await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
-  request.mockResolvedValueOnce(response({documents:[document("EL-REFRESHED")]}));
+  expect(screen.getAllByRole("button",{name:"Delete EL-001"})).not.toHaveLength(0);
+  const previousLink=screen.getAllByRole("link",{name:/^EL-001/})[0],refresh=pendingResponse();
+  request.mockReturnValueOnce(refresh.promise);
   rerender(<MdrDisciplineFolders {...props} refreshKey="after"/>);
+  expect(screen.getAllByRole("link",{name:/^EL-001/})[0]).toBe(previousLink);
+  expect(screen.getByRole("region",{name:"Electrical documents"}).getAttribute("aria-busy")).toBe("true");
+  expect(screen.getByText(/Updating Electrical documents… Showing previously loaded records/).getAttribute("role")).toBe("status");
+  expect(screen.queryByText("Loading Electrical documents…")).toBeNull();
+  expect(screen.queryAllByRole("button",{name:"Delete EL-001"})).toHaveLength(0);
+  await act(async()=>{refresh.resolve(response({documents:[document("EL-REFRESHED")]}));});
   await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-REFRESHED/})).not.toHaveLength(0));
   expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+  expect(screen.getByRole("region",{name:"Electrical documents"}).getAttribute("aria-busy")).toBe("false");
+  expect(screen.queryByText(/Updating Electrical documents/)).toBeNull();
+  expect(screen.getAllByRole("button",{name:"Delete EL-REFRESHED"})).not.toHaveLength(0);
+});
+
+it.each(["http","malformed"])("retains last good rows with an explicit stale notice after a %s refresh failure and retries in place",async failure=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
+  request.mockResolvedValueOnce(failure==="http"?new Response("private provider diagnostics",{status:503}):Response.json(payload({documents:[document("ME-WRONG","Mechanical")]})));
+  rerender(<MdrDisciplineFolders {...props} refreshKey="after"/>);
+  const alert=await screen.findByRole("alert");
+  expect(alert.textContent).toContain("This discipline could not be refreshed.");
+  expect(alert.textContent).toContain("last successfully loaded records; they may be out of date");
+  expect(alert.textContent).toContain("Changes are unavailable until a refresh succeeds.");
+  expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0);
+  expect(screen.queryAllByRole("link",{name:/ME-WRONG/})).toHaveLength(0);
+  expect(screen.queryByText(/private provider diagnostics/)).toBeNull();
+  expect(screen.queryAllByRole("button",{name:"Delete EL-001"})).toHaveLength(0);
+  expect(screen.getByRole("region",{name:"Electrical documents"}).getAttribute("aria-busy")).toBe("false");
+  const retry=pendingResponse();request.mockReturnValueOnce(retry.promise);
+  fireEvent.click(screen.getByRole("button",{name:"Retry Electrical"}));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByText(/Updating Electrical documents/)).toBeTruthy();
+  expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0);
+  expect(screen.queryAllByRole("button",{name:"Delete EL-001"})).toHaveLength(0);
+  await act(async()=>{retry.resolve(response({documents:[document("EL-RETRIED")]}));});
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-RETRIED/})).not.toHaveLength(0));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText(/Updating Electrical documents/)).toBeNull();
+  expect(screen.getAllByRole("button",{name:"Delete EL-RETRIED"})).not.toHaveLength(0);
+});
+
+it("aborts superseded refreshes and never replaces the newest result with an old response",async()=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
+  const obsolete=pendingResponse();request.mockReturnValueOnce(obsolete.promise);
+  rerender(<MdrDisciplineFolders {...props} refreshKey="obsolete"/>);
+  const obsoleteSignal=request.mock.calls[1][1].signal as AbortSignal;
+  expect(obsoleteSignal.aborted).toBe(false);
+  request.mockResolvedValueOnce(response({documents:[document("EL-LATEST")]}));
+  rerender(<MdrDisciplineFolders {...props} refreshKey="latest"/>);
+  expect(obsoleteSignal.aborted).toBe(true);
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-LATEST/})).not.toHaveLength(0));
+  await act(async()=>{obsolete.resolve(response({documents:[document("EL-OBSOLETE")]}));});
+  expect(screen.queryAllByRole("link",{name:/^EL-OBSOLETE/})).toHaveLength(0);
+  expect(screen.getAllByRole("link",{name:/^EL-LATEST/})).not.toHaveLength(0);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText(/Updating Electrical documents/)).toBeNull();
+});
+
+it("does not mistake a reused refresh key for a settled current request",async()=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="first"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("button",{name:"Delete EL-001"})).not.toHaveLength(0));
+  const obsolete=pendingResponse();request.mockReturnValueOnce(obsolete.promise);
+  rerender(<MdrDisciplineFolders {...props} refreshKey="second"/>);
+  const current=pendingResponse();request.mockReturnValueOnce(current.promise);
+  rerender(<MdrDisciplineFolders {...props} refreshKey="first"/>);
+  expect(screen.getByText(/Updating Electrical documents/)).toBeTruthy();
+  expect(screen.queryAllByRole("button",{name:"Delete EL-001"})).toHaveLength(0);
+  expect(screen.getByRole("region",{name:"Electrical documents"}).getAttribute("aria-busy")).toBe("true");
+  await act(async()=>{obsolete.resolve(response({documents:[document("EL-OBSOLETE")]}));});
+  expect(screen.queryAllByRole("link",{name:/^EL-OBSOLETE/})).toHaveLength(0);
+  await act(async()=>{current.resolve(response({documents:[document("EL-CURRENT")]}));});
+  await waitFor(()=>expect(screen.getAllByRole("button",{name:"Delete EL-CURRENT"})).not.toHaveLength(0));
+  expect(screen.queryByText(/Updating Electrical documents/)).toBeNull();
+});
+
+it.each([
+  {name:"search",change:{search:"new query"}},
+  {name:"record view",change:{records:"removed"}},
+  {name:"organisation",change:{organisationId:"another-org"}},
+  {name:"project",change:{projectId:"another-project"}},
+])("clears loaded rows immediately for a new $name scope and does not reuse them when returning",async({change})=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props}/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
+  const next=pendingResponse();request.mockReturnValueOnce(next.promise);
+  rerender(<MdrDisciplineFolders {...props} {...change}/>);
+  expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+  expect(screen.getByText("Loading Electrical documents…")).toBeTruthy();
+  expect(screen.queryByText(/Updating Electrical documents/)).toBeNull();
+  const nextSignal=request.mock.calls[1][1].signal as AbortSignal;
+  const returning=pendingResponse();request.mockReturnValueOnce(returning.promise);
+  rerender(<MdrDisciplineFolders {...props}/>);
+  expect(nextSignal.aborted).toBe(true);
+  expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+  expect(screen.getByText("Loading Electrical documents…")).toBeTruthy();
+  await act(async()=>{next.resolve(response({documents:[document("EL-OTHER-SCOPE")]}));});
+  expect(screen.queryAllByRole("link",{name:/^EL-OTHER-SCOPE/})).toHaveLength(0);
+  await act(async()=>{returning.resolve(new Response("Unavailable",{status:503}));});
+  expect((await screen.findByRole("alert")).textContent).toContain("This discipline could not be loaded.");
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+});
+
+it("clears rows for page changes and fails closed instead of retaining the previous page",async()=>{
+  render(<MdrDisciplineFolders {...props}/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
+  const next=pendingResponse();request.mockReturnValueOnce(next.promise);
+  fireEvent.click(screen.getByRole("button",{name:"Next page in Electrical"}));
+  expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+  expect(screen.getByText("Loading Electrical documents…")).toBeTruthy();
+  await act(async()=>{next.resolve(response({documents:[document("EL-026")],page:2}));});
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-026/})).not.toHaveLength(0));
+  const previous=pendingResponse();request.mockReturnValueOnce(previous.promise);
+  fireEvent.click(screen.getByRole("button",{name:"Previous page in Electrical"}));
+  expect(screen.queryAllByRole("link",{name:/^EL-026/})).toHaveLength(0);
+  expect(screen.getByText("Loading Electrical documents…")).toBeTruthy();
+  await act(async()=>{previous.resolve(new Response("Unavailable",{status:503}));});
+  expect((await screen.findByRole("alert")).textContent).toContain("This discipline could not be loaded.");
+  expect(screen.queryByRole("table")).toBeNull();
+});
+
+it("revalidates the selected page without resetting pagination or showing the first page",async()=>{
+  request.mockResolvedValueOnce(response());
+  request.mockResolvedValueOnce(response({documents:[document("EL-026")],page:2}));
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
+  fireEvent.click(screen.getByRole("button",{name:"Next page in Electrical"}));
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-026/})).not.toHaveLength(0));
+  const refresh=pendingResponse();request.mockReturnValueOnce(refresh.promise);
+  rerender(<MdrDisciplineFolders {...props} refreshKey="after"/>);
+  expect(screen.getAllByRole("link",{name:/^EL-026/})).not.toHaveLength(0);
+  expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+  expect(screen.getByText("27 documents · Page 2 of 2")).toBeTruthy();
+  expect(new URL(String(request.mock.calls[2][0]),"https://engicite.test").searchParams.get("page")).toBe("2");
+  await act(async()=>{refresh.resolve(response({documents:[document("EL-027")],page:2}));});
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-027/})).not.toHaveLength(0));
+  expect(screen.getByText("27 documents · Page 2 of 2")).toBeTruthy();
+});
+
+it("honours a latest preview restriction throughout refresh even if the response still advertises management",async()=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("button",{name:"Delete EL-001"})).not.toHaveLength(0));
+  const refresh=pendingResponse();request.mockReturnValueOnce(refresh.promise);
+  rerender(<MdrDisciplineFolders {...props} canManage={false} refreshKey="after"/>);
+  expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0);
+  expect(screen.queryAllByRole("button",{name:"Delete EL-001"})).toHaveLength(0);
+  await act(async()=>{refresh.resolve(response({documents:[document("EL-READONLY")],canManage:true}));});
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-READONLY/})).not.toHaveLength(0));
+  expect(screen.queryAllByRole("button",{name:"Delete EL-READONLY"})).toHaveLength(0);
+});
+
+it("honours refreshed server permission revocation without restoring stale write controls",async()=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("button",{name:"Delete EL-001"})).not.toHaveLength(0));
+  request.mockResolvedValueOnce(response({canManage:false}));
+  rerender(<MdrDisciplineFolders {...props} refreshKey="after"/>);
+  await waitFor(()=>expect(screen.queryByText(/Updating Electrical documents/)).toBeNull());
+  expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0);
+  expect(screen.queryAllByRole("button",{name:"Delete EL-001"})).toHaveLength(0);
+});
+
+it("replaces retained rows with a genuine empty result after a successful refresh",async()=>{
+  const {rerender}=render(<MdrDisciplineFolders {...props} refreshKey="before"/>);
+  await expand("Electrical");
+  await waitFor(()=>expect(screen.getAllByRole("link",{name:/^EL-001/})).not.toHaveLength(0));
+  request.mockResolvedValueOnce(response({documents:[],total:0}));
+  rerender(<MdrDisciplineFolders {...props} refreshKey="after"/>);
+  await screen.findByText("No documents remain in this discipline for this search.");
+  expect(screen.queryAllByRole("link",{name:/^EL-001/})).toHaveLength(0);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText(/Updating Electrical documents/)).toBeNull();
 });
 
 it("discards a response from an old search when a new search is loaded",async()=>{

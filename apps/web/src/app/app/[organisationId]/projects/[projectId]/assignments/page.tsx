@@ -125,7 +125,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
         </nav>
         <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-x-3"><h2 className="text-sm font-semibold">Submissions by issue purpose <HelpTip label="Submission grouping">Grouped by the latest submitted revision’s issue purpose, not the next required stage. Search and status apply across all groups. Open Details &amp; schedule for revision requirements and deadlines.</HelpTip></h2><p role="status" className="text-xs text-[#526675]">{filtered.length} of {deliverables.length} deliverables</p></div>
         <section aria-label="Submissions by issue purpose" className="mt-3 grid min-w-0 gap-3">
-          {filtered.length?groupSubmissions(filtered).map(group=><details key={`${view}-${search}-${group.label}`} open className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
+          {filtered.length?groupSubmissions(filtered).map(group=><details key={`${view}-${search}-${group.label}`} className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
             <summary className="min-h-11 cursor-pointer break-words bg-[#f6f8fa] px-4 py-3 text-sm font-semibold text-[#24384f] sm:px-5">
               {group.label} <span className="ml-2 inline-block text-xs font-normal text-[#526675]">{group.items.length} {group.items.length===1?"deliverable":"deliverables"}</span>
             </summary>

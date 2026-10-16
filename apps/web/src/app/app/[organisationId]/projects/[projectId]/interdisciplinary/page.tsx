@@ -5,6 +5,7 @@ import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {requireProject} from "@/lib/auth";
 import {referenceDate,type InterdisciplinaryLibrary} from "@/lib/interdisciplinary-checks";
 import {groupSubmissions} from "@/lib/submission-groups";
+import {PageState} from "@/components/page-state";
 
 export default async function InterdisciplinaryLibraryPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{q?:string;discipline?:string;page?:string}>}){
   const [{organisationId,projectId},search]=await Promise.all([params,searchParams]);
@@ -12,8 +13,21 @@ export default async function InterdisciplinaryLibraryPage({params,searchParams}
   const q=(search.q??"").slice(0,200),discipline=(search.discipline??"").slice(0,200);
   const page=discipline?Math.max(1,Math.min(Number.parseInt(search.page??"1",10)||1,40000)):1;
   const base=`/app/${organisationId}/projects/${projectId}/interdisciplinary`;
-  const {data,error}=await supabase.rpc("get_interdisciplinary_documents",{target_organisation:organisationId,target_project:projectId,search_text:q,filter_discipline:discipline,page_offset:(page-1)*25});
-  if(error||!data)throw new Error("The approved-document library could not be loaded. Please refresh or contact EngiCite support.");
+  let result:{data:unknown;error:unknown};
+  try{
+    result=await supabase.rpc("get_interdisciplinary_documents",{target_organisation:organisationId,target_project:projectId,search_text:q,filter_discipline:discipline,page_offset:(page-1)*25});
+  }catch{
+    result={data:null,error:true};
+  }
+  const {data,error}=result;
+  if(error||!data){
+    const retryHref=`${base}?${new URLSearchParams({q,discipline,page:String(page)})}`;
+    return <PageState kind="error" title="Approved-document library could not be loaded" headingLevel={1} className="ev-card mx-auto max-w-2xl"
+      actions={<><a href={retryHref} data-preview-safe className="ev-button-secondary">Retry loading</a>{preview&&<form action="/api/admin-preview/exit" method="post" data-preview-safe><button type="submit" className="ev-button-secondary">Exit preview</button></form>}</>}>
+      <p>Approved documents could not be verified. Try loading again. No documents or checks have been changed.</p>
+      {preview&&<p>If this member preview has expired, exit it before continuing.</p>}
+    </PageState>;
+  }
   const library=data as InterdisciplinaryLibrary;
   const folders=[...library.disciplines].sort((a,b)=>a.localeCompare(b));
   const pageUrl=(number:number)=>`${base}?${new URLSearchParams({q,discipline,page:String(number)})}`;

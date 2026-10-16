@@ -12,7 +12,7 @@ export function MdrDisciplineFolders(props:Props){
   const disciplines=[...props.disciplines].sort((a,b)=>a.name.localeCompare(b.name));
   return <section aria-label="MDR disciplines" className="min-w-0 space-y-2">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold text-[#24384f]">Discipline folders</h2>{disciplines.length>0&&<button type="button" data-preview-safe onClick={()=>setActive(null)} aria-label="Collapse all disciplines" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-[#526675]"><FoldVertical size={15} aria-hidden="true"/>Collapse all</button>}</div>
-    {disciplines.length?disciplines.map(discipline=><DisciplineFolder key={discipline.name} {...props} discipline={discipline} open={active===discipline.name} onOpenChange={open=>setActive(current=>open?discipline.name:current===discipline.name?null:current)}/>):<p className="ev-card p-6 text-sm text-[#617083]">{props.search?"No documents match your search.":"No deliverables are registered in this MDR view yet."}</p>}
+    {disciplines.length?disciplines.map(discipline=><DisciplineFolder key={JSON.stringify([props.organisationId,props.projectId,discipline.name,props.search,props.records])} {...props} discipline={discipline} open={active===discipline.name} onOpenChange={open=>setActive(current=>open?discipline.name:current===discipline.name?null:current)}/>):<p className="ev-card p-6 text-sm text-[#617083]">{props.search?"No documents match your search.":"No deliverables are registered in this MDR view yet."}</p>}
   </section>;
 }
 function DisciplineFolder({discipline,open,onOpenChange,...props}:Props&{discipline:MdrDisciplineSummary;open:boolean;onOpenChange:(open:boolean)=>void}){
@@ -31,12 +31,16 @@ function DisciplineFolder({discipline,open,onOpenChange,...props}:Props&{discipl
 function FolderDocuments({organisationId,projectId,discipline,search,records,canManage,refreshKey,onClose}:Omit<Props,"disciplines">&{discipline:MdrDisciplineSummary;onClose:()=>void}){
   const [page,setPage]=useState(1),[retry,setRetry]=useState(0);
   const results=useRef<HTMLDivElement>(null);
-  const [result,setResult]=useState<{key:string;data?:MdrFolderPage;failed?:boolean}|null>(null);
+  const [result,setResult]=useState<{scope:string;key:string;data?:MdrFolderPage;failed?:boolean}|null>(null);
   const query=new URLSearchParams({discipline:discipline.name,page:String(page)});
   if(search)query.set("q",search);
   if(records)query.set("records",records);
   const endpoint=`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/register?${query}`;
-  const requestKey=`${endpoint}:${refreshKey??""}:${retry}`;
+  const requestSource=JSON.stringify([endpoint,refreshKey??"",retry]);
+  const [attempt,setAttempt]=useState({source:requestSource,generation:0});
+  // A repeated refresh key is still a new attempt after another key was requested.
+  if(attempt.source!==requestSource)setAttempt({source:requestSource,generation:attempt.generation+1});
+  const requestKey=JSON.stringify([requestSource,attempt.generation]);
   useEffect(()=>{
     const controller=new AbortController();
     void (async()=>{
@@ -45,17 +49,21 @@ function FolderDocuments({organisationId,projectId,discipline,search,records,can
         if(!response.ok)throw new Error("Folder unavailable");
         const data:unknown=await response.json();
         if(!validPage(data,discipline.name))throw new Error("Folder unavailable");
-        if(!controller.signal.aborted)setResult({key:requestKey,data});
-      }catch{if(!controller.signal.aborted)setResult({key:requestKey,failed:true});}
+        if(!controller.signal.aborted)setResult({scope:endpoint,key:requestKey,data});
+      }catch{if(!controller.signal.aborted)setResult(previous=>({scope:endpoint,key:requestKey,data:previous?.scope===endpoint?previous.data:undefined,failed:true}));}
     })();
     return()=>controller.abort();
   },[endpoint,requestKey,discipline.name]);
-  const current=result?.key===requestKey?result:undefined;
+  const current=result?.scope===endpoint?result:undefined;
+  const updating=current?.key!==requestKey,failed=!updating&&Boolean(current?.failed);
   const data=current?.data,pages=data?Math.max(1,Math.ceil(data.total/data.pageSize)):1;
-  const goToPage=(value:number)=>{setPage(value);results.current?.focus();};
-  return <div ref={results} role="region" aria-label={`${discipline.name} documents`} tabIndex={-1} className="min-w-0 border-t border-[#e7ecef]" aria-busy={!current}>
-    {!current?<p role="status" className="p-5 text-sm text-[#617083]">Loading {discipline.name} documents…</p>:current.failed?<div role="alert" className="p-5 text-sm text-[#617083]"><p>This discipline could not be loaded. No records have been changed.</p><button type="button" data-preview-safe aria-label={`Retry ${discipline.name}`} className="ev-button-secondary mt-3" onClick={()=>setRetry(value=>value+1)}>Retry</button></div>:data&&<>
-      <MdrDocumentRows docs={data.documents} organisationId={organisationId} projectId={projectId} canManage={canManage&&data.canManage} title={discipline.name}/>
+  // Page changes are new views, not revalidations of the rows already on screen.
+  const goToPage=(value:number)=>{setResult(null);setPage(value);results.current?.focus();};
+  return <div ref={results} role="region" aria-label={`${discipline.name} documents`} tabIndex={-1} className="min-w-0 border-t border-[#e7ecef]" aria-busy={updating}>
+    {updating&&<p role="status" className="p-5 text-sm text-[#617083]">{data?`Updating ${discipline.name} documents… Showing previously loaded records while we check for updates.`:`Loading ${discipline.name} documents…`}</p>}
+    {failed&&<div role="alert" className="p-5 text-sm text-[#617083]"><p>{data?"This discipline could not be refreshed. Showing the last successfully loaded records; they may be out of date. Changes are unavailable until a refresh succeeds.":"This discipline could not be loaded. No records have been changed."}</p><button type="button" data-preview-safe aria-label={`Retry ${discipline.name}`} className="ev-button-secondary mt-3" onClick={()=>setRetry(value=>value+1)}>Retry</button></div>}
+    {data&&<>
+      <MdrDocumentRows docs={data.documents} organisationId={organisationId} projectId={projectId} canManage={canManage&&data.canManage&&!updating&&!failed} title={discipline.name}/>
       <nav aria-label={`${discipline.name} document pages`} className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7ecef] px-4 py-2 text-xs text-[#617083]">
         <span role="status">{data.total} document{data.total===1?"":"s"} · Page {data.page} of {pages}</span>
         {pages>1&&<div className="flex gap-2"><button type="button" data-preview-safe aria-label={`Previous page in ${discipline.name}`} disabled={data.page<=1} onClick={()=>goToPage(data.page-1)} className="min-h-11 rounded-lg px-3 font-semibold text-[#10243e] disabled:opacity-40">Previous</button><button type="button" data-preview-safe aria-label={`Next page in ${discipline.name}`} disabled={data.page>=pages} onClick={()=>goToPage(data.page+1)} className="min-h-11 rounded-lg px-3 font-semibold text-[#10243e] disabled:opacity-40">Next</button></div>}

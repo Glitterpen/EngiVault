@@ -18,6 +18,7 @@ const base=`/app/${organisationId}/projects/${projectId}`;
 type Result={data:unknown;error:unknown;count:number|null};
 let results:Record<string,Result>;
 let role:string;
+let preview:unknown;
 let throwReads:number;
 let pageChunk:number;
 let markup:string;
@@ -57,6 +58,7 @@ beforeEach(()=>{
   vi.clearAllMocks();
   queries.clear();
   role="document_controller";
+  preview=null;
   throwReads=0;
   pageChunk=500;
   markup="";
@@ -72,7 +74,7 @@ beforeEach(()=>{
     queries.set(table,[...(queries.get(table)??[]),builder]);
     return builder;
   });
-  vi.mocked(requireProject).mockImplementation(async()=>({supabase:{from,rpc},access:{role}} as never));
+  vi.mocked(requireProject).mockImplementation(async()=>({supabase:{from,rpc},access:{role},preview} as never));
 });
 
 it("keeps every read tenant-scoped and never performs a mutation while loading",async()=>{
@@ -148,7 +150,16 @@ it.each(["frozen","building","failed","cancelled","ready"])("retains %s transmit
 
 it("uses controlled trimmed client information and package count for the suggested number",async()=>{
   render(await page());
-  expect(formProps()).toMatchObject({organisationId,projectId,clientName:"Controlled Client Ltd",defaultNumber:`TR-FEED-01-${new Date().getFullYear()}-013`});
+  expect(formProps()).toMatchObject({organisationId,projectId,clientName:"Controlled Client Ltd",defaultNumber:`TR-FEED-01-${new Date().getFullYear()}-013`,readOnly:false});
+});
+
+it("explicitly passes read-only preview state while retaining member-scoped queue and history data",async()=>{
+  preview={sessionId:"audited-session",role:"document_controller"};
+  render(await page());
+  expect(formProps()).toMatchObject({organisationId,projectId,readOnly:true});
+  expect(formProps().preparing.map(row=>row.id)).toEqual(["latest"]);
+  expect(formProps().history).toHaveLength(2);
+  expect(rpc).not.toHaveBeenCalled();
 });
 
 it("retains missing client information as null rather than inventing an editable recipient",async()=>{

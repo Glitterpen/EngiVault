@@ -1,5 +1,6 @@
 import "server-only";
 import {cookies} from "next/headers";
+import {redirect} from "next/navigation";
 import {cache} from "react";
 import {createClient} from "@/lib/supabase/server";
 import type {AdministratorPreviewRole} from "@/lib/permissions";
@@ -22,10 +23,21 @@ export const readAdminPreview=cache(async():Promise<AdminPreview|null>=>{
   const value=(await cookies()).get(ADMIN_PREVIEW_COOKIE)?.value;
   if(!value)return null;
   const reference=parseAdminPreview(value);
-  if(!reference)throw new Error('This role preview is no longer valid. Exit preview and select a team member.');
+  // An expired/ended preview is an expected access state, including when a
+  // parallel page render finishes after Exit preview. Never fall back to the
+  // administrator's client or throw a generic Server Components error.
+  if(!reference)redirect('/admin-preview-unavailable');
   const supabase=await createClient();
-  const {data,error}=await supabase.rpc('get_project_member_preview',{target_preview:reference.sessionId});
-  if(error||!data||data.organisationId!==reference.organisationId||data.projectId!==reference.projectId)throw new Error('Member preview expired or access changed. Exit preview and select an active team member.');
+  let result;
+  try{
+    result=await supabase.rpc('get_project_member_preview',{target_preview:reference.sessionId});
+  }catch{
+    // Service failures also fail closed; the exit screen does not read data.
+    result=null;
+  }
+  // Keep framework redirect control flow outside the service error handler.
+  if(!result||result.error||!result.data||result.data.organisationId!==reference.organisationId||result.data.projectId!==reference.projectId)redirect('/admin-preview-unavailable');
+  const {data}=result;
   return data as AdminPreview;
 });
 

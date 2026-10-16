@@ -5,16 +5,32 @@ import {HelpTip} from "@/components/help-tip";
 import {InterdisciplinaryCheckForm} from "@/components/interdisciplinary-check-form";
 import {scopedRoleLabel} from "@/lib/role-experience";
 import {interdisciplinaryScope,referenceDate,interdisciplinaryDecisionLabel,type InterdisciplinaryRevision} from "@/lib/interdisciplinary-checks";
+import {PageState} from "@/components/page-state";
 
 export default async function InterdisciplinaryRevisionPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string;revisionId:string}>;searchParams?:Promise<{q?:string;page?:string}>}){
   const parsed=interdisciplinaryScope.safeParse(await params);if(!parsed.success)notFound();
   const {organisationId,projectId,revisionId}=parsed.data;
   const {supabase,preview}=await requireProject(organisationId,projectId);
-  const {data,error}=await supabase.rpc("get_interdisciplinary_revision",{target_organisation:organisationId,target_project:projectId,target_revision:revisionId});
-  if(error?.code==="42501"||(!error&&!data))notFound();
-  if(error)throw new Error("This interdisciplinary check could not be loaded. Please refresh.");
-  const revision=data as InterdisciplinaryRevision;
   const base=`/app/${organisationId}/projects/${projectId}/interdisciplinary`;
+  let result:{data:unknown;error:{code?:string}|null};
+  try{
+    result=await supabase.rpc("get_interdisciplinary_revision",{target_organisation:organisationId,target_project:projectId,target_revision:revisionId});
+  }catch{
+    result={data:null,error:{code:"READ_UNAVAILABLE"}};
+  }
+  const {data,error}=result;
+  if(error?.code==="42501"||(!error&&!data))notFound();
+  if(error){
+    const search=await searchParams??{};
+    const page=Math.max(1,Math.min(Number.parseInt(search.page??"1",10)||1,40000));
+    const retryHref=`${base}/${revisionId}?${new URLSearchParams({q:(search.q??"").slice(0,200),page:String(page)})}`;
+    return <PageState kind="error" title="Interdisciplinary check could not be loaded" headingLevel={1} className="ev-card mx-auto max-w-2xl"
+      actions={<><a href={retryHref} data-preview-safe className="ev-button-secondary">Retry loading</a>{preview&&<form action="/api/admin-preview/exit" method="post" data-preview-safe><button type="submit" className="ev-button-secondary">Exit preview</button></form>}</>}>
+      <p>This revision and its check history could not be verified. Try loading again. No documents or checks have been changed.</p>
+      {preview&&<p>If this member preview has expired, exit it before continuing.</p>}
+    </PageState>;
+  }
+  const revision=data as InterdisciplinaryRevision;
   const search=await searchParams??{};
   const page=Math.max(1,Math.min(Number.parseInt(search.page??"1",10)||1,40000));
   const folderUrl=`${base}?${new URLSearchParams({discipline:revision.discipline,q:(search.q??"").slice(0,200),page:String(page)})}`;

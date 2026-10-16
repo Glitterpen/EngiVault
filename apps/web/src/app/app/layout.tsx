@@ -10,8 +10,7 @@ import {createMemberPreviewClient} from "@/lib/member-preview-client";
 
 export default async function AppLayout({children}:{children:React.ReactNode}){
   const {supabase,user}=await requireUser();
-  let preview;
-  try{preview=await readAdminPreview()}catch{return <main id="workspace-content" tabIndex={-1} className="ev-card mx-auto my-12 max-w-xl p-8"><h1 className="text-xl font-semibold">Member preview unavailable</h1><p className="mt-3">The preview has expired, access has changed, or the preview service is unavailable. No administrator data is substituted for the member’s data.</p><form className="mt-5" action="/api/admin-preview/exit" method="post"><button className="ev-button">Exit preview</button></form></main>}
+  const preview=await readAdminPreview();
   const notificationClient=preview?createMemberPreviewClient(supabase,preview):supabase;
   const [{count:unreadCount},{data:organisations},{data:projectAccess},{data:founderAccess}]=await Promise.all([
     notificationClient.from("notifications").select("id",{count:"exact",head:true}).eq("recipient_user_id",preview?.memberId??user.id).is("read_at",null),

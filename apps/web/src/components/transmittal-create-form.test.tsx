@@ -1,13 +1,14 @@
 import {afterEach, expect, it, vi} from "vitest";
-import {cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import {TransmittalCreateForm} from "./transmittal-create-form";
 import {AdminPreviewBoundary} from "./admin-preview-boundary";
 import type {TransmittalHistoryItem} from "@/lib/transmittal-revisions";
 import {TRANSMITTAL_DAILY_NOTICE} from "@/lib/submission-override";
+import {createDocumentTransmittal} from "@/app/app/actions";
 const {router} = vi.hoisted(() => ({router: {refresh:vi.fn()}}));
 vi.mock("next/navigation", () => ({useRouter: () => router}));
 vi.mock("@/app/app/actions", () => ({createDocumentTransmittal:vi.fn()}));
-afterEach(() => {cleanup();vi.clearAllMocks();vi.unstubAllGlobals();});
+afterEach(() => {cleanup();vi.clearAllMocks();vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 const row = (id: string) => ({id, documentId:`doc-${id}`, documentNumber:`DOC-${id}`, title:`Deliverable ${id}`, discipline:"Process", documentType:"Report", revisionCode:"A01", issueStatus:"Issued for Approval"});
 const issue = (id: string, packageState="ready"): TransmittalHistoryItem => ({...row(id), revisionId:id, packageId:`pack-${id}`, packageState, transmittalNumber:`TR-${id}`, createdAt:"2026-09-12T12:00:00Z"});
 const props = {organisationId:"org", projectId:"project", defaultNumber:"TR-NEW", clientName:"Client", preparing:[], issuedRevisionNumbers:{}, revisions:[row("1"),row("2"),row("3")], history:[issue("1"),issue("2","failed")]};
@@ -117,7 +118,7 @@ it("revalidates hidden selections against refreshed issued and reserved data bef
 });
 
 it("allows preview search without unlocking selection or submission",()=>{
-  const {container}=render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"document_controller",displayName:"DCC",disciplines:[],expiresAt:"2099-01-01"}}><TransmittalCreateForm {...props} revisions={[row("3"),row("4")]}/></AdminPreviewBoundary>);
+  const {container}=render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"document_controller",displayName:"DCC",disciplines:[],expiresAt:"2099-01-01"}}><TransmittalCreateForm {...props} revisions={[row("3"),row("4")]} readOnly/></AdminPreviewBoundary>);
   expect((screen.getByLabelText("Find deliverable") as HTMLInputElement).disabled).toBe(false);
   expect((screen.getByLabelText("Discipline filter") as HTMLSelectElement).disabled).toBe(false);
   fireEvent.change(screen.getByLabelText("Find deliverable"),{target:{value:"DOC-4"}});
@@ -125,6 +126,11 @@ it("allows preview search without unlocking selection or submission",()=>{
   expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(true);
   expect((screen.getByRole("button",{name:"Create transmittal"}) as HTMLButtonElement).disabled).toBe(true);
   expect(fireEvent.submit(container.querySelector('form:not([method])')!)).toBe(false);
+  const refresh=screen.getByRole("button",{name:"Refresh accepted list"}) as HTMLButtonElement;
+  expect(refresh.disabled).toBe(false);
+  fireEvent.click(refresh);
+  expect(router.refresh).toHaveBeenCalledOnce();
+  expect(createDocumentTransmittal).not.toHaveBeenCalled();
 });
 
 it("names the main sections and keeps the ready selection controls accessible", () => {
@@ -211,11 +217,100 @@ it("retains automatic secure preparation endpoint and visible progress outside t
   render(<TransmittalCreateForm {...props} preparing={[{...row("5"),state:"processing",createdAt:"2026-10-16T10:00:00Z"}]} />);
   await waitFor(()=>expect(fetcher).toHaveBeenCalledWith(
     "/api/v1/organisations/org/projects/project/work-packages/transmittals/process",
-    {method:"POST",cache:"no-store"},
+    {method:"POST",cache:"no-store",signal:expect.any(AbortSignal)},
   ));
   await waitFor(()=>expect(router.refresh).toHaveBeenCalledTimes(1));
   expect(screen.getByText("Preparing recently accepted files for transmission...").closest("details")).toBeNull();
   expect(screen.getByText("1 approved · Preparing for transmission").closest("details")?.open).toBe(false);
+});
+
+it("does not start processing, timers or selection/submission in a read-only preview without relying on the boundary",async()=>{
+  vi.useFakeTimers();
+  const timeouts=vi.spyOn(globalThis,"setTimeout");
+  const fetcher=vi.fn();
+  vi.stubGlobal("fetch",fetcher);
+  const {container}=render(<TransmittalCreateForm {...props} readOnly preparing={[{...row("5"),state:"processing",createdAt:"2026-10-16T10:00:00Z"}]} />);
+  expect(timeouts.mock.calls.filter(([,delay])=>delay===4000||delay===10000)).toHaveLength(0);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(30000);});
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(router.refresh).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Automatic preparation paused/)).toBeNull();
+  expect(screen.queryByText("Preparing recently accepted files for transmission...")).toBeNull();
+  expect(screen.getByText(/Read-only preview\. Automatic preparation/)).toBeTruthy();
+  for(const label of ["Transmittal number","Attention","Recipient email","Cover message (optional)"]){
+    expect((screen.getByLabelText(label) as HTMLInputElement|HTMLTextAreaElement).disabled).toBe(true);
+  }
+  for(const name of ["Select visible (max 100)","Clear visible","Clear all selections","Create transmittal"]){
+    expect((screen.getByRole("button",{name}) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button",{name}));
+  }
+  const checkbox=screen.getByRole("checkbox") as HTMLInputElement;
+  expect(checkbox.disabled).toBe(true);
+  fireEvent.click(checkbox);
+  expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(0);
+  expect(fireEvent.submit(screen.getByRole("form",{name:"Create document transmittal"}))).toBe(false);
+  expect(createDocumentTransmittal).not.toHaveBeenCalled();
+  expect(timeouts.mock.calls.filter(([,delay])=>delay===4000||delay===10000)).toHaveLength(0);
+});
+
+it.each([true,false])("cancels the scheduled processing %s-result retry and hides processing feedback when switched to read-only",async(ok)=>{
+  vi.useFakeTimers();
+  const timeouts=vi.spyOn(globalThis,"setTimeout");
+  const clearTimer=vi.spyOn(globalThis,"clearTimeout");
+  const fetcher=vi.fn().mockResolvedValue({ok});
+  vi.stubGlobal("fetch",fetcher);
+  const preparing=[{...row("5"),state:"processing",createdAt:"2026-10-16T10:00:00Z"}];
+  const {container,rerender}=render(<TransmittalCreateForm {...props} preparing={preparing}/>);
+  await act(async()=>{await Promise.resolve();});
+  expect(fetcher).toHaveBeenCalledOnce();
+  const scheduled=timeouts.mock.calls.findIndex(([,delay])=>delay===(ok?4000:10000));
+  expect(scheduled).toBeGreaterThanOrEqual(0);
+  const retryTimer=timeouts.mock.results[scheduled].value;
+  fireEvent.click(screen.getByRole("checkbox"));
+  expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(1);
+  const signal=fetcher.mock.calls[0][1].signal as AbortSignal;
+  rerender(<TransmittalCreateForm {...props} preparing={preparing} readOnly/>);
+  expect(signal.aborted).toBe(true);
+  expect(clearTimer).toHaveBeenCalledWith(retryTimer);
+  expect(container.querySelectorAll('input[name="revisionIds"]')).toHaveLength(0);
+  expect(screen.queryByText(/Automatic preparation paused|Preparing recently accepted files for transmission/)).toBeNull();
+  const refreshes=router.refresh.mock.calls.length;
+  await act(async()=>{await vi.advanceTimersByTimeAsync(30000);});
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(router.refresh).toHaveBeenCalledTimes(refreshes);
+});
+
+it("does not refresh, retry or publish a late processing failure after switching to read-only",async()=>{
+  vi.useFakeTimers();
+  const timeouts=vi.spyOn(globalThis,"setTimeout");
+  let rejectProcessing:(error:Error)=>void=()=>{};
+  const fetcher=vi.fn(()=>new Promise<Response>((_resolve,reject)=>{rejectProcessing=reject;}));
+  vi.stubGlobal("fetch",fetcher);
+  const preparing=[{...row("5"),state:"quarantined",createdAt:"2026-10-16T10:00:00Z"}];
+  const {rerender}=render(<TransmittalCreateForm {...props} preparing={preparing}/>);
+  rerender(<TransmittalCreateForm {...props} preparing={preparing} readOnly/>);
+  await act(async()=>{rejectProcessing(new Error("late processing failure"));await Promise.resolve();});
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(timeouts.mock.calls.filter(([,delay])=>delay===4000||delay===10000)).toHaveLength(0);
+  expect(router.refresh).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Automatic preparation paused/)).toBeNull();
+});
+
+it.each([{ok:true,delay:4000},{ok:false,delay:10000}])("retains the normal DCC processing cadence at $delay ms for ok=$ok",async({ok,delay})=>{
+  vi.useFakeTimers();
+  const timeouts=vi.spyOn(globalThis,"setTimeout");
+  const fetcher=vi.fn().mockResolvedValue({ok});
+  vi.stubGlobal("fetch",fetcher);
+  render(<TransmittalCreateForm {...props} preparing={[{...row("5"),state:"processing",createdAt:"2026-10-16T10:00:00Z"}]}/>);
+  await act(async()=>{await Promise.resolve();});
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(timeouts.mock.calls.filter(([,timeout])=>timeout===delay)).toHaveLength(1);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(delay-1);});
+  expect(fetcher).toHaveBeenCalledOnce();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(1);});
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(fetcher).toHaveBeenLastCalledWith("/api/v1/organisations/org/projects/project/work-packages/transmittals/process",{method:"POST",cache:"no-store",signal:expect.any(AbortSignal)});
+  expect(router.refresh).toHaveBeenCalledTimes(ok?2:0);
 });
 
 it("wraps long document numbers rather than truncating their identifying text", () => {

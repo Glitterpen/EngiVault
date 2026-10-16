@@ -54,7 +54,58 @@ it("requires feedback when requesting changes",async()=>{render(await revisionPa
 it("hides sign-off even if the preview response accidentally advertises it",async()=>{preview={};render(await revisionPage());expect(screen.queryByRole("button",{name:"Record interdisciplinary check"})).toBeNull();expect(screen.getByRole("link",{name:/View approved file/})).toBeTruthy();});
 it("explains stale revisions and keeps their history visible",async()=>{rpc.mockResolvedValue({data:{...detail(),isCurrent:false,canSignOff:false,checks:[{id:"check",decision:"changes_requested",comment:"Revise nozzle clearance",reviewer_name:"Process reviewer",reviewer_role:"engineer",reviewer_disciplines:["Process"],created_at:"2026-09-02",is_mine:false,is_latest:true}]},error:null});render(await revisionPage());expect(screen.getByText(/A newer approved revision exists/)).toBeTruthy();expect(screen.getByText("Revise nozzle clearance")).toBeTruthy();expect(screen.queryByRole("button",{name:"Record interdisciplinary check"})).toBeNull();});
 it("does not display an unavailable or unauthorised revision",async()=>{rpc.mockResolvedValue({data:null,error:{code:"42501"}});await expect(revisionPage()).rejects.toThrow("not found");});
-it("does not turn an RPC failure into an empty library",async()=>{rpc.mockResolvedValue({data:null,error:{code:"XX000"}});await expect(libraryPage()).rejects.toThrow("could not be loaded");});
+it.each(["XX000","ADMIN_PREVIEW_READ_ONLY","42501"])("renders a controlled library error for %s without an empty result or raw diagnostics",async(code)=>{
+  rpc.mockResolvedValue({data:{total:1,disciplines:["Mechanical"],documents:[documentRow()]},error:{code,message:"private service diagnostic"}});
+  render(await libraryPage({q:"MEC & layout",discipline:"Mechanical",page:"2"}));
+  expect(screen.getByRole("alert").textContent).toContain("Approved documents could not be verified");
+  expect(screen.getByRole("heading",{level:1,name:"Approved-document library could not be loaded"})).toBeTruthy();
+  expect(screen.queryByText("private service diagnostic")).toBeNull();
+  expect(screen.queryByText("Mechanical layout")).toBeNull();expect(screen.queryByText("DCC approved")).toBeNull();
+  expect(screen.queryByText(/No approved documents match|Discipline folders will appear/)).toBeNull();
+  expect(screen.queryByRole("navigation",{name:"Approved document pages"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Exit preview"})).toBeNull();
+  const retry=linkUrl(screen.getByRole("link",{name:"Retry loading"}));
+  expect(retry.pathname).toBe(base);expect(retry.searchParams.get("q")).toBe("MEC & layout");expect(retry.searchParams.get("discipline")).toBe("Mechanical");expect(retry.searchParams.get("page")).toBe("2");
+  expect(rpc).toHaveBeenCalledExactlyOnceWith("get_interdisciplinary_documents",{target_organisation:organisationId,target_project:projectId,search_text:"MEC & layout",filter_discipline:"Mechanical",page_offset:25});
+});
+it("does not treat a missing library RPC result as a verified empty library",async()=>{
+  rpc.mockResolvedValue({data:null,error:null});render(await libraryPage());
+  expect(screen.getByRole("alert")).toBeTruthy();expect(screen.queryByText(/Discipline folders will appear/)).toBeNull();
+});
+it.each(["library","revision"])("offers a preview-safe exit and GET retry on a failed %s read",async(kind)=>{
+  preview={};rpc.mockResolvedValue({data:null,error:{code:"ADMIN_PREVIEW_READ_ONLY",message:"private expired session diagnostic"}});
+  render(await(kind==="library"?libraryPage():revisionPage({q:"MEC & layout",page:"3"})));
+  const alert=screen.getByRole("alert");expect(alert.textContent).toContain("If this member preview has expired");expect(alert.textContent).not.toContain("private expired session diagnostic");
+  const retry=screen.getByRole("link",{name:"Retry loading"});expect(retry.tagName).toBe("A");expect(retry.hasAttribute("data-preview-safe")).toBe(true);
+  const exit=screen.getByRole("button",{name:"Exit preview"}) as HTMLButtonElement;
+  expect(exit.type).toBe("submit");expect(exit.form?.getAttribute("action")).toBe("/api/admin-preview/exit");expect(exit.form?.method).toBe("post");expect(exit.form?.hasAttribute("data-preview-safe")).toBe(true);
+  expect(document.querySelector('input[type="file"]')).toBeNull();expect(screen.queryByRole("button",{name:"Record interdisciplinary check"})).toBeNull();
+  expect(rpc).toHaveBeenCalledTimes(1);
+});
+it("preserves revision retry scope and does not display a failed read as approved history",async()=>{
+  rpc.mockResolvedValue({data:detail(),error:{code:"XX000",message:"private service diagnostic"}});
+  render(await revisionPage({q:"MEC & layout",page:"3"}));
+  expect(screen.getByRole("heading",{level:1,name:"Interdisciplinary check could not be loaded"})).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("No documents or checks have been changed");expect(screen.queryByText("Mechanical layout")).toBeNull();expect(screen.queryByText("DCC approved")).toBeNull();expect(screen.queryByText("No interdisciplinary checks recorded for this revision.")).toBeNull();expect(screen.queryByText("private service diagnostic")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Exit preview"})).toBeNull();
+  const retry=linkUrl(screen.getByRole("link",{name:"Retry loading"}));expect(retry.pathname).toBe(`${base}/${revisionId}`);expect(retry.searchParams.get("q")).toBe("MEC & layout");expect(retry.searchParams.get("page")).toBe("3");
+  expect(rpc).toHaveBeenCalledExactlyOnceWith("get_interdisciplinary_revision",{target_organisation:organisationId,target_project:projectId,target_revision:revisionId});
+});
+it.each(["library","revision"])("keeps a rejected %s read within the controlled unavailable state",async(kind)=>{
+  rpc.mockRejectedValue(new Error("private transport diagnostic"));render(await(kind==="library"?libraryPage():revisionPage()));
+  expect(screen.getByRole("alert")).toBeTruthy();expect(screen.queryByText("private transport diagnostic")).toBeNull();expect(screen.getByRole("link",{name:"Retry loading"})).toBeTruthy();expect(rpc).toHaveBeenCalledTimes(1);
+});
+it.each([false,true])("retains not-found behaviour for a forbidden revision in preview=%s",async(inPreview)=>{
+  preview=inPreview?{}:null;rpc.mockResolvedValue({data:null,error:{code:"42501"}});await expect(revisionPage()).rejects.toThrow("not found");
+});
+it("retains not-found behaviour when a revision is genuinely missing",async()=>{
+  rpc.mockResolvedValue({data:null,error:null});await expect(revisionPage()).rejects.toThrow("not found");
+});
+it.each(["library","revision"])("does not swallow framework access redirects before a %s read",async(kind)=>{
+  const redirectSignal=Object.assign(new Error("NEXT_REDIRECT"),{digest:"NEXT_REDIRECT;replace;/admin-preview-unavailable;307;"});
+  vi.mocked(requireProject).mockRejectedValue(redirectSignal);
+  await expect(kind==="library"?libraryPage():revisionPage()).rejects.toBe(redirectSignal);expect(rpc).not.toHaveBeenCalled();
+});
 it("nests purpose groups inside a discipline and places the most recently submitted group first",async()=>{
   const documents=[
     {document_id:"design",title:"Newest design",issue_status:"IFD"},
