@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Bell, CheckCheck, ExternalLink, Info } from "lucide-react";
+import { ArrowLeft, CheckCheck, ExternalLink, Info } from "lucide-react";
 import { z } from "zod";
 import { clearNotification } from "@/app/app/workflow-actions";
 import { NotificationReadReceipt } from "@/components/notification-read-receipt";
 import { requireNotificationUser } from "@/lib/auth";
 import { notificationDestination } from "@/lib/notification-links";
+import {HelpTip} from "@/components/help-tip";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 
 type NotificationRow = {
   id: string;
@@ -56,26 +58,15 @@ export default async function NotificationPreviewPage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto min-w-0 max-w-3xl space-y-5">
       {!preview&&<NotificationReadReceipt notificationId={notification.id} unread={!notification.read_at} />}
-      <Link href="/app/notifications" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#e8733f]">
-        <ArrowLeft size={16} /> Return to notifications
+      <Link href="/app/notifications" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c5b45] transition hover:text-[#084635]">
+        <ArrowLeft size={16} aria-hidden="true"/> Return to notifications
       </Link>
-
-      <article className="ev-card mt-6 overflow-hidden">
-        <header className="border-b border-[#e4e9ee] bg-[#f8fafb] px-5 py-5 sm:px-7">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[.14em] text-[#e8733f]"><Bell size={15} /> Message preview</p>
-            <span className={`rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[.08em] ${notification.read_at ? "bg-[#edf1f4] text-[#617083]" : "bg-[#fff0e9] text-[#a5452f]"}`}>
-              {notification.read_at ? "Read" : "Unread"}
-            </span>
-          </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-[-.03em] sm:text-3xl">{notification.title}</h1>
-          <p className="mt-2 text-xs text-[#617083]">Received {new Date(notification.created_at).toLocaleString()}</p>
-        </header>
-
-        <div className="px-5 py-6 sm:px-7 sm:py-8">
-          <p className="whitespace-pre-wrap text-base leading-8 text-[#35485d]">{notification.body}</p>
+      <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]"><WorkspacePageHeading title={notification.title} context={<><time dateTime={notification.created_at}>Received {new Date(notification.created_at).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})} UTC</time> · {notification.read_at?"Read":"Unread"}</>} help={<HelpTip label="Notification read status">{preview?"Read-only preview: this message remains unchanged. Opening it does not mark it as read for the team member.":"Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain."}</HelpTip>}/></div>
+      <article className="ev-card min-w-0 overflow-hidden" aria-label="Notification message">
+        <div className="px-4 py-5 sm:px-6 sm:py-6">
+          <p className="whitespace-pre-wrap text-sm leading-7 text-[#35485d] [overflow-wrap:anywhere] sm:text-base">{notification.body}</p>
 
           {query.error === "clear" && (
             <p role="alert" className="mt-6 rounded-xl border border-[#f1c9b8] bg-[#fff6f2] p-4 text-sm text-[#8f3e2c]">
@@ -84,29 +75,27 @@ export default async function NotificationPreviewPage({
           )}
 
           {!destination && notification.href && (
-            <div className="mt-6 flex gap-3 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-4 text-sm leading-6 text-[#617083]">
-              <Info size={18} className="mt-0.5 shrink-0 text-[#0c5b45]" />
+            <div className="mt-5 flex gap-3 rounded-xl border border-[#dfe7e3] bg-[#f7faf8] p-3 text-sm leading-6 text-[#617083]">
+              <Info size={18} className="mt-0.5 shrink-0 text-[#0c5b45]" aria-hidden="true"/>
               <p>The related project page is no longer available to your account. The notification remains here for reference.</p>
             </div>
           )}
 
-          <div className="mt-8 border-t border-[#e4e9ee] pt-6">
-            <p className="text-xs font-extrabold uppercase tracking-[.12em] text-[#617083]">Choose what happens next</p>
-            <div className="mt-4 flex flex-wrap gap-3">
+        </div>
+          <footer className="border-t border-[#e4e9ee] px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {!preview&&!notification.read_at && (
-                <form action={clearNotification}>
+                <form action={clearNotification} aria-label="Mark this notification as read">
                   <input type="hidden" name="notificationId" value={notification.id} />
-                  <button className="ev-button"><CheckCheck size={16} /> Mark as read now</button>
+                  <button className="ev-button-secondary min-h-11 w-full sm:w-auto"><CheckCheck size={16} aria-hidden="true"/> Mark as read now</button>
                 </form>
               )}
-              <Link href="/app/notifications" className="ev-button-secondary"><ArrowLeft size={16} /> Return to notifications</Link>
+              <Link href="/app/notifications" className="ev-button-secondary min-h-11 w-full sm:w-auto"><ArrowLeft size={16} aria-hidden="true"/> Return to notifications</Link>
               {destination && (
-                <Link href={destination} className="ev-button-secondary">Open related project page <ExternalLink size={15} /></Link>
+                <Link href={destination} className="ev-button min-h-11 w-full sm:w-auto">Open related project page <ExternalLink size={15} aria-hidden="true"/></Link>
               )}
             </div>
-            <p className="mt-3 text-xs leading-5 text-[#617083]">{preview?'Read-only preview: this message remains unchanged. Opening it does not mark it as read for the team member.':'Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain.'}</p>
-          </div>
-        </div>
+          </footer>
       </article>
     </div>
   );

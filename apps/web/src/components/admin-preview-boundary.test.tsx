@@ -32,4 +32,14 @@ describe('live read-only member banner',()=>{
   expect((screen.getByRole('button',{name:'Save'}) as HTMLButtonElement).disabled).toBe(false);
   expect(screen.queryByText(/Live read-only preview/)).toBeNull();
  });
+ it('wraps long member names in the mobile banner without changing preview safeguards',()=>{
+  const displayName='AdebayoOluwatobilobaEngineeringDisciplineCoordinatorWithLongUnbrokenProfessionalName';
+  render(<AdminPreviewBoundary preview={{...preview,displayName}}><button>Save document</button></AdminPreviewBoundary>);
+  const name=screen.getByText(new RegExp(displayName));
+  expect(name.parentElement?.className).toContain('[overflow-wrap:anywhere]');
+  expect(name.parentElement?.parentElement?.className).toContain('min-w-0');
+  expect((screen.getByRole('button',{name:'Save document'}) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole('button',{name:'Refresh live data'})).toBeTruthy();
+  expect(screen.getByRole('button',{name:'Exit role preview'})).toBeTruthy();
+ });
 });

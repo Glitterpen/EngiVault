@@ -6,7 +6,8 @@ afterEach(cleanup);
 it("keeps in-app notifications on while selecting only email disciplines and events",()=>{
  render(<NotificationPreferencesForm organisationId="org" projectId={null} preferences={{emailEnabled:true,disciplines:null,events:null,choices:["Process","Electrical"]}}/>);
  expect(screen.getByText("In-app notifications: All enabled")).toBeTruthy();
- expect((screen.getByRole("checkbox",{name:"Process"}) as HTMLInputElement).disabled).toBe(true);
+ expect((screen.getByLabelText("Process") as HTMLInputElement).disabled).toBe(true);
+ expect(screen.queryByRole("checkbox",{name:"Process"})).toBeNull();
  fireEvent.click(screen.getByRole("checkbox",{name:"All disciplines and general notices"}));
  fireEvent.click(screen.getByRole("checkbox",{name:"Process"}));
  fireEvent.click(screen.getByRole("checkbox",{name:"All events"}));
@@ -15,4 +16,21 @@ it("keeps in-app notifications on while selecting only email disciplines and eve
  const data=new FormData(form);expect(data.getAll("disciplines")).toEqual(["Process"]);expect(data.getAll("events")).toEqual(["submissions"]);
  fireEvent.click(screen.getByRole("checkbox",{name:"Receive event emails"}));
  expect(screen.getByText("In-app notifications: All enabled")).toBeTruthy();
+});
+it("preserves custom selections across the all-options toggle and submits the original scope",()=>{
+ render(<NotificationPreferencesForm organisationId="org" projectId="project" preferences={{emailEnabled:true,disciplines:["Process"],events:["submissions"],choices:["Process","Electrical"]}}/>);
+ const process=screen.getByRole("checkbox",{name:"Process"}) as HTMLInputElement;
+ const submissions=screen.getByRole("checkbox",{name:"New document submissions"}) as HTMLInputElement;
+ expect(process.checked).toBe(true);expect(submissions.checked).toBe(true);
+ fireEvent.click(screen.getByRole("checkbox",{name:"All disciplines and general notices"}));
+ fireEvent.click(screen.getByRole("checkbox",{name:"All events"}));
+ expect(screen.queryByRole("checkbox",{name:"Process"})).toBeNull();
+ expect(screen.queryByRole("checkbox",{name:"New document submissions"})).toBeNull();
+ fireEvent.click(screen.getByRole("checkbox",{name:"All disciplines and general notices"}));
+ fireEvent.click(screen.getByRole("checkbox",{name:"All events"}));
+ expect(process.checked).toBe(true);expect(submissions.checked).toBe(true);
+ const form=screen.getByRole("button",{name:"Save my email preferences"}).closest("form")!;
+ const data=new FormData(form);
+ expect(data.get("organisationId")).toBe("org");expect(data.get("projectId")).toBe("project");
+ expect(data.getAll("disciplines")).toEqual(["Process"]);expect(data.getAll("events")).toEqual(["submissions"]);
 });

@@ -1,4 +1,5 @@
 import {HelpTip} from "@/components/help-tip";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import Link from "next/link";
 import {redirect} from "next/navigation";
 import {z} from "zod";
@@ -59,32 +60,50 @@ export default async function DeliverableRequestsPage({params,searchParams}:{par
     }
     documents.sort((a,b)=>a.document_number.localeCompare(b.document_number));
   }
-  return <div className="mx-auto max-w-[1250px]">
-    <Link href={projectHomePath(organisationId,projectId,role)} className="text-sm font-semibold text-[#0c5b45]">← Project dashboard</Link>
-    <h1 className="mt-5 text-3xl font-semibold">{engineer?"My deliverable requests":"Deliverable requests"} <HelpTip label="Deliverable request workflow">Submission-date changes: Engineer → PM → DCC. Additional deliverables: Engineer → DCC numbering and approval.</HelpTip></h1>
-
-    {preview&&<p className="mt-3 text-sm text-[#a5452f]">Live member preview · Read-only</p>}
-    <div className={`mt-6 grid items-start gap-6 ${engineer&&!preview?"lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]":""}`}>
+  return <div className="mx-auto max-w-[1250px] space-y-5">
+    <WorkspacePageHeading title={engineer?"My deliverable requests":"Deliverable requests"} context={engineer?"Track submission-date changes and additional deliverables.":"Review project submission dates and additional deliverables."} help={<HelpTip label="Deliverable request workflow">Submission-date changes: Engineer → PM → DCC. Additional deliverables: Engineer → DCC numbering and approval.</HelpTip>} actions={<Link href={projectHomePath(organisationId,projectId,role)} className="ev-button-secondary min-h-11">Project dashboard</Link>}/>
+    {preview&&<p className="rounded-xl border border-[#e1e7e5] bg-[#f7f9f8] px-4 py-3 text-sm text-[#526675]">Live member preview · Read-only</p>}
+    <div className="space-y-5">
       {engineer&&!preview&&<NewDeliverableRequestForm organisationId={organisationId} projectId={projectId} documents={documents} disciplines={disciplines} documentTypes={documentTypes} selectedDocument={search.document}/>}
-      <section className="min-w-0">
-        <nav aria-label="Request status" className="mb-4 flex flex-wrap gap-2"><Link className={history?"ev-button-secondary":"ev-button"} href={`${base}/requests`} aria-current={!history?"page":undefined}>Open requests</Link><Link className={history?"ev-button":"ev-button-secondary"} href={`${base}/requests?view=history`} aria-current={history?"page":undefined}>Decision history</Link></nav>
-        <div className="space-y-4">{requests.map(request=><article id={`request-${request.id}`} key={request.id} className="ev-card scroll-mt-24 break-words p-5">
-          <div className="flex flex-wrap items-start justify-between gap-2"><p className="text-xs font-bold text-[#e8733f]">{request.kind==="date_change"?"Submission date change":"Additional deliverable"}</p><span className="rounded-full bg-[#edf2f7] px-3 py-1 text-xs font-semibold">{requestStatusLabel[request.status]}</span></div>
-          <h2 className="mt-3 font-semibold">{request.title}</h2>
-          <p className="mt-1 text-xs leading-5 text-[#617083]">{request.document_number??"Document number to be assigned by DCC"} · {request.discipline} · {request.document_type}</p>
-          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">{request.previous_due_date&&<div><dt className="ev-label">Current date at request</dt><dd>{formatDate(request.previous_due_date)}</dd></div>}<div><dt className="ev-label">Requested submission</dt><dd className="font-semibold">{formatDate(request.requested_date)}</dd></div></dl>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{request.reason}</p>
-          <p className="mt-3 text-xs text-[#617083]">Requested by {engineer?"you":requesterNames.get(request.requester_id??"")??"Former project member"} · {formatDate(request.created_at.slice(0,10))}</p>
-          {request.pm_reviewed_at&&<p className="mt-3 text-sm leading-6"><strong>PM review · {formatDate(request.pm_reviewed_at.slice(0,10))}:</strong> {request.pm_comment||"Reviewed"}</p>}
-          {request.dcc_reviewed_at&&<p className="mt-2 text-sm leading-6"><strong>DCC review · {formatDate(request.dcc_reviewed_at.slice(0,10))}:</strong> {request.dcc_comment||"Reviewed"}</p>}
+      <section className="min-w-0" aria-label="Deliverable request queue">
+        <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[#e1e7e5] pb-3">
+          <nav aria-label="Request status" className="flex min-w-0 flex-wrap gap-1 rounded-xl bg-[#eef3f1] p-1"><Link className={requestTab(!history)} href={`${base}/requests`} aria-current={!history?"page":undefined}>Open requests</Link><Link className={requestTab(history)} href={`${base}/requests?view=history`} aria-current={history?"page":undefined}>Decision history</Link></nav>
+          <span className="text-xs text-[#617083]">{selectedRequest.success?"Selected request":`${count??0} ${history?"decided":"open"} request${count===1?"":"s"}`}</span>
+        </div>
+        {selectedRequest.success&&<Link href={`${base}/requests${history?"?view=history":""}`} className="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#0c5b45]">← View all {history?"decided":"open"} requests</Link>}
+        <div className="space-y-3">{requests.map(request=><article id={`request-${request.id}`} aria-labelledby={`request-title-${request.id}`} key={request.id} className="ev-card min-w-0 scroll-mt-24 p-4 [overflow-wrap:anywhere] sm:p-5">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-[#617083]">{request.kind==="date_change"?"Submission date change":"Additional deliverable"}</p><span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${requestStatusStyle(request.status)}`}>{requestStatusLabel[request.status]}</span></div>
+          <h2 id={`request-title-${request.id}`} className="mt-2 text-base font-semibold leading-6">{request.title}</h2>
+          <p className="mt-1 text-sm leading-6 text-[#526675]"><span className="font-medium text-[#24384f]">{request.document_number??"Document number to be assigned by DCC"}</span> · {request.discipline} · {request.document_type}</p>
+          <p className="mt-1 text-xs leading-5 text-[#617083]">Requested by {engineer?"you":requesterNames.get(request.requester_id??"")??"Former project member"}</p>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-[#edf1ef] py-3 text-sm sm:grid-cols-3">
+            {request.previous_due_date&&<div className="min-w-0"><dt className="ev-label">Current date at request</dt><dd className="mt-1">{formatDate(request.previous_due_date)}</dd></div>}
+            <div className="min-w-0"><dt className="ev-label">Requested submission</dt><dd className="mt-1 font-semibold">{formatDate(request.requested_date)}</dd></div>
+            <div className="min-w-0"><dt className="ev-label">Requested on</dt><dd className="mt-1">{formatDate(request.created_at.slice(0,10))}</dd></div>
+            {request.pm_reviewed_at&&<div className="min-w-0"><dt className="ev-label">PM reviewed</dt><dd className="mt-1">{formatDate(request.pm_reviewed_at.slice(0,10))}</dd></div>}
+            {request.dcc_reviewed_at&&<div className="min-w-0"><dt className="ev-label">DCC reviewed</dt><dd className="mt-1">{formatDate(request.dcc_reviewed_at.slice(0,10))}</dd></div>}
+          </dl>
+          <details className="mt-2 min-w-0"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-[#526675] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45]">Request details</summary>
+            <div className="space-y-3 rounded-xl bg-[#f7f9f8] p-3 text-sm leading-6"><div><h3 className="text-xs font-semibold text-[#617083]">Reason for request</h3><p className="mt-1 whitespace-pre-wrap">{request.reason}</p></div>
+              {request.pm_reviewed_at&&<div><h3 className="text-xs font-semibold text-[#617083]">PM review comment</h3><p className="mt-1 whitespace-pre-wrap">{request.pm_comment||"Reviewed"}</p></div>}
+              {request.dcc_reviewed_at&&<div><h3 className="text-xs font-semibold text-[#617083]">DCC review comment</h3><p className="mt-1 whitespace-pre-wrap">{request.dcc_comment||"Reviewed"}</p></div>}
+            </div>
+          </details>
           {canReviewDeliverableRequest(role,request,user.id,Boolean(preview))&&<DeliverableRequestReviewForm organisationId={organisationId} projectId={projectId} request={request}/>}
           {engineer&&!preview&&request.requester_id===user.id&&["pending_pm","pending_dcc"].includes(request.status)&&<CancelDeliverableRequestForm organisationId={organisationId} projectId={projectId} requestId={request.id}/>}
-          {request.status==="accepted"&&request.document_id&&role!=="project_admin"&&<Link className="mt-4 inline-block text-sm font-semibold text-[#0c5b45]" href={`${base}/documents/${request.document_id}`}>Open MDR deliverable →</Link>}
+          {request.status==="accepted"&&request.document_id&&role!=="project_admin"&&<Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#0c5b45]" href={`${base}/documents/${request.document_id}`}>Open MDR deliverable →</Link>}
         </article>)}</div>
-        {!requests.length&&<p className="ev-card p-8 text-center text-sm text-[#617083]">No {history?"decided":"open"} requests.</p>}
-        <nav aria-label="Request pages" className="mt-4 flex items-center justify-between text-sm">{page>1?<Link href={`${base}/requests?view=${history?"history":"open"}&page=${page-1}`}>← Previous</Link>:<span/>}<span>Page {page} · {count??0} requests</span>{page*25<(count??0)?<Link href={`${base}/requests?view=${history?"history":"open"}&page=${page+1}`}>Next →</Link>:<span/>}</nav>
+        {!requests.length&&<p className="ev-card p-6 text-center text-sm text-[#617083]">{selectedRequest.success?"This request is not available in your current project access.":`No ${history?"decided":"open"} requests.`}</p>}
+        <nav aria-label="Request pages" className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">{page>1?<Link className="inline-flex min-h-11 items-center font-semibold text-[#0c5b45]" href={`${base}/requests?view=${history?"history":"open"}&page=${page-1}`}>← Previous</Link>:<span/>}<span className="text-xs text-[#617083]">Page {page} · {count??0} requests</span>{page*25<(count??0)?<Link className="inline-flex min-h-11 items-center font-semibold text-[#0c5b45]" href={`${base}/requests?view=${history?"history":"open"}&page=${page+1}`}>Next →</Link>:<span/>}</nav>
       </section>
     </div>
   </div>;
 }
 function formatDate(value:string){return new Date(`${value}T00:00:00Z`).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});}
+function requestTab(active:boolean){return `inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c5b45] ${active?"bg-white text-[#10243e] shadow-sm":"text-[#526675] hover:bg-white/60"}`;}
+function requestStatusStyle(status:DeliverableRequest["status"]){
+  if(status==="accepted")return "bg-[#e8f3ec] text-[#195c42]";
+  if(status==="rejected")return "bg-[#fff0eb] text-[#963c28]";
+  if(status==="pending_pm"||status==="pending_dcc")return "bg-[#edf2f7] text-[#36526b]";
+  return "bg-[#f0f2f3] text-[#526675]";
+}
