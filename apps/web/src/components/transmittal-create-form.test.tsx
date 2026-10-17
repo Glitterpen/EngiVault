@@ -12,6 +12,16 @@ afterEach(() => {cleanup();vi.clearAllMocks();vi.restoreAllMocks();vi.unstubAllG
 const row = (id: string) => ({id, documentId:`doc-${id}`, documentNumber:`DOC-${id}`, title:`Deliverable ${id}`, discipline:"Process", documentType:"Report", revisionCode:"A01", issueStatus:"Issued for Approval"});
 const issue = (id: string, packageState="ready"): TransmittalHistoryItem => ({...row(id), revisionId:id, packageId:`pack-${id}`, packageState, transmittalNumber:`TR-${id}`, createdAt:"2026-09-12T12:00:00Z"});
 const props = {organisationId:"org", projectId:"project", defaultNumber:"TR-NEW", clientName:"Client", preparing:[], issuedRevisionNumbers:{}, revisions:[row("1"),row("2"),row("3")], history:[issue("1"),issue("2","failed")]};
+it("explains electronic issue and recipient acknowledgement without claiming a qualified signature or seal",()=>{
+  const {container}=render(<TransmittalCreateForm {...props}/>);
+  fireEvent.focus(screen.getByRole("button",{name:"Transmittal acknowledgement"}));
+  const guidance=screen.getByRole("tooltip").textContent;
+  expect(guidance).toContain("System-issued transmittal. Issuer and issue date recorded electronically.");
+  expect(guidance).toContain("recipient signs and dates");
+  expect(guidance).not.toMatch(/qualified|seal|attestation/i);
+  expect(container.querySelectorAll('input[name="revisionIds"]:checked')).toHaveLength(0);
+  expect(createDocumentTransmittal).not.toHaveBeenCalled();
+});
 it("offers an accessible neutral-default PDF template without changing revision selections",()=>{
   const {container}=render(<TransmittalCreateForm {...props}/>);
   const select=screen.getByRole("combobox",{name:"PDF colour template"}) as HTMLSelectElement;

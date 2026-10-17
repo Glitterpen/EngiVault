@@ -15,7 +15,7 @@ describe("deliverable request forms",()=>{
     render(<NewDeliverableRequestForm {...scope} documents={[{id:"doc",document_number:"MEC-001",title:"Pump",due_date:"2026-10-01"}]} disciplines={["Mechanical"]} documentTypes={[]} selectedDocument="doc"/>);
     expect((screen.getByLabelText("Assigned deliverable") as HTMLSelectElement).value).toBe("doc");
     expect(screen.queryByText(/existing deadline stays in force/)).toBeNull();
-    fireEvent.mouseEnter(screen.getByRole("button",{name:"Submission-date approval workflow"}));
+    fireEvent.mouseEnter(screen.getByRole("button",{name:"When the deadline changes"}));
     expect(screen.getByRole("tooltip").textContent).toContain("existing deadline stays in force");
     expect(screen.queryByLabelText(/document number/i)).toBeNull();
   });

@@ -46,7 +46,7 @@ it("keeps read messages readable without offering redundant mark-read mutation",
 });
 it("does not mark or clear a team member's notification in audited preview",async()=>{
   preview=true;render(await page());expect(NotificationReadReceipt).not.toHaveBeenCalled();expect(screen.queryByRole("form")).toBeNull();
-  expect(document.body.textContent).toContain("Opening it does not mark it as read for the team member");expect(screen.getByRole("link",{name:"Open related project page"})).toBeTruthy();
+  expect(document.body.textContent).toContain("opening this message does not mark it as read for the team member");expect(screen.getByRole("link",{name:"Open related project page"})).toBeTruthy();
 });
 it("retains unavailable destination guidance when project access is absent",async()=>{
   access=null;render(await page());expect(screen.queryByRole("link",{name:"Open related project page"})).toBeNull();expect(screen.getByText(/related project page is no longer available/)).toBeTruthy();

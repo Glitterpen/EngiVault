@@ -1,6 +1,5 @@
 "use client";
 
-import {HelpTip} from "@/components/help-tip";
 import {PasswordInput} from "@/components/password-input";
 import Link from "next/link";
 import {useActionState,useEffect,useId,useRef,useState} from "react";
@@ -33,7 +32,8 @@ export function FounderLoginForm({
   },[busy]);
   return <div className="w-full max-w-md">
     <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#e8733f]">Restricted platform access</p>
-    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Founder Control Centre <HelpTip label="Founder sign-in">Sign in with the approved founder identity. This route is separate from organisation workspaces and requires authenticator verification before account oversight is opened.</HelpTip></h2>
+    <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] text-[#10243e]">Founder Control Centre</h2>
+    <p className="mt-2 text-sm leading-6 text-[#526675]">Use your approved founder account. Authenticator verification is required after sign-in.</p>
 
     {notice&&<div className="mt-5 rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm leading-6 text-[#10243e]" role="status">{notice}</div>}
     <form action={formAction} className="mt-8 space-y-5">

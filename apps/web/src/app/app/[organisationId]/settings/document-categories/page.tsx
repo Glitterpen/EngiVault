@@ -1,4 +1,3 @@
-import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {ArrowLeft} from "lucide-react";
 import {notFound} from "next/navigation";
@@ -20,7 +19,7 @@ export default async function CategorySettingsPage({params}:{params:Promise<{org
   const categories=data??[];
   return <div className="mx-auto min-w-0 max-w-6xl">
     <Link href={`/app/${organisationId}`} className="mb-2 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/> Organisation</Link>
-    <WorkspacePageHeading title="Document categories" context="MDR administration" help={<HelpTip label="Organisation categories">Control the disciplines and document types available across this organisation.</HelpTip>}/>
+    <WorkspacePageHeading title="Document categories" context="MDR administration"/>
     <div className="mt-5 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
       <DocumentCategoryManagement organisationId={organisationId} categories={categories}/>
       <DocumentCategoryCreateForm organisationId={organisationId}/>

@@ -30,7 +30,7 @@ export function ProjectDisciplineManager({ organisationId, projectId, discipline
       <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-[#617083] transition-transform group-open:rotate-180 motion-reduce:transition-none"/>
     </summary>
     <div className="border-t border-[#d6e0ed] p-4 sm:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-xs font-semibold uppercase tracking-[.08em] text-[#617083]">Available for new selections</h3><HelpTip label="Managing project disciplines">Add a discipline before inviting its engineers or planning resources. New disciplines in a successfully imported MDR are added here automatically. Additions apply only to this project and do not grant anyone access.</HelpTip></div>
+      <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-xs font-semibold uppercase tracking-[.08em] text-[#617083]">Available for new selections</h3><HelpTip label="Managing project disciplines">Add a discipline before inviting engineers or planning resources. MDR imports also add new disciplines here; invite engineers separately to grant access.</HelpTip></div>
       <ul className="grid gap-2 lg:grid-cols-2" aria-label="Available project disciplines">
         {disciplines.map(item => <li key={item.name} className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-[#d6e0ed] px-3 py-2 text-sm"><span className="min-w-0 text-[#24384f] [overflow-wrap:anywhere]">{disciplineLabel(item)}</span>{!readOnly && <ProjectDisciplineRemove organisationId={organisationId} projectId={projectId} name={item.name}/>}</li>)}
       </ul>

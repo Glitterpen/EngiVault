@@ -28,7 +28,7 @@ export function WorkPackageCreateForm({
     <form ref={form} action={action} onInvalidCapture={event=>{const disclosure=event.currentTarget.closest("details");if(disclosure)disclosure.open=true;}} aria-labelledby={`${id}-heading`} aria-busy={pending} className="min-w-0">
       <input type="hidden" name="organisationId" value={organisationId} />
       <input type="hidden" name="projectId" value={projectId} />
-      <h2 id={`${id}-heading`} className="flex items-center gap-2 text-base font-semibold"><Package size={18} aria-hidden="true" className="shrink-0 text-[#244b73]"/>Package details <HelpTip label="Frozen engineering packages">Freeze the authorised revisions matching this scope into a controlled package. All disciplines and any accepted issue status are selected by default. Creating the record does not yet generate its ZIP.</HelpTip></h2>
+      <h2 id={`${id}-heading`} className="flex items-center gap-2 text-base font-semibold"><Package size={18} aria-hidden="true" className="shrink-0 text-[#244b73]"/>Package details <HelpTip label="Create a work package">Choose the discipline and accepted issue status to include. Creating the package freezes those revisions; generate its ZIP separately from the package record.</HelpTip></h2>
       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2"><Field name="packageNumber" label="Package number" placeholder="FWP-001" />
       <Field name="name" label="Package name" placeholder="Final engineering work package" />
       <div className="sm:col-span-2"><Field name="purpose" label="Purpose" optional /></div></div>

@@ -130,7 +130,7 @@ export function TransmittalCreateForm({
       {[...selectedSet].map((id) => <input key={id} type="hidden" name="revisionIds" value={id} />)}
 
       <section aria-label="Transmission queue" className="rounded-xl border border-[#d6e0ed] bg-white px-4 py-3 sm:px-5">
-        <div className="flex items-center gap-1.5"><h2 className="text-sm font-semibold text-[#24384f]">Transmission queue</h2><HelpTip label="Transmission status">Ready lists only newly approved, securely prepared revisions not already reserved in a transmittal. Staged revisions remain reserved while their ZIP is preparing or needs retry. Transmitted means the transmittal ZIP is generated, not confirmation that the client received it.</HelpTip></div>
+        <div className="flex items-center gap-1.5"><h2 className="text-sm font-semibold text-[#24384f]">Transmission queue</h2><HelpTip label="Transmission status">Staged revisions are reserved while their ZIP is preparing or awaiting retry. Transmitted means the ZIP is ready, not that the recipient has received it.</HelpTip></div>
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-4">
           {[['Ready for transmission', eligible.length], ['Approved · preparing', preparing.length], ['Staged / needs attention', queue.staged.length], ['Transmitted', queue.transmitted.length]].map(([label, count]) => (
             <div key={label} className="min-w-0"><dt className="break-words text-xs leading-5 text-[#526675]">{label}</dt><dd className="mt-0.5 text-lg font-semibold tabular-nums text-[#24384f]">{count}</dd></div>
@@ -139,7 +139,7 @@ export function TransmittalCreateForm({
       </section>
 
       <section aria-labelledby={`${formId}-details`} className="rounded-xl border border-[#d6e0ed] bg-white p-4 sm:p-5">
-        <div className="flex items-center gap-1.5"><h2 id={`${formId}-details`} className="font-semibold text-[#24384f]">Transmission details</h2><HelpTip label="Recipient company">The recipient company is inherited from the controlled project information and frozen into the audit record. The Project Manager controls this information; the DCC cannot change it here.</HelpTip></div>
+        <div className="flex items-center gap-1.5"><h2 id={`${formId}-details`} className="font-semibold text-[#24384f]">Transmission details</h2><HelpTip label="Recipient company">The recipient company comes from Project information. Ask the Project Manager to correct it before creating the transmittal.</HelpTip></div>
         <div className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2">
           <Field name="transmittalNumber" label="Transmittal number" defaultValue={defaultNumber} disabled={readOnly} />
           <div className="min-w-0">
@@ -173,7 +173,7 @@ export function TransmittalCreateForm({
       <section aria-labelledby={`${formId}-ready`} className="min-w-0 overflow-hidden rounded-xl border border-[#d6e0ed] bg-white">
         <div className="border-b border-[#d6e0ed] p-4 sm:px-5">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-1.5"><h2 id={`${formId}-ready`} className="font-semibold text-[#24384f]">Ready for transmission</h2><HelpTip label="Eligible transmittal revisions">Only the latest approved and securely prepared revision is selectable. Previously staged or transmitted revisions are excluded. Select up to 100 revisions per transmittal.</HelpTip></div>
+            <div className="flex min-w-0 items-center gap-1.5"><h2 id={`${formId}-ready`} className="font-semibold text-[#24384f]">Ready for transmission</h2><HelpTip label="Eligible transmittal revisions">Select up to 100 latest DCC-approved revisions that have completed security checks. Revisions already staged or transmitted cannot be selected again.</HelpTip></div>
             <button type="button" data-preview-safe className="ev-button-secondary min-h-11 w-full sm:w-auto" onClick={() => router.refresh()}>
               <RefreshCw size={16} aria-hidden="true" /> Refresh accepted list
             </button>
@@ -200,7 +200,7 @@ export function TransmittalCreateForm({
         </div>
         {preparing.length > 0 && (
           <div className="border-b border-[#d6e0ed] bg-[#fbfcfe] px-4 py-3 sm:px-5">
-            <div className="flex items-center gap-1.5"><h3 className="text-sm font-semibold text-[#526675]">Recently accepted documents</h3><HelpTip label="Latest accepted revisions">The latest accepted revision replaces older issues immediately. It becomes selectable as soon as secure preparation finishes.</HelpTip></div>
+            <div className="flex items-center gap-1.5"><h3 className="text-sm font-semibold text-[#526675]">Recently accepted documents</h3><HelpTip label="Latest accepted revisions">A newly accepted revision becomes selectable after security checks finish. Older accepted issues are not offered for a new transmittal.</HelpTip></div>
             <details className="mt-1" open={preparing.some((revision) => revision.state === "failed") || undefined}>
               <summary className="min-h-11 cursor-pointer py-3 text-sm text-[#526675]">{preparing.length} approved · {preparing.some((revision) => revision.state === "failed") ? "Preparation needs attention" : "Preparing for transmission"}</summary>
                 <div className="grid min-w-0 gap-2 pb-1 lg:grid-cols-2">
@@ -261,7 +261,6 @@ export function TransmittalCreateForm({
             <div className="px-4 py-8 text-center">
               <FileCheck2 className="mx-auto text-[#8693a2]" aria-hidden="true" />
               <p className="mt-3 text-sm font-semibold">{eligible.length ? "No ready deliverables match these filters." : "No new approved documents are ready for transmission."}</p>
-              <HelpTip label="No ready deliverables">Previously staged or transmitted revisions are kept in their separate lists below. Newly approved revisions appear here after secure preparation finishes.</HelpTip>
             </div>
           )}
         </div>
@@ -285,7 +284,7 @@ export function TransmittalCreateForm({
               Creation is paused until the Project Manager adds the client name in Project information.
             </p>
           )}
-          <HelpTip label="Transmittal attestation">EngiCite will identify the authenticated DCC issuer and add an audit-backed attestation. When a verified qualified seal is configured, EngiCite embeds it in the PDF. The client acknowledgement block remains for the recipient to sign and return.</HelpTip>
+          <HelpTip label="Transmittal acknowledgement">System-issued transmittal. Issuer and issue date recorded electronically. The recipient signs and dates the acknowledgement.</HelpTip>
         </div>
       </section>
       <TransmissionHistory title="Staged / needs attention" items={queue.staged.filter(matches)} total={queue.staged.length} organisationId={organisationId} projectId={projectId} />

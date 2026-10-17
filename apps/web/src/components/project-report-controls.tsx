@@ -26,7 +26,7 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
         <h2 className="flex flex-wrap items-center gap-2 font-semibold text-[#10243e]">
           <FileChartColumnIncreasing className="shrink-0 text-[#b94d20]" size={20} aria-hidden="true"/>
           Generate report
-          <HelpTip label="Generate a project report">Capture the current project position using the selected colour template. Existing reporting periods keep their original template.</HelpTip>
+          <HelpTip label="Generate a project report">Generate the current reporting period from project data. To view an earlier report, open it from the register below.</HelpTip>
         </h2>
         <p className="mt-2 break-words text-xs leading-5 text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?<time dateTime={lastGeneratedAt}>{formatReportTimestamp(lastGeneratedAt)}</time>:"No report generated yet"}</p>
       </div>
@@ -43,7 +43,7 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
         <h2 className="flex min-h-11 flex-wrap items-center gap-2 font-semibold text-[#10243e]">
           <CalendarClock className="shrink-0 text-[#617083]" size={19} aria-hidden="true"/>
           Report settings
-          <HelpTip label="Weekly report schedule guidance">Choose the weekly capture day. Save report settings to apply the colour template selected above to future scheduled reports; generating a report does not save these settings.</HelpTip>
+          <HelpTip label="Weekly report schedule guidance">Save to apply the selected day and colour template to future scheduled reports. Generate project report runs once without saving these settings.</HelpTip>
         </h2>
         <label className="block min-w-0"><span className="ev-label">Generate every</span><select className="ev-input" name="weekday" defaultValue={String(weekday)} disabled={pending}>{REPORT_WEEKDAYS.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
         <div className="flex min-h-11 min-w-0 items-center gap-1">

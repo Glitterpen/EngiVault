@@ -75,8 +75,8 @@ describe("compact project overview summary",()=>{
     workspace();expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.focus(screen.getByRole("button",{name:"Project completion milestones"}));
     const guidance=screen.getByRole("tooltip");
-    expect(guidance.textContent).toContain("FEED workflow");expect(guidance.textContent).toContain("Issued for Design (IFD) after DCC acceptance");
-    expect(guidance.textContent).toContain("Incomplete uploads do not earn completion");
+    expect(guidance.textContent).toContain("weighted by accepted issue milestones, not time elapsed");expect(guidance.textContent).toContain("Issued for Design (IFD) after DCC acceptance");
+    expect(guidance.textContent!.trim().split(/\s+/).length).toBeLessThanOrEqual(35);
   });
 });
 
@@ -105,8 +105,8 @@ describe("overview links and mutation boundaries",()=>{
     workspace({preview:true,issues:[issue("1")]});expandIssue("Issue 1");
     expect(screen.queryByRole("button",{name:"Report issue"})).toBeNull();expect(screen.queryByRole("button",{name:"Resolve issue"})).toBeNull();
     expect(screen.queryByRole("link",{name:"Project settings"})).toBeNull();expect(screen.getByRole("link",{name:"View project team"})).toBeTruthy();
-    fireEvent.focus(screen.getByRole("button",{name:"Project overview guidance"}));
-    expect(screen.getByRole("tooltip").textContent).toContain("This audited preview is read-only");
+    expect(screen.queryByRole("button",{name:"Project overview guidance"})).toBeNull();
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
   it("does not render a Report issue trigger when no authorised form slot is supplied",()=>{
     workspace({issueForm:undefined});expect(screen.queryByRole("button",{name:"Report issue"})).toBeNull();

@@ -6,7 +6,7 @@ import {HelpTip} from "./help-tip";
 export function ExecutiveInviteForm({organisationId}:{organisationId:string}){
   const [state,action,pending]=useActionState(inviteExecutive,undefined);
   return <form action={action} className="ev-card mt-6 space-y-4 p-5">
-    <h2 className="font-semibold">Invite Executive Viewer <HelpTip label="Private executive invitations">Only Organisation Administrators may invite or revoke this role. Executive Viewers see live organisation and project summaries, not documents, team lists or editing tools. Their identities stay out of project teams and are visible only to authorised administrators and security auditing. Re-inviting a pending email replaces its earlier link.</HelpTip></h2>
+    <h2 className="font-semibold">Invite Executive Viewer <HelpTip label="Executive Viewer access" kind="info">Read-only organisation and project summaries; no documents or team lists. Hidden from project teams, but visible to authorised administrators and in audit records. Re-inviting a pending email replaces its earlier link.</HelpTip></h2>
     <input type="hidden" name="organisationId" value={organisationId}/>
     <label className="block"><span className="ev-label">Work email</span><input className="ev-input" name="email" type="email" required maxLength={254} autoComplete="off"/></label>
     <button className="ev-button" disabled={pending}>{pending?"Sending…":"Send private invitation"}</button>

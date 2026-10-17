@@ -1,5 +1,4 @@
 "use client";
-import {HelpTip} from "@/components/help-tip";
 import { customerErrorMessage } from "@/lib/customer-messages";
 
 
@@ -70,7 +69,7 @@ export function PendingProjectInvitations({organisationId,projectId,invitations}
       <span className="rounded-full bg-[#eef3fa] px-2.5 py-1 text-xs font-semibold text-[#526577]" aria-label={`${visibleInvitations.length} awaiting acceptance`}>{visibleInvitations.length}</span>
       <ChevronDown size={17} className="shrink-0 text-[#617083] transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true"/>
     </summary>
-    <div className="flex items-center gap-2 border-t border-[#d6e0ed] px-4 py-2 text-xs text-[#617083] sm:px-5">Awaiting project access<HelpTip label="Pending invitations">People listed here have been invited but have not joined the project yet.</HelpTip></div>
+    <div className="flex items-center gap-2 border-t border-[#d6e0ed] px-4 py-2 text-xs text-[#617083] sm:px-5">Awaiting project access</div>
     {visibleInvitations.length?<div>{visibleInvitations.map(invitation=>{
       const itemFeedback=feedback[invitation.invitation_id];const busy=busyId===invitation.invitation_id;const confirmingDelete=deleteId===invitation.invitation_id;
       return <article className="min-w-0 border-b border-[#d6e0ed] px-4 py-4 last:border-0 sm:px-5" key={invitation.invitation_id} aria-label={`Invitation for ${invitation.email}`} aria-busy={busy}>

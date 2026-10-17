@@ -34,3 +34,16 @@ it("preserves custom selections across the all-options toggle and submits the or
  expect(data.get("organisationId")).toBe("org");expect(data.get("projectId")).toBe("project");
  expect(data.getAll("disciplines")).toEqual(["Process"]);expect(data.getAll("events")).toEqual(["submissions"]);
 });
+it("explains the email filters without changing selections or submitting preferences",()=>{
+ render(<NotificationPreferencesForm organisationId="org" projectId="project" preferences={{emailEnabled:true,disciplines:["Process"],events:["submissions"],choices:["Process","Electrical"]}}/>);
+ const form=screen.getByRole("button",{name:"Save my email preferences"}).closest("form")!;
+ const before=Array.from(new FormData(form));
+ fireEvent.focus(screen.getByRole("button",{name:"Email discipline filter"}));
+ expect(screen.getByRole("tooltip").textContent).toContain("All includes disciplines added later.");
+ fireEvent.keyDown(screen.getByRole("button",{name:"Email discipline filter"}),{key:"Escape"});
+ fireEvent.focus(screen.getByRole("button",{name:"Email event filter"}));
+ expect(screen.getByRole("tooltip").textContent).toContain("both your event and discipline selections");
+ expect(screen.getByRole("tooltip").textContent).toContain("not sign-in or password-recovery emails");
+ expect(Array.from(new FormData(form))).toEqual(before);
+ expect(screen.getByText("In-app notifications: All enabled")).toBeTruthy();
+});

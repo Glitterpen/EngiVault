@@ -68,6 +68,9 @@ describe("submission override checkbox",()=>{
     expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.mouseEnter(screen.getByRole("button",{name:"About submission overrides"}));
     expect(screen.getByRole("tooltip").textContent).toContain("same revision code");
+    expect(screen.getByRole("tooltip").textContent).toContain("only after DCC acceptance");
+    expect(screen.getByRole("tooltip").textContent).toContain("previous file is retained for audit");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
   it("checks the server before allowing a replacement",async()=>{
     fetchMock.mockResolvedValue(Response.json({allowed:true,revisionId:"rev",issueStatus:"Issued for Review (IFR)"}));

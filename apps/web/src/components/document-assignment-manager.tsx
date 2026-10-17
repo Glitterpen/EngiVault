@@ -10,7 +10,7 @@ export type AssignableEngineer={userId:string;name:string;email:string;assigned:
 export function DocumentAssignmentManager({organisationId,projectId,documentId,discipline,engineers}:{organisationId:string;projectId:string;documentId:string;discipline:string;engineers:AssignableEngineer[]}){
   return <div className="ev-card p-6">
     <div className="flex items-center gap-2"><UserCheck size={18} className="text-[#e8733f]"/><h2 className="font-bold">Assign discipline engineer</h2></div>
-    <HelpTip label="Eligible discipline engineers">Choose only from active <strong className="text-[#10243e]">{discipline}</strong> engineers already invited by the Project Manager. Assignment gives the engineer upload access to this MDR deliverable.</HelpTip>
+    <HelpTip label="Eligible discipline engineers">Assigning an active <strong className="text-[#10243e]">{discipline}</strong> engineer gives them upload access to this deliverable. The Project Manager must authorise their discipline first.</HelpTip>
     {engineers.length?<div className="mt-5 divide-y divide-[#d6e0ed] rounded-xl border border-[#d6e0ed]">{engineers.map(engineer=><AssignmentControl key={engineer.userId} organisationId={organisationId} projectId={projectId} documentId={documentId} engineer={engineer}/>)}</div>:<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-4 text-sm leading-6 text-[#8b3d1f]"><strong>No eligible {discipline} engineer is available.</strong><br/>Ask the Project Manager to invite and authorise the discipline engineer first.</div>}
   </div>;
 }

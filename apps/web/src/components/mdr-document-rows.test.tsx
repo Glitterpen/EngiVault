@@ -1,4 +1,4 @@
-import {cleanup,render,screen,within} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
 import {MdrDocumentRows} from "./mdr-document-rows";
 import type {MdrDocument,MdrRevision} from "@/lib/mdr-register-types";
@@ -13,6 +13,17 @@ const document=(revisions:MdrRevision[]=[]):MdrDocument=>({
   schedule:{document_id:"document",planned_submission_date:"2026-10-20",next_submission_date:"2026-10-20",last_issue_date:null,revision_cycle_days:3,deadline_kind:"first_issue",overdue:false},
 });
 const rows=(revisions:MdrRevision[]=[],canManage=false)=>render(<MdrDocumentRows docs={[document(revisions)]} organisationId="org" projectId="project" canManage={canManage} title="Electrical"/>);
+
+it("identifies document metadata as information and keeps its schedule available",()=>{
+  rows();
+  const information=screen.getAllByRole("button",{name:"Document details for EL-001"});
+  expect(information).toHaveLength(2);
+  expect(information[0].querySelector("svg.lucide-info")).toBeTruthy();
+  fireEvent.focus(information[0]);
+  const details=screen.getByRole("tooltip");
+  expect(details.textContent).toContain("Area / system");
+  expect(details.textContent).toContain("20 Oct 2026");
+});
 
 it.each([
   ["Issued for Review (IFR)","R01","IFR"],

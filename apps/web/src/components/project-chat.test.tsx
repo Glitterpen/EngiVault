@@ -65,6 +65,9 @@ describe("Ask EngiCite accessibility and reflow",()=>{
     const second={id:"revision-2",document_id:"document-2",revision_code:"IFD",documents:{document_number:longNumber,title:longTitle}};
     const {container}=render(<ProjectChat organisationId="org" projectId="project" revisions={[...revisions,second]}/>);
     fireEvent.click(container.querySelector("details > summary")!);
+    fireEvent.focus(screen.getByRole("button",{name:"Authorised revision scope"}));
+    expect(screen.getByRole("tooltip").textContent).toBe("Select the revisions to use before asking a question. This selection locks after your first question.");
+    fireEvent.keyDown(screen.getByRole("button",{name:"Authorised revision scope"}),{key:"Escape"});
     const scope=screen.getByRole("group",{name:"Ready revisions"});
     expect(scope.className).toContain("xl:grid-cols-2");expect(scope.className).not.toContain("md:grid-cols-2");
     expect(within(scope).getByText(longTitle).className).toContain("[overflow-wrap:anywhere]");

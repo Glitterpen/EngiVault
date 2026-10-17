@@ -28,13 +28,13 @@ export function NewDeliverableRequestForm({organisationId,projectId,documents,di
       {kind==="date_change"?<>
         <label className="block min-w-0"><span className="ev-label">Assigned deliverable</span><select className="ev-input min-h-11 w-full" name="documentId" required defaultValue={documents.some(doc=>doc.id===selectedDocument)?selectedDocument:""}><option value="" disabled>Select a deliverable</option>{documents.map(doc=><option value={doc.id} key={doc.id}>{doc.document_number} · {doc.title} · Due {doc.due_date}</option>)}</select></label>
         {!documents.length&&<p className="text-sm text-[#617083]">No assigned deliverables currently have a changeable submission deadline.</p>}
-        <div className="flex items-center gap-2 text-xs text-[#526675]"><span>PM approval → DCC acceptance</span><HelpTip label="Submission-date approval workflow">Project Manager approval → DCC acceptance. Your existing deadline stays in force until both steps are complete.</HelpTip></div>
+        <div className="flex items-center gap-2 text-xs text-[#526675]"><span>PM approval → DCC acceptance</span><HelpTip label="When the deadline changes">Your existing deadline stays in force until the Project Manager approves and DCC accepts the new date.</HelpTip></div>
       </>:<>
         <label className="block min-w-0"><span className="ev-label">Deliverable title</span><input className="ev-input min-h-11 w-full" name="title" minLength={2} maxLength={240} required/></label>
         <div className="grid min-w-0 items-end gap-4 sm:grid-cols-2"><div className="min-w-0 [&>div]:mt-0 [&_input]:min-h-11"><DocumentTypeInput suggestions={documentTypes}/></div>
           <label className="block min-w-0"><span className="ev-label">Authorised discipline</span><select className="ev-input min-h-11 w-full" name="discipline" required defaultValue=""><option value="" disabled>Select your discipline</option>{disciplines.map(discipline=><option key={discipline}>{discipline}</option>)}</select></label>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[#526675]"><span>DCC approval and numbering</span><HelpTip label="Additional deliverable approval">DCC assigns the document number on approval. The approved deliverable will be assigned to you.</HelpTip></div>
+        <div className="flex items-center gap-2 text-xs text-[#526675]"><span>DCC approval and numbering</span><HelpTip label="Additional deliverable approval">DCC assigns a unique document number when approving your request. The new deliverable is then assigned to you.</HelpTip></div>
       </>}
       <div className="grid min-w-0 items-start gap-4 border-t border-[#d6e0ed] pt-4 sm:grid-cols-[minmax(0,.65fr)_minmax(0,1fr)]">
         <label className="block min-w-0"><span className="ev-label">{kind==="date_change"?"Requested submission date":"Planned first-issue date"}</span><input className="ev-input min-h-11 w-full" name="requestedDate" type="date" min={today} required/></label>

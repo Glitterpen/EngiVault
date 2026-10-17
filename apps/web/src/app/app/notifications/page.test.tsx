@@ -58,7 +58,7 @@ it("preserves unread search state on later pages without changing bulk-action sc
   expect(screen.getByRole("status").textContent).toContain("Showing 26–50 of 65");
   expect(screen.getByRole("link",{name:"Next notifications page"}).getAttribute("href")).toBe("/app/notifications?q=transmission&unread=1&page=3");
   expect(vi.mocked(NotificationBulkActions).mock.calls[0][0]).toEqual({hasNotifications:true,hasUnread:true});
-  expect(document.body.textContent).toContain("entire notification inbox, not only the current search or page");
+  expect(document.body.textContent).toContain("entire inbox, including messages outside the current search or page");
 });
 it("keeps read-only preview search and navigation available without bulk writes",async()=>{
   mocks.preview=true;render(await page());expect(NotificationBulkActions).not.toHaveBeenCalled();
@@ -77,5 +77,5 @@ it("keeps the authorised inbox visible when optional document enrichment throws"
 });
 it("keeps failed deletion visible without claiming search limits its effect",async()=>{
   render(await page({error:"delete_all"}));expect(screen.getByRole("alert").textContent).toContain("Notifications could not be deleted");
-  expect(document.body.textContent).toContain("entire notification inbox");
+  expect(document.body.textContent).toContain("entire inbox, including messages outside the current search or page");
 });

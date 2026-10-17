@@ -35,8 +35,10 @@ it("embeds without a duplicate card, heading or padding and keeps accessible inp
   expect(screen.getByLabelText("Project code").getAttribute("name")).toBe("code");
   expect(screen.getByLabelText("Project name").getAttribute("name")).toBe("name");
   expect(screen.queryByRole("tooltip")).toBeNull();
-  const help=screen.getByRole("button",{name:"Project setup"});expect(help.getAttribute("type")).toBe("button");
-  fireEvent.click(help);expect(screen.getByRole("tooltip").textContent).toContain("appoint its Project Manager and Document Controller");
+  const help=screen.getByRole("button",{name:"Project code format"});expect(help.getAttribute("type")).toBe("button");
+  fireEvent.click(help);expect(screen.getByRole("tooltip").textContent).toContain("Use 2–20 letters, numbers or hyphens");
+  expect(screen.getByRole("tooltip").textContent).toContain("unique within your organisation");
+  expect(screen.getByRole("tooltip").textContent).not.toContain("Project Manager");
 });
 
 it("assigns unique, stable input IDs to multiple forms",()=>{
@@ -51,7 +53,7 @@ it("preserves pending creation feedback and disables only its mutation submit bu
   formState.pending=true;render(<ProjectCreateForm organisationId="organisation-A" embedded/>);
   expect(screen.getByRole("form",{name:"Create project"}).getAttribute("aria-busy")).toBe("true");
   expect((screen.getByRole("button",{name:"Creating project…"}) as HTMLButtonElement).disabled).toBe(true);
-  expect((screen.getByRole("button",{name:"Project setup"}) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole("button",{name:"Project code format"}) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("uses the action result identity rather than wording to classify project feedback",()=>{

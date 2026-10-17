@@ -1,10 +1,10 @@
 "use client";
 
-import {CircleHelp} from "lucide-react";
+import {CircleHelp,Info} from "lucide-react";
 import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState,type ReactNode} from "react";
 
-/** Optional guidance only: errors, required actions and destructive warnings stay visible. */
-export function HelpTip({label,children,className=""}:{label:string;children:ReactNode;className?:string}) {
+/** Optional task help or contextual details; required actions and warnings stay visible. */
+export function HelpTip({label,children,className="",kind="help"}:{label:string;children:ReactNode;className?:string;kind?:"help"|"info"}) {
   const id=useId();
   const trigger=useRef<HTMLButtonElement>(null);
   const popup=useRef<HTMLSpanElement>(null);
@@ -67,7 +67,7 @@ export function HelpTip({label,children,className=""}:{label:string;children:Rea
       className="ev-help-trigger" onMouseEnter={show} onMouseLeave={leave} onFocus={show}
       onBlur={event=>{if(!popup.current?.contains(event.relatedTarget)){close();}}}
       onClick={event=>{event.preventDefault();event.stopPropagation();if(pinned.current)close();else{pinned.current=true;show();}}}>
-      <CircleHelp size={17} aria-hidden="true"/>
+      {kind==="info"?<Info size={17} aria-hidden="true"/>:<CircleHelp size={17} aria-hidden="true"/>}
     </button>
     {open&&<span ref={popup} id={id} role="tooltip" popover="manual" className="ev-help-popup"
       onMouseEnter={show} onMouseLeave={leave} onClick={event=>event.stopPropagation()}>{children}</span>}

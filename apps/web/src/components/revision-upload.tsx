@@ -382,7 +382,7 @@ export function RevisionUpload({
               onChange={event => void checkOverride(event.currentTarget.form, event.currentTarget.checked)} />
             <span>Override existing submission</span>
           </label>
-          <HelpTip label="About submission overrides">Use the same revision code and issue status to replace your latest submission before DCC generates its transmittal. The existing file is retained in the audit history.</HelpTip>
+          <HelpTip label="About submission overrides">Before transmittal, use the same revision code and issue status to request a replacement. It takes effect only after DCC acceptance; the previous file is retained for audit.</HelpTip>
         </div>
         {overrideChecking && <p role="status" className="mt-2 text-xs">Checking transmittal status...</p>}
         {overrideMessage && <p role={overrideRevisionId ? "status" : "alert"} className={`mt-2 break-words rounded-lg border p-3 text-sm leading-6 ${overrideRevisionId ? "border-[#d6e0ed] bg-[#f4f7fb] text-[#10243e]" : "border-[#efd1c1] bg-[#fff8f3] text-[#8b3d1f]"}`}>{overrideMessage}</p>}

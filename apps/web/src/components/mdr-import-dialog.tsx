@@ -129,9 +129,7 @@ export function MdrImportDialog({ organisationId, projectId }: { organisationId:
           </Step>
         </section>
 
-        <HelpTip label="Excel MDR import rules">Document type is flexible: use a suggested name/code or enter your own type (up to 80 characters).
-          New discipline names are accepted and added to this project when the import succeeds. Check spellings in the preview; the Project Manager can also add disciplines in Project team &amp; resources.
-          Numbers from Removed deliverables can be reused; active MDR numbers must remain unique.</HelpTip>
+        <HelpTip label="Excel MDR import rules">Custom document types (up to 80 characters) and new disciplines are accepted; check their spelling in the preview. Active document numbers must be unique, but numbers from Removed deliverables can be reused.</HelpTip>
 
         {preview && <section className="mt-5">
           <div className="grid gap-3 sm:grid-cols-3">

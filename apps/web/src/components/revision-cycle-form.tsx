@@ -11,8 +11,7 @@ export function RevisionCycleForm({organisationId,projectId,days,readOnly=false,
     <div className="relative flex items-center gap-2">
       <h2 id={`${id}-heading`} className="font-semibold">MDR revision cycle</h2>
       <HelpTip label="About the MDR revision cycle">
-        <span className="block">After the first issue, each next revision is due this many working days after the previous issue date. Monday–Friday only; public holidays are counted. The issue day is day zero.</span>
-        <span className="mt-2 block">A 3-day cycle after Friday is due Wednesday and overdue Thursday. The first-issue plan stays unchanged.</span>
+        <span className="block">Sets the working days allowed after each issue, excluding the issue day and weekends but not public holidays. A 3-day cycle after Friday is due Wednesday and overdue Thursday; the first-issue plan is unchanged.</span>
         <span className="mt-2 block">Changing this setting recalculates all open revision deadlines; older issues may become overdue immediately.</span>
       </HelpTip>
     </div>

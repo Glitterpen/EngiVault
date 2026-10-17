@@ -27,7 +27,7 @@ export function ProjectSCurve({curve,totalDeliverables,reportPeriodEnd}:{curve:S
   const currentWeekX=x(currentWeekDate);
   return <>
     <div className="mt-4 min-w-0 rounded-2xl border border-[#dce3ec] bg-white p-3 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1"><HelpTip label="Reading the S-curve">Cumulative planned final milestones and stage-weighted actual progress across the MDR scope.</HelpTip><div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-[.08em] text-[#617083]"><Legend colour="#b94d20" label="Planned progress" dashed/><Legend colour="#10243e" label="Stage-weighted actual"/></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1"><HelpTip label="Reading the S-curve">Planned progress follows the MDR final-issue dates. Actual progress reflects the accepted milestone credit recorded in this report, not the number of files uploaded.</HelpTip><div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-[.08em] text-[#617083]"><Legend colour="#b94d20" label="Planned progress" dashed/><Legend colour="#10243e" label="Stage-weighted actual"/></div></div>
       <ReportScrollRegion label="Project delivery S-curve" className="mt-2"><svg className={styles.curvePlot} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Project S-curve comparing cumulative planned and actual percentage progress against dates">
         <desc>Planned progress is the orange dashed line. Stage-weighted actual progress is the solid navy line. The vertical dotted guide marks the reporting week.</desc>
         <rect x={LEFT} y={TOP} width={plotWidth} height={plotHeight} rx="10" fill="#f7f9fc"/>

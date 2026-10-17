@@ -28,7 +28,7 @@ export function IssueStatusSelect({
   const legacyValue = defaultValue && !isDocumentIssueStatus(defaultValue) ? defaultValue : null;
 
   return (
-    <FieldWithHelp className="mt-4 block" label={<>{label}</>} helpLabel="Issue status guidance" help={<>Select the purpose for which this revision is formally issued.</>}><select
+    <FieldWithHelp className="mt-4 block" label={<>{label}</>} helpLabel="Issue status guidance" help={<>Choose the issue purpose, such as review or approval, rather than the revision code.</>}><select
         className="ev-input"
         name={name}
         defaultValue={defaultValue}

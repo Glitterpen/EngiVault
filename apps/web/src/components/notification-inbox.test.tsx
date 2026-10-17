@@ -20,7 +20,7 @@ describe("server-paged notification browsing",()=>{
     render(<NotificationInbox items={items} paging={{q:"",unreadOnly:false,page:1,pages:3,total:65,allCount:65,unreadCount:42}}/>);
     expect(screen.getByRole("searchbox",{name:"Search message text"})).toBeTruthy();expect(screen.queryByRole("tooltip")).toBeNull();
     const help=screen.getByRole("button",{name:"Notification search coverage"});expect(help.closest("label")).toBeNull();
-    fireEvent.focus(help);expect(screen.getByRole("tooltip").textContent).toContain("titles, message text and event names across your inbox, including older messages");
+    fireEvent.focus(help);expect(screen.getByRole("tooltip").textContent).toBe("Search titles, messages and event names across all inbox pages, not the related document details.");
     fireEvent.keyDown(help,{key:"Escape"});expect(screen.queryByRole("tooltip")).toBeNull();
   });
   it("keeps server-paged GET filters, help and navigation available in read-only preview",()=>{

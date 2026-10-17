@@ -19,11 +19,11 @@ export default async function OrganisationSettings({params}:{params:Promise<{org
  return <div className="mx-auto min-w-0 max-w-3xl">
   <Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/> Organisation</Link>
   <p className="mt-4 text-xs font-bold uppercase tracking-[.16em] text-[#a84e25]">Organisation administrator</p>
-  <h1 className="mt-2 flex min-w-0 flex-wrap items-center gap-2 break-words text-2xl font-semibold sm:text-3xl">Manage organisation <HelpTip label="Organisation settings">Edit company identity, pause the workspace or remove it securely.</HelpTip></h1>
+  <h1 className="mt-2 flex min-w-0 flex-wrap items-center gap-2 break-words text-2xl font-semibold sm:text-3xl">Manage organisation</h1>
 
   <OrganisationAdminForm record={org}/>
   <section className="ev-card mt-6 p-5"><h2 className="mb-3 font-semibold">My email notifications</h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/notifications`}>Choose disciplines and events</Link></section>
-  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">Executive access <HelpTip label="Executive Viewer role">Privately invite read-only executive viewers to see organisation and project status. They are hidden from ordinary users and project teams.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/executives`}>Manage Executive Viewers</Link></section>
-  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">User account management <HelpTip label="Removed team accounts">Delete login accounts after their project-team appointments have been removed, while preserving project documents and audit history.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/removed-accounts`}>Manage removed team accounts</Link></section>
+  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">Executive access <HelpTip label="Executive Viewer role">Executive Viewers see organisation and project status without making changes. Only authorised Organisation Administrators can see and manage these viewers.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/executives`}>Manage Executive Viewers</Link></section>
+  <section className="ev-card mt-6 p-5"><h2 className="font-semibold">User account management <HelpTip label="Removed team accounts">Remove all project appointments before deleting a login account. Project documents and audit history are retained.</HelpTip></h2><Link className="ev-button-secondary" href={`/app/${organisationId}/settings/removed-accounts`}>Manage removed team accounts</Link></section>
  </div>
 }

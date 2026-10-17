@@ -1,4 +1,3 @@
-import {HelpTip} from "@/components/help-tip";
 import Link from "next/link";
 import {ArrowRight,Building2,FolderKanban} from "lucide-react";
 import {requireUser} from "@/lib/auth";
@@ -21,7 +20,7 @@ export default async function AllProjectsPage(){
   const engineeringWorkspace=projects.length>0&&projects.every(project=>String(project.role)==="engineer");
 
   return <div className="mx-auto min-w-0 max-w-6xl space-y-4">
-    <WorkspacePageHeading title="Your projects" context="Your authorised project workspaces" help={<HelpTip label="Project workspaces">Each project opens directly in the workspace assigned to your role.</HelpTip>}/>
+    <WorkspacePageHeading title="Your projects" context="Your authorised project workspaces"/>
     <section aria-label="Your project workspaces" className="min-w-0">
       {projects.length?<ul aria-label="Projects" className={engineeringWorkspace?"grid min-w-0 gap-3 lg:grid-cols-2":"grid min-w-0 gap-3"}>{projects.map(project=>{
         const engineer=String(project.role)==="engineer";

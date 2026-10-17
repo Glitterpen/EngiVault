@@ -42,7 +42,7 @@ it("keeps field IDs stable across renders and unique across forms",()=>{
 it("preserves pending gates while optional help remains keyboard accessible and non-submitting",()=>{
   formState.pending=true;render(fixture());expect(screen.getByRole("form",{name:"Register document"}).getAttribute("aria-busy")).toBe("true");expect((screen.getByRole("button",{name:"Registering…"}) as HTMLButtonElement).disabled).toBe(true);
   const help=screen.getByRole("button",{name:"First-submission date"});expect(help.getAttribute("type")).toBe("button");expect(help.closest("label")).toBeNull();expect((help as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(help);expect(screen.getByRole("tooltip").textContent).toContain("Date communicated by the originating engineer");expect((screen.getByLabelText("Title") as HTMLInputElement).disabled).toBe(false);
+  fireEvent.click(help);expect(screen.getByRole("tooltip").textContent).toContain("agreed date for the engineer’s first submission");expect((screen.getByLabelText("Title") as HTMLInputElement).disabled).toBe(false);
 });
 
 it("keeps returned document action feedback as an error, without inventing a successful record",()=>{

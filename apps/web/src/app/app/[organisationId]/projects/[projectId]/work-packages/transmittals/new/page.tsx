@@ -1,4 +1,3 @@
-import {HelpTip} from "@/components/help-tip";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
@@ -163,7 +162,6 @@ export default async function NewTransmittalPage({
         <WorkspacePageHeading
           title="Create document transmittal"
           context={<>{project?.code ?? "Project"}{project?.name ? ` · ${project.name}` : ""} · Controlled client issue</>}
-          help={<HelpTip label="Creating a client transmittal">The project DCC selects accepted, securely prepared revisions and freezes the exact issue set. Download one secure ZIP containing the engineering documents and client acknowledgement transmittal PDF.</HelpTip>}
           actions={<Link href={`/app/${organisationId}/projects/${projectId}/work-packages`} className="ev-button-secondary min-h-11">Work packages</Link>}
         />
       </div>

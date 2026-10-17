@@ -14,7 +14,7 @@ export function ProjectCreateForm({organisationId,embedded=false}:{organisationI
   return <form action={action} aria-label="Create project" aria-busy={pending} className={embedded?"min-w-0":"ev-card h-fit min-w-0 p-6"}>
     <input type="hidden" name="organisationId" value={organisationId}/>
     {!embedded&&<div className="flex items-center gap-2"><Plus size={18} className="text-[#e8733f]" aria-hidden="true"/><h2 className="font-semibold">Create project</h2></div>}
-    <FormField id={`${id}-code`} label="Project code" className={embedded?"":"mt-6"} help={{label:"Project setup",content:"Create the project record, then appoint its Project Manager and Document Controller. The Project Manager will complete the client identity, brief, objectives, schedule and resource plan, and upload the approved project template ZIP from the overview or project settings."}}>
+    <FormField id={`${id}-code`} label="Project code" className={embedded?"":"mt-6"} help={{label:"Project code format",content:"Use 2–20 letters, numbers or hyphens, starting with a letter or number. The code must be unique within your organisation."}}>
       <input className="ev-input min-h-11 min-w-0" name="code" placeholder="ENG-001" required/>
     </FormField>
     <FormField id={`${id}-name`} label="Project name" className="mt-4"><input className="ev-input min-h-11 min-w-0" name="name" required/></FormField>

@@ -27,8 +27,8 @@ describe("embedded revision cycle setting",()=>{
     expect(help.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.focus(help);
-    expect(screen.getByRole("tooltip").textContent).toContain("Monday–Friday only; public holidays are counted");
-    expect(screen.getByRole("tooltip").textContent).toContain("The first-issue plan stays unchanged");
+    expect(screen.getByRole("tooltip").textContent).toContain("excluding the issue day and weekends but not public holidays");
+    expect(screen.getByRole("tooltip").textContent).toContain("the first-issue plan is unchanged");
   });
   it("preserves the action, tenant/project fields and required whole-working-day bounds",()=>{
     render(<RevisionCycleForm organisationId="organisation-A" projectId="project-A" days={5} embedded/>);
@@ -85,7 +85,7 @@ describe("revision cycle setting",()=>{
     fireEvent.mouseEnter(help);
     const tooltip=screen.getByRole("tooltip");
     expect(help.getAttribute("aria-describedby")).toBe(tooltip.id);
-    expect(within(tooltip).getByText(/Monday–Friday only/)).toBeTruthy();
+    expect(within(tooltip).getByText(/excluding the issue day and weekends but not public holidays/)).toBeTruthy();
     expect(within(tooltip).getByText(/due Wednesday and overdue Thursday/)).toBeTruthy();
     expect(within(tooltip).getByText(/older issues may become overdue immediately/)).toBeTruthy();
     fireEvent.mouseLeave(help,{relatedTarget:tooltip});

@@ -45,6 +45,20 @@ describe("shared contextual help",()=>{
     fireEvent.click(help());fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
+  it("distinguishes contextual information from help without changing accessible interaction",()=>{
+    render(<HelpTip kind="info" label="Full project name">Pipeline design project</HelpTip>);
+    const info=screen.getByRole("button",{name:"Full project name"});
+    expect(info.querySelector("svg")?.classList.contains("lucide-info")).toBe(true);
+    expect(info.querySelector(".lucide-circle-help")).toBeNull();
+    expect(info.getAttribute("type")).toBe("button");
+    expect(info.hasAttribute("data-preview-safe")).toBe(true);
+    act(()=>info.focus());
+    expect(screen.getByRole("tooltip").textContent).toBe("Pipeline design project");
+    fireEvent.keyDown(info,{key:"Escape"});
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.click(info);
+    expect(info.getAttribute("aria-describedby")).toBe(screen.getByRole("tooltip").id);
+  });
   it("dismisses help before an enclosing dialog handles Escape",()=>{
     const dismissDialog=vi.fn();document.addEventListener("keydown",dismissDialog);
     try{fixture();fireEvent.click(help());fireEvent.keyDown(help(),{key:"Escape"});

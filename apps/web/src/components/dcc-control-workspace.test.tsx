@@ -15,7 +15,8 @@ describe("compact document control heading and unchanged workflows",()=>{
     expect(screen.getByRole("heading",{level:1,name:"Document control centre"})).toBeTruthy();
     expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
     expect(screen.getByText("FEED-001 · Full engineering project name").closest("details")).toBeNull();
-    expect(screen.getByRole("button",{name:"Document Control workspace"})).toBeTruthy();
+    expect(screen.queryByRole("button",{name:"Document Control workspace"})).toBeNull();
+    expect(screen.getByRole("button",{name:"Register counts"})).toBeTruthy();
   });
   it("preserves all scoped task and reference destinations with a single primary MDR action",()=>{
     workspace();

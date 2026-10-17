@@ -89,8 +89,8 @@ describe("compact progress and health summary",()=>{
     expect(help.hasAttribute("data-preview-safe")).toBe(true);
     fireEvent.focus(help);
     expect(screen.getByRole("tooltip").textContent).toContain("FEED");
-    expect(screen.getByRole("tooltip").textContent).toContain("Issued for Design (IFD) after DCC acceptance");
-    expect(screen.getByRole("tooltip").textContent).toContain("Uploading a file alone does not earn accepted progress");
+    expect(screen.getByRole("tooltip").textContent).toContain("Issued for Design (IFD)");
+    expect(screen.getByRole("tooltip").textContent).toContain("weighted by DCC-accepted milestones, not uploaded file counts");
   });
 });
 

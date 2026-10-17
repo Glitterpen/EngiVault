@@ -115,7 +115,7 @@ describe("timeline-linear estimated plan",()=>{
     fireEvent.change(screen.getByRole("slider"),{target:{value:"1"}});expect(selectedValue("Estimated plan")).toBe("21.9%");expect(selectedValue("Overall submitted")).toBe("Not observed");expect(selectedValue("DCC accepted")).toBe("Not observed");
     const table=showData(),week=within(table).getByRole("rowheader",{name:"14 Sept 2026"}).closest("tr")!;
     expect(within(week).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["21.9%","Not observed","Not observed","—","—"]);
-    fireEvent.focus(screen.getByRole("button",{name:"About the project delivery S-curve"}));expect(screen.getByRole("tooltip").textContent).toContain("a 32-day timeline is approximately 21.9% per week, not a fixed 25%");
+    fireEvent.focus(screen.getByRole("button",{name:"About the project delivery S-curve"}));expect(screen.getByRole("tooltip").textContent).toContain("spreads progress evenly across the Project Manager’s dates");
   });
   it("keeps Today at the live observation when another date is selected",()=>{
     const result=workspace(),marker=image().querySelector('[data-today-marker]')!,label=image().querySelector('[data-today-label]')!;
@@ -179,9 +179,11 @@ describe("Project Manager timeline context",()=>{
     workspace();expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.focus(screen.getByRole("button",{name:"About the project delivery S-curve"}));
     const text=screen.getByRole("tooltip").textContent!;
-    expect(text).toContain("current DCC-accepted milestone");expect(text).toContain("completed submission awaiting DCC review");
-    expect(text).toContain("same stage weights and MDR scope");expect(text).toContain("accepted values are never copied into submitted history");
-    expect(text).toContain("equal progress per calendar day");expect(text).toContain("not an approved MDR baseline");expect(text).toContain("percentage points, not days of delay");expect(text).toContain("Project dates, operational deadlines and approvals are not changed");
+    expect(text).toContain("completed submissions awaiting DCC review");expect(text).toContain("accepted progress counts DCC-accepted milestones only");
+    expect(text).toContain("stage-weighted, not file counts");expect(text).toContain("actual lines join recorded snapshots only");
+    expect(text).toContain("spreads progress evenly across the Project Manager’s dates");expect(text).toContain("not an approved MDR baseline");expect(text).toContain("percentage points, not days of delay");
+    expect(text.trim().split(/\s+/).length).toBeLessThanOrEqual(80);
+    expect(text).not.toContain("32-day timeline");expect(text).not.toContain("operational deadlines and approvals are not changed");
   });
 });
 

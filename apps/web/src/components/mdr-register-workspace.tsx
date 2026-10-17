@@ -27,7 +27,7 @@ export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabe
     <header>
       <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>{backLabel}</Link>
       <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <h1 className="flex min-w-0 flex-wrap items-center gap-x-2 break-words text-2xl font-semibold leading-tight tracking-tight text-[#10243e] sm:text-[1.75rem]">{archived?"Removed deliverables":"Master document register"}<HelpTip label="Master document register guidance">All disciplines with MDR documents appear as folders, collapsed by default. A discipline shortcut opens its folder without hiding the others. Open a folder to browse its documents, or search by document number, title, discipline or type. Each folder remembers its page while you browse. Back to MDR restores the folder, page and search you left. Due dates stay visible; the details icon holds schedule history and other metadata. Removed records retain revision and audit history.</HelpTip></h1>
+        <h1 className="flex min-w-0 flex-wrap items-center gap-x-2 break-words text-2xl font-semibold leading-tight tracking-tight text-[#10243e] sm:text-[1.75rem]">{archived?"Removed deliverables":"Master document register"}<HelpTip label="Browse the MDR">Open a discipline folder, or search by document number, title, discipline or type. Use a document’s information icon to see its schedule and details.</HelpTip></h1>
       </div>
       <MdrActionToolbar primary={assignmentPanel?<MdrAssignmentDialog>{assignmentPanel}</MdrAssignmentDialog>:download}>
         {assignmentPanel?download:null}

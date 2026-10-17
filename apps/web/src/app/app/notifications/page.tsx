@@ -36,7 +36,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
   return (
     <div className="mx-auto min-w-0 max-w-4xl space-y-5">
-      <WorkspacePageHeading title="Notifications" context="Your project activity, in one place" help={<HelpTip label="Opening notifications">Select a message to preview it before opening a related project page. Search and pages include older messages. Mark all read and Delete all apply to your entire notification inbox, not only the current search or page.</HelpTip>} actions={!preview&&!error?<NotificationBulkActions
+      <WorkspacePageHeading title="Notifications" context="Your project activity, in one place" help={<HelpTip label="Notification inbox actions">Mark all read and Delete all affect your entire inbox, including messages outside the current search or page.</HelpTip>} actions={!preview&&!error?<NotificationBulkActions
           hasNotifications={allCount>0}
           hasUnread={unreadCount>0}
         />:undefined}/>

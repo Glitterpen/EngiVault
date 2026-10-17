@@ -70,7 +70,7 @@ function TemplatePackContent({organisationId,projectId,canManage=false}:Props){
     });
   }
   return <section className="ev-card min-w-0 p-5 sm:p-6" aria-label="Project template pack" aria-busy={loading||busy}>
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Project templates <HelpTip label="Project template pack guidance">Download the Project Manager’s approved drawing backsheet, list/MTO spreadsheet and Word templates together as one ZIP. Replacements become available only after security checks.</HelpTip></h2>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Project templates <HelpTip label="Project template pack guidance">Download the project’s approved templates together as one ZIP. A replacement becomes available only after security checks finish.</HelpTip></h2>
       {pack?.current&&<a className="ev-button-secondary" href={`${base}/download`}><Download size={16}/> Download all templates (.zip)</a>}</div>
     {pack?.current?<p className="mt-3 break-words text-sm text-[#617083]">{pack.current.filename} · {pack.current.fileCount} files · {(pack.current.byteSize/1024/1024).toFixed(1)} MB</p>:<p className="mt-3 text-sm text-[#617083]">{loading?"Loading project templates…":pack?"No template pack published yet.":"Project template availability could not be confirmed."}</p>}
     {canManage&&<form className="mt-5 border-t border-[#d6e0ed] pt-4" onSubmit={upload}>
