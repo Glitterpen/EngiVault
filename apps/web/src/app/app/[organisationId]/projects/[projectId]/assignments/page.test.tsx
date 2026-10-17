@@ -2,7 +2,7 @@ import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import AssignmentsPage from "./page";
 const state=vi.hoisted(()=>({
-  failed:"",hasDocument:false,hasImpact:false,role:"engineer",revisions:[] as Record<string,string>[],
+  failed:"",hasDocument:false,hasImpact:false,role:"engineer",revisions:[] as Record<string,string|undefined>[],
   documents:null as Record<string,unknown>[]|null,assignedIds:null as string[]|null,disciplines:["Mechanical"],
   scheduleOverrides:{} as Record<string,Record<string,unknown>>,sourceReads:[] as string[],
 }));
@@ -222,6 +222,70 @@ it("keeps FEED IFD acceptance at full progress and does not require a constructi
   expect(progress.getAttribute("aria-valuemin")).toBe("0");
   expect(progress.getAttribute("aria-valuemax")).toBe("100");
   expect(progress.getAttribute("aria-valuenow")).toBe("100");
+});
+
+it("retains the highest accepted milestone while keeping the latest IFA submission and grouping visible",async()=>{
+  state.hasDocument=true;
+  state.revisions=[
+    {id:"later-ifa",document_id:"doc",issue_status:"Issued for Approval (IFA)",revision_code:"A01",state:"ready",control_status:"accepted",created_at:"2026-10-16T12:00:00Z",reviewed_at:"2026-10-16T14:00:00Z"},
+    {id:"earlier-ifd",document_id:"doc",issue_status:"Issued for Design (IFD)",revision_code:"IFD",state:"ready",control_status:"accepted",created_at:"2026-10-02T12:00:00Z",reviewed_at:"2026-10-02T14:00:00Z"},
+  ];
+  const before=JSON.stringify(state.revisions);
+  render(await page("accepted"));
+  const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  expect(submissions.querySelector("summary")?.textContent).toContain("Issued for Approval (IFA)");
+  expect(submissions.textContent).toContain("Latest A01 · Issued for Approval (IFA)");
+  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(submissions.textContent).toContain("Stage accepted");
+  expect(submissions.textContent).not.toContain("Next revision required");
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
+  expect(JSON.stringify(state.revisions)).toBe(before);
+});
+
+it("uses complete scoped progress when the latest-submission listing omits an earlier accepted milestone",async()=>{
+  state.hasDocument=true;
+  state.scheduleOverrides.doc={progress_credit:100,deadline_kind:"terminal_received",overdue:false};
+  state.revisions=[{id:"later-ifa",document_id:"doc",issue_status:"Issued for Approval (IFA)",revision_code:"A01",state:"ready",control_status:"accepted"}];
+  render(await page("accepted"));
+  const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  expect(submissions.textContent).toContain("Latest A01 · Issued for Approval (IFA)");
+  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(submissions.textContent).toContain("Stage accepted");
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
+});
+
+it.each([
+  {state:"pending_upload",control_status:"accepted"},
+  {state:"processing",control_status:"accepted"},
+  {state:"failed",control_status:"accepted"},
+  {state:"quarantined",control_status:"accepted"},
+  {state:"ready",control_status:"submitted"},
+  {state:"ready",control_status:"returned"},
+  {state:"ready",control_status:"accepted",overridden_by_revision_id:"replacement"},
+])("does not let an ineligible terminal revision change earned assignment progress: %j",async unsafe=>{
+  state.hasDocument=true;
+  state.revisions=[
+    {id:"unsafe-ifd",document_id:"doc",issue_status:"Issued for Design (IFD)",revision_code:"IFD",...unsafe},
+    {id:"accepted-ifa",document_id:"doc",issue_status:"Issued for Approval (IFA)",revision_code:"A01",state:"ready",control_status:"accepted"},
+  ];
+  render(await page());
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("67");
+});
+
+it("keeps the latest returned submission and its feedback actionable without losing earned accepted progress",async()=>{
+  state.hasDocument=true;
+  state.revisions=[
+    {id:"returned-ifa",document_id:"doc",issue_status:"Issued for Approval (IFA)",revision_code:"A02",state:"ready",control_status:"returned",review_comment:"Resolve the cable schedule comments."},
+    {id:"accepted-ifd",document_id:"doc",issue_status:"Issued for Design (IFD)",revision_code:"IFD",state:"superseded",control_status:"accepted"},
+  ];
+  render(await page("action"));
+  const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  expect(submissions.textContent).toContain("Latest A02 · Issued for Approval (IFA)");
+  expect(submissions.textContent).toContain("Resolve the cable schedule comments.");
+  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
+  fireEvent.click(submissions.querySelector("summary")!);
+  expect(within(submissions).getByRole("link",{name:"Upload corrected revision"}).getAttribute("href")).toBe("/app/org/projects/project/documents/doc#submit-revision");
 });
 
 it("retains the direct request, upload and date-change routes and DCC feedback",async()=>{

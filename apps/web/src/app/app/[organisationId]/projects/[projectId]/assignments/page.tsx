@@ -22,11 +22,12 @@ import {disciplineMatches} from "@/lib/discipline-access";
 import {groupSubmissions} from "@/lib/submission-groups";
 import {engineerActionInstruction,engineerActionPriority,engineerDeliverableState,requiresEngineerAction,type EngineerDeliverableState} from "@/lib/engineer-deliverables";
 import {engineerProgressHealth,recoverableProjectImpact,type EngineerProgressHealth} from "@/lib/engineer-progress";
+import {highestAcceptedProgressByDocument} from "@/lib/accepted-progress";
 import {projectHomePath} from "@/lib/role-experience";
 import {projectDeliveryStageLabel,projectIssueProgressCredit,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
 
 type DocumentRow={id:string;document_number:string;title:string;discipline:string;document_type:string;planned_submission_date:string|null;planned_final_date:string|null;required_issue_status:string|null;responsible_party:string|null;progress_weight:number};
-type RevisionRow={id:string;document_id:string;revision_code:string;issue_status:string;state:string;control_status:string;review_comment:string|null;created_at:string};
+type RevisionRow={id:string;document_id:string;revision_code:string;issue_status:string;state:string;control_status:string;review_comment:string|null;created_at:string;reviewed_at:string|null;overridden_by_revision_id:string|null};
 type ProjectRow={code:string;name:string;project_introduction:string|null;key_objectives:string[];planned_start_date:string|null;planned_end_date:string|null;delivery_stage:ProjectDeliveryStage};
 type NoticeRow={id:string;title:string;body:string;href:string|null;created_at:string;read_at:string|null};
 type DeliverableItem={schedule:DocumentSchedule;document:DocumentRow;latest:RevisionRow|null;credit:number;status:EngineerDeliverableState};
@@ -57,20 +58,21 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const documentIds=documents.map(document=>document.id);
   const schedules=await loadDocumentSchedules(supabase,organisationId,projectId,documentIds);
   const {data:revisionData,error:revisionError}=documentIds.length
-    ? await supabase.from("document_revisions").select("id,document_id,revision_code,issue_status,state,control_status,review_comment,created_at").in("document_id",documentIds).order("created_at",{ascending:false})
+    ? await supabase.from("document_revisions").select("id,document_id,revision_code,issue_status,state,control_status,review_comment,created_at,reviewed_at,overridden_by_revision_id").in("document_id",documentIds).order("created_at",{ascending:false})
     : {data:[],error:null};
   if(revisionError)return <AssignmentsUnavailable retryPath={retryPath}/>;
   const latestByDocument=new Map<string,RevisionRow>();
   for(const revision of (revisionData??[]) as RevisionRow[])if(revision.state!=="pending_upload"&&!latestByDocument.has(revision.document_id))latestByDocument.set(revision.document_id,revision);
-  const latestAcceptedByDocument=new Map<string,RevisionRow>();
-  for(const revision of (revisionData??[]) as RevisionRow[])if(revision.control_status==="accepted"&&!latestAcceptedByDocument.has(revision.document_id))latestAcceptedByDocument.set(revision.document_id,revision);
   const project=projectData as ProjectRow|null;
   const deliveryStage=project?.delivery_stage??"feed";
+  const acceptedProgressByDocument=highestAcceptedProgressByDocument((revisionData??[]) as RevisionRow[],deliveryStage);
   const deliverables=documents.map(document=>{
     const latest=latestByDocument.get(document.id)??null;
-    const accepted=latestAcceptedByDocument.get(document.id)??null;
-    const credit=projectIssueProgressCredit(accepted?.issue_status,deliveryStage);
+    const accepted=acceptedProgressByDocument.get(document.id)??null;
     const schedule=schedules.get(document.id)!;
+    // The scoped view sees the complete accepted history even when the separate
+    // latest-submission listing reaches the API row cap on a large register.
+    const credit=schedule.progress_credit??projectIssueProgressCredit(accepted?.issue_status,deliveryStage);
     return {document,latest,credit,schedule,status:engineerDeliverableState({plannedSubmissionDate:schedule.next_submission_date,submissionOverdue:schedule.overdue,controlStatus:latest?.control_status??null,progressCredit:credit})};
   });
   const view:View=requestedView==="action"||requestedView==="review"||requestedView==="accepted"?requestedView:"all";
