@@ -9,10 +9,10 @@ vi.mock("next/navigation",()=>({redirect:vi.fn(()=>{throw new Error("redirect")}
 vi.mock("@/app/app/deliverable-request-actions",()=>({submitDeliverableRequest:vi.fn(),decideDeliverableRequest:vi.fn(),cancelDeliverableRequest:vi.fn()}));
 const org="a0000000-0000-4000-8000-000000000001",project="b0000000-0000-4000-8000-000000000001",id="c0000000-0000-4000-8000-000000000001";
 const req={id,kind:"date_change",status:"pending_pm",requester_id:"engineer",document_id:"doc",document_number:"MEC-001",title:"Pump plan",document_type:"Drawing",discipline:"Mechanical",requested_date:"2026-10-05",previous_due_date:"2026-09-10",reason:"Waiting for vendor input",created_at:"2026-09-08T10:00:00Z",pm_reviewed_at:null,dcc_reviewed_at:null};
-function setup(role="project_admin",preview=false,overrides:Record<string,unknown>={}){
+function setup(role="project_admin",preview=false,overrides:Record<string,unknown>={},result:{data?:unknown[];count?:number}={}){
   const query:Record<string,ReturnType<typeof vi.fn>>={};
   for(const method of ["select","eq","in","order","range"])query[method]=vi.fn(()=>query);
-  query.then=vi.fn(resolve=>Promise.resolve({data:[{...req,...overrides}],error:null,count:1}).then(resolve));
+  query.then=vi.fn(resolve=>Promise.resolve({data:result.data??[{...req,...overrides}],error:null,count:result.count??1}).then(resolve));
   vi.mocked(requireProject).mockResolvedValue({access:{role},user:{id:role==="engineer"?"engineer":"reviewer"},preview:preview?{}:null,supabase:{from:vi.fn(()=>query),rpc:vi.fn().mockResolvedValue({data:[{user_id:"engineer",display_name:"Engineer Ada"}],error:null})}} as never);
   return query;
 }
@@ -102,6 +102,70 @@ describe("deliverable request queues",()=>{
     const title="DeliverableTitle".repeat(30);
     setup("project_admin",false,{title});render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({})}));
     const article=screen.getByRole("article",{name:title});expect(article.className).toContain("[overflow-wrap:anywhere]");expect(within(article).getByRole("heading",{name:title})).toBeTruthy();
+  });
+  it("keeps both open stages as the PM default and offers accessible GET stage filters",async()=>{
+    const query=setup();render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({})}));
+    expect(query.in).toHaveBeenCalledWith("status",["pending_pm","pending_dcc"]);
+    const filters=screen.getByRole("navigation",{name:"Open request review stage"});
+    expect(within(filters).getByRole("link",{name:"All open"}).getAttribute("aria-current")).toBe("page");
+    expect(within(filters).getByRole("link",{name:"Needs my review"}).getAttribute("href")).toBe(`/app/${org}/projects/${project}/requests?view=open&queue=pm_review`);
+    expect(within(filters).getByRole("link",{name:"Awaiting DCC"}).getAttribute("href")).toBe(`/app/${org}/projects/${project}/requests?view=open&queue=dcc`);
+    expect([...filters.querySelectorAll("a")].every(link=>link.className.includes("min-h-11"))).toBe(true);
+    expect(filters.querySelector("form,button")).toBeNull();
+  });
+  it.each([["pm_review","pending_pm","Needs my review"],["dcc","pending_dcc","Awaiting DCC"]])("filters %s on the server before pagination and retains it in page links",async(queue,status,label)=>{
+    const query=setup("project_admin",false,{status},{count:80});
+    render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue,page:"2"})}));
+    expect(query.in).toHaveBeenCalledWith("status",[status]);expect(query.range).toHaveBeenCalledWith(25,49);
+    expect(screen.getByRole("link",{name:label}).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link",{name:"← Previous"}).getAttribute("href")).toBe(`/app/${org}/projects/${project}/requests?view=open&queue=${queue}`);
+    expect(screen.getByRole("link",{name:"Next →"}).getAttribute("href")).toBe(`/app/${org}/projects/${project}/requests?view=open&queue=${queue}&page=3`);
+    if(queue==="dcc")expect(screen.queryByText("Review request")).toBeNull();
+  });
+  it("explains the empty PM review queue without describing requests awaiting DCC as PM work",async()=>{
+    const query=setup("project_admin",false,{}, {data:[],count:0});
+    render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue:"pm_review"})}));
+    expect(query.in).toHaveBeenCalledWith("status",["pending_pm"]);
+    expect(screen.getByText("No requests are awaiting Project Manager review.")).toBeTruthy();
+    expect(screen.getByText("0 requests awaiting PM review")).toBeTruthy();
+    expect(screen.queryByText("No open requests.")).toBeNull();
+  });
+  it("keeps PM stage filters useful but read-only in an audited preview",async()=>{
+    const query=setup("project_admin",true);render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue:"pm_review"})}));
+    expect(query.in).toHaveBeenCalledWith("status",["pending_pm"]);
+    expect(screen.getByRole("link",{name:"Needs PM review"}).getAttribute("aria-current")).toBe("page");
+    expect(screen.queryByRole("link",{name:"Needs my review"})).toBeNull();
+    expect(screen.queryByText("Review request")).toBeNull();expect(screen.queryByText("New request")).toBeNull();
+  });
+  it("preserves the self-review guard within the PM review stage",async()=>{
+    setup("project_admin",false,{requester_id:"reviewer"});render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue:"pm_review"})}));
+    expect(screen.queryByText("Review request")).toBeNull();
+  });
+  it.each(["document_controller","engineer"])("does not apply PM-only filters to %s queues",async role=>{
+    const query=setup(role,true);render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue:"pm_review",page:"2"})}));
+    expect(query.in).toHaveBeenCalledWith("status",["pending_pm","pending_dcc"]);expect(query.range).toHaveBeenCalledWith(25,49);
+    expect(screen.queryByRole("navigation",{name:"Open request review stage"})).toBeNull();
+    if(role==="engineer")expect(query.eq).toHaveBeenCalledWith("requester_id","engineer");
+  });
+  it("ignores stale PM stage filters in decision history and keeps history pagination",async()=>{
+    const query=setup("project_admin",false,{status:"accepted"},{count:80});
+    render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({view:"history",queue:"pm_review",page:"2"})}));
+    expect(query.in).toHaveBeenCalledWith("status",["accepted","rejected","cancelled","superseded"]);
+    expect(screen.queryByRole("navigation",{name:"Open request review stage"})).toBeNull();
+    expect(screen.getByRole("link",{name:"Next →"}).getAttribute("href")).toBe(`/app/${org}/projects/${project}/requests?view=history&page=3`);
+  });
+  it("leaves selected-request links independent of stage filtering and returns to the chosen queue",async()=>{
+    const query=setup("project_admin",false,{status:"accepted"});
+    render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue:"dcc",request:id,page:"9"})}));
+    expect(query.eq).toHaveBeenCalledWith("id",id);expect(query.in).not.toHaveBeenCalled();expect(query.range).toHaveBeenCalledWith(0,24);
+    expect(screen.getByText("Accepted by DCC")).toBeTruthy();
+    expect(screen.queryByRole("navigation",{name:"Open request review stage"})).toBeNull();
+    expect(screen.getByRole("link",{name:/View all requests awaiting DCC/}).getAttribute("href")).toBe(`/app/${org}/projects/${project}/requests?view=open&queue=dcc`);
+  });
+  it("normalises unknown queue filters to the unchanged open view",async()=>{
+    const query=setup();render(await DeliverableRequestsPage({params,searchParams:Promise.resolve({queue:"anything"})}));
+    expect(query.in).toHaveBeenCalledWith("status",["pending_pm","pending_dcc"]);
+    expect(screen.getByRole("link",{name:"All open"}).getAttribute("aria-current")).toBe("page");
   });
   it.each(["organisation_admin","member","executive"])("retains the existing redirect for unsupported role %s",async role=>{
     setup(role);await expect(DeliverableRequestsPage({params,searchParams:Promise.resolve({})})).rejects.toThrow("redirect");

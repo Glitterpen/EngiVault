@@ -3,8 +3,10 @@
 .identity{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:start;gap:12px;padding:0 8px 20px;}
 .logo{display:grid;place-items:center;width:44px;height:44px;overflow:hidden;border-radius:12px;background:#fff;color:#10243e;padding:6px;}
 .identityText{min-width:0;}
-.projectCode{margin:0 0 4px;color:#ffac86;font-size:11px;font-weight:700;letter-spacing:.08em;line-height:1.5;overflow-wrap:anywhere;}
-.projectName{margin:0;font-size:14px;font-weight:650;line-height:1.55;overflow-wrap:anywhere;text-wrap:pretty;}
+.projectHeading{display:flex;min-width:0;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;}
+.projectCode{min-width:0;margin:0;color:#ffac86;font-size:11px;font-weight:700;letter-spacing:.08em;line-height:1.5;overflow-wrap:anywhere;}
+.identityHelp{color:var(--nav-muted);}
+.projectName{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:0;font-size:14px;font-weight:650;line-height:1.55;overflow-wrap:anywhere;text-wrap:pretty;}
 .roleRow{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;}
 .role,.preview{display:inline-flex;max-width:100%;align-items:center;border:1px solid var(--nav-line);border-radius:7px;padding:3px 7px;color:#d0dbe8;font-size:11px;line-height:1.5;overflow-wrap:anywhere;}
 .preview{color:#ffd2bd;border-color:rgba(255,172,134,.25);}
@@ -73,6 +75,7 @@
   :global(.workspace-shell):has(> .sidebar[data-collapsed="true"])>.workspaceFrame{margin-left:76px;}
   .sidebar[data-collapsed="true"] .identity{position:relative;grid-template-columns:44px;justify-content:center;gap:0;padding:0 0 18px;}
   .sidebar[data-collapsed="true"] :is(.identityText,.role,.previewLabel,.groupTitle,.linkLabel,.collapseLabel){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  .sidebar[data-collapsed="true"] .identityHelp{display:none;}
   .sidebar[data-collapsed="true"] .roleRow{position:absolute;top:30px;right:0;display:block;max-height:none;overflow:visible;}
   .sidebar[data-collapsed="true"] .preview{display:grid;place-items:center;width:23px;height:23px;padding:0;border-radius:50%;background:#10243e;}
   .sidebar[data-collapsed="true"] .previewIcon{display:block;}

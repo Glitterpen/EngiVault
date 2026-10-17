@@ -1,7 +1,9 @@
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
-import {cleanup,render,screen,within} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,within} from "@testing-library/react";
+import {renderToString} from "react-dom/server";
+import {hydrateRoot,type Root} from "react-dom/client";
 import ProjectReportsPage from "@/app/app/[organisationId]/projects/[projectId]/reports/page";
 import ProjectReportPage from "@/app/app/[organisationId]/projects/[projectId]/reports/[reportId]/page";
 import {ProjectReportControls} from "@/components/project-report-controls";
@@ -133,14 +135,46 @@ describe("legacy saved-report S-curve accessibility",()=>{
 });
 
 describe("report register and unchanged generation controls",()=>{
-  it.each(["project_admin","document_controller"])("preserves report access and generation affordances for %s",async nextRole=>{
+  it.each(["project_admin","document_controller","organisation_admin"])("preserves report access and generation affordances for %s",async nextRole=>{
     role=nextRole;render(await ProjectReportsPage({params:params()}));
     expect(screen.getByRole("heading",{name:"Project reports",level:1})).toBeTruthy();
     const link=screen.getByRole("link",{name:/PCR-0007/});expect(link.getAttribute("href")).toBe(`${base}/reports/report`);
     expect(link.className).toContain("grid-cols-2");expect(link.className).toContain("sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]");
     expect(within(link).getByText("50%")).toBeTruthy();expect(within(link).getByText("2")).toBeTruthy();
+    const settings=screen.queryByText("Report settings & generation",{selector:"summary"});
+    expect(settings!==null).toBe(nextRole==="project_admin");
+    if(settings){
+      expect(settings.closest("details")?.open).toBe(false);
+      expect(Boolean(link.compareDocumentPosition(settings)&Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+      fireEvent.click(settings);
+    }
     expect(screen.queryByRole("form",{name:"Weekly report schedule"})!==null).toBe(nextRole==="project_admin");
     expect(screen.queryByRole("form",{name:"Generate current project report"})!==null).toBe(nextRole==="project_admin");
+    expect(within(link).getByText("09 Oct 2026 to 16 Oct 2026")).toBeTruthy();
+  });
+  it("hydrates report controls without replacing server text when host date defaults differ",async()=>{
+    const native=Date.prototype.toLocaleString;
+    let host="server";
+    const locale=vi.spyOn(Date.prototype,"toLocaleString").mockImplementation(function(this:Date,locales,options){
+      if(!locales||!options?.timeZone)return `${host} local timestamp`;
+      return native.call(this,locales,options);
+    });
+    const component=<ProjectReportControls organisationId="org" projectId="project" weekday={5} enabled lastGeneratedAt="2026-10-15T23:30:00Z"/>;
+    const container=document.createElement("div");
+    document.body.append(container);
+    const recover=vi.fn();let root:Root|undefined;
+    try{
+      container.innerHTML=renderToString(component);
+      expect(container.textContent).toContain("15 Oct 2026, 23:30 UTC");
+      host="browser";
+      await act(async()=>{root=hydrateRoot(container,component,{onRecoverableError:recover});});
+      expect(recover).not.toHaveBeenCalled();
+      expect(container.textContent).toContain("15 Oct 2026, 23:30 UTC");
+      expect(locale).not.toHaveBeenCalled();
+    }finally{
+      if(root)await act(async()=>{root?.unmount();});
+      container.remove();locale.mockRestore();
+    }
   });
   it("preserves schedule field names, values, hidden scope and generation action inputs",()=>{
     render(<ProjectReportControls organisationId="org" projectId="project" weekday={5} enabled lastGeneratedAt={report.generated_at}/>);
@@ -156,5 +190,10 @@ describe("report register and unchanged generation controls",()=>{
     expect(screen.getByRole("button",{name:"Generate a project report"}).closest("form")).toBe(generate);
     expect(form.className).not.toContain("[--focus:#ffffff]");
     expect(screen.getByRole("button",{name:"Generate project report"}).className).toContain("bg-[#b94d20]");
+  });
+  it("keeps the empty capture state readable without inventing a timestamp",()=>{
+    render(<ProjectReportControls organisationId="org" projectId="project" weekday={5} enabled={false} lastGeneratedAt={null}/>);
+    expect(screen.getByText(/No report generated yet/)).toBeTruthy();
+    expect(screen.getByRole("checkbox",{name:"Automatic weekly generation"})).toHaveProperty("checked",false);
   });
 });

@@ -6,6 +6,7 @@ import {useRouter} from "next/navigation";
 import {CalendarClock,FileChartColumnIncreasing,RefreshCw} from "lucide-react";
 import {generateProjectReport,saveProjectReportSchedule,type ProjectReportActionState} from "@/app/app/project-report-actions";
 import {REPORT_WEEKDAYS} from "@/lib/project-report";
+import {formatReportTimestamp} from "@/lib/report-display-date";
 
 type Props={organisationId:string;projectId:string;weekday:number;enabled:boolean;lastGeneratedAt:string|null};
 
@@ -20,7 +21,7 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
       <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#b94d20]"><CalendarClock size={19} aria-hidden="true"/></span><div className="min-w-0"><h2 className="break-words font-semibold">Weekly report schedule <HelpTip label="Weekly report schedule guidance">Choose the day EngiCite should preserve the weekly project position.</HelpTip></h2></div></div>
       <label className="mt-5 block"><span className="ev-label">Generate every</span><select className="ev-input" name="weekday" defaultValue={String(weekday)}>{REPORT_WEEKDAYS.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
       <div className="mt-4 flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] px-3 py-2 text-sm"><label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"><input type="checkbox" name="enabled" defaultChecked={enabled} className="size-5 shrink-0 accent-[#10243e]"/><strong className="min-w-0 break-words text-[#24384f]">Automatic weekly generation</strong></label><HelpTip label="Automatic report timing">Runs after 06:00 UTC on the selected day and notifies project management.</HelpTip></div>
-      <p className="mt-3 break-words text-xs leading-5 text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?formatDateTime(lastGeneratedAt):"No report generated yet"}</p>
+      <p className="mt-3 break-words text-xs leading-5 text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?<time dateTime={lastGeneratedAt}>{formatReportTimestamp(lastGeneratedAt)}</time>:"No report generated yet"}</p>
       <Status state={scheduleState}/><button className="ev-button mt-5 w-full sm:w-auto" disabled={schedulePending}>{schedulePending?"Saving report settings…":"Save report settings"}</button>
     </form>
     <form action={generationAction} aria-label="Generate current project report" className="ev-card flex min-w-0 flex-col justify-between bg-[linear-gradient(145deg,#10243e,#173a58)] p-4 text-white shadow-[0_18px_50px_rgba(16,36,62,.16)] [--focus:#ffffff] sm:p-6">
@@ -33,4 +34,3 @@ export function ProjectReportControls({organisationId,projectId,weekday,enabled,
 
 function Hidden({organisationId,projectId}:{organisationId:string;projectId:string}){return <><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/></>}
 function Status({state,inverted=false}:{state:ProjectReportActionState;inverted?:boolean}){return state?.message?<p className={`mt-4 rounded-xl p-3 text-xs ${inverted?"bg-white/10 text-white":"bg-[#f4f7fb] text-[#10243e]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
-function formatDateTime(value:string){return new Date(value).toLocaleString(undefined,{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}

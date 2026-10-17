@@ -12,6 +12,7 @@ import {ProjectSCurve} from "@/components/project-s-curve";
 import {projectDeliveryStage,projectDeliveryStageLabel} from "@/lib/project-delivery-stage";
 import {ReportScrollRegion} from "@/components/report-scroll-region";
 import styles from "@/components/project-report-presentation.module.css";
+import {formatReportDate as formatDate,formatReportTimestamp as formatDateTime} from "@/lib/report-display-date";
 
 type ReportRow={id:string;report_number:number;period_start:string;period_end:string;generation_source:string;generated_at:string;snapshot:unknown};
 
@@ -61,6 +62,4 @@ function Metric({label,value,accent=false,warn=false}:{label:string;value:string
 function Activity({icon,value,label}:{icon:React.ReactNode;value:number;label:string}){return <div><span className="text-[#b94d20]">{icon}</span><p className="mt-2 text-xl font-semibold">{value}</p><p className="mt-1 text-[10px] leading-4 text-[#617083]">{label}</p></div>}
 function Variance({value}:{value:number}){return <span className={`font-semibold ${value<0?"text-[#a5452f]":value>0?"text-[#10243e]":"text-[#617083]"}`}>{value>0?`+${value}`:value}</span>}
 function DisciplinePerformanceCell({row,column}:{row:Parameters<typeof disciplineReportValue>[0];column:DisciplineReportColumn}){const value=disciplineReportValue(row,column);if(column==="actual_completion")return <td className="p-3.5"><div className="flex min-w-28 items-center gap-2 print:min-w-0"><div className="h-2 flex-1 overflow-hidden rounded-full bg-[#dce5ef]"><div className="h-full bg-[#10243e]" style={{width:`${Math.max(0,Math.min(100,row.actual_completion))}%`}}/></div><b>{value}</b></div></td>;if(column==="weekly_variance"||column==="project_variance")return <td className="p-3.5"><Variance value={Number(value)}/></td>;if(column==="weekly_variance_percent"||column==="cumulative_variance_percent"){const numeric=Number.parseFloat(value);return <td className={`p-3.5 font-semibold ${Number.isNaN(numeric)?"text-[#617083]":numeric<0?"text-[#a5452f]":numeric>0?"text-[#10243e]":"text-[#617083]"}`}>{value}</td>}return <td className={`p-3.5 ${column==="planned_completion"?"font-semibold":""}`}>{value}</td>}
-function formatDate(value:string|null){return value?new Date(`${value}T00:00:00`).toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"}):"Not planned"}
-function formatDateTime(value:string){return new Date(value).toLocaleString(undefined,{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}
 function severityTone(value:string){if(value==="critical")return "bg-[#fde8e4] text-[#9b2c24]";if(value==="high")return "bg-[#fff0e9] text-[#a5452f]";if(value==="medium")return "bg-[#fff7dd] text-[#7a5a00]";return "bg-[#eef1f4] text-[#617083]"}

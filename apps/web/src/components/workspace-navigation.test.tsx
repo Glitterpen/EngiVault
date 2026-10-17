@@ -99,6 +99,19 @@ describe("role-scoped project workbench",()=>{
     expect(toggle().textContent).toContain("BDR-FEED");expect(toggle().textContent).toContain(linkLabel(linkAt(desktop(),`${base}/reviews`)));
     const logo=within(aside).getByRole("img",{hidden:true});expect(logo.getAttribute("data-organisation")).toBe(organisationId);expect(logo.getAttribute("data-project")).toBe(projectId);expect(logo.closest('[aria-hidden="true"]')).toBeTruthy();
   });
+  it("keeps a long project name readable through keyboard and touch help while using a compact identity",async()=>{
+    const name="FEED FOR 44KM SAN BARTH TO SPM EXPORT PIPELINE PROJECT";
+    route.pathname=`${base}/overview`;fetchContext.mockResolvedValue(response(context("project_admin",{project:{code:"NWC-2601",name}})));
+    render(<WorkspaceNavigation/>);await flush();resize(true);
+    const aside=desktop().closest("aside")!,projectName=within(aside).getByText(name),help=within(aside).getByRole("button",{name:"Full project name"});
+    expect(projectName.className).toContain(styles.projectName);expect(projectName.getAttribute("title")).toBe(name);expect(projectName.textContent).toBe(name);
+    expect(help.getAttribute("type")).toBe("button");expect(help.hasAttribute("data-preview-safe")).toBe(true);
+    act(()=>{help.focus();});expect(screen.getByRole("tooltip").textContent).toBe(name);expect(help.getAttribute("aria-describedby")).toBe(screen.getByRole("tooltip").id);
+    fireEvent.keyDown(document,{key:"Escape"});expect(screen.queryByRole("tooltip")).toBeNull();expect(document.activeElement).toBe(help);
+    resize(false);fireEvent.click(toggle());const dialog=screen.getByRole("dialog",{name:"Project navigation"}),mobileHelp=within(dialog).getByRole("button",{name:"Full project name"});
+    fireEvent.click(mobileHelp);expect(screen.getByRole("tooltip").textContent).toBe(name);expect(within(dialog).getByText(name,{selector:"p"}).textContent).toBe(name);
+    fireEvent.click(mobileHelp);expect(screen.queryByRole("tooltip")).toBeNull();expect(hrefs(within(dialog).getByRole("navigation",{name:"Mobile workspace"}))).toEqual(hrefs(desktop()));
+  });
   it("retains unread and pending-review counts without a zero badge or unbounded badge text",async()=>{
     route.pathname=`${base}/reviews`;fetchContext.mockResolvedValue(response(context("document_controller",{pendingReviewCount:123})));
     const view=render(<WorkspaceNavigation unreadCount={134}/>);await flush();

@@ -70,7 +70,7 @@ function ProjectIdentity({organisationId,projectId,context}:IdentityProps){
   const name=context?.project.name||(projectId?"Project workspace":"Your workspace");
   return <div className={styles.identity}>
     <span className={styles.logo} aria-hidden="true">{organisationId&&projectId?<ProjectLogo organisationId={organisationId} projectId={projectId} name={name} size={44} className="size-full object-contain"/>:<FolderKanban size={23}/>}</span>
-    <div className={styles.identityText}><p className={styles.projectCode}>{context?.project.code||(projectId?"Project":"EngiCite")}</p><p className={styles.projectName} title={name}>{name}</p></div>
+    <div className={styles.identityText}><div className={styles.projectHeading}><p className={styles.projectCode}>{context?.project.code||(projectId?"Project":"EngiCite")}</p>{context?.project.name&&<HelpTip label="Full project name" className={styles.identityHelp}>{name}</HelpTip>}</div><p className={styles.projectName} title={name}>{name}</p></div>
     <div className={styles.roleRow}><span className={styles.role}>{context?.roleLabel??"Secure workspace"}</span>{context?.preview&&<span className={styles.preview} title="Read-only preview"><Eye size={14} aria-hidden="true" className={styles.previewIcon}/><span className={styles.previewLabel}>Read-only preview</span></span>}</div>
   </div>;
 }

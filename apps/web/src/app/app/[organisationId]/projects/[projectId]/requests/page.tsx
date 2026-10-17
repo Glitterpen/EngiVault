@@ -10,19 +10,23 @@ import {canReviewDeliverableRequest,requestStatusLabel,type DeliverableRequest} 
 import {normaliseDiscipline} from "@/lib/project-disciplines";
 import {NewDeliverableRequestForm,DeliverableRequestReviewForm,CancelDeliverableRequestForm,type RequestDocument} from "@/components/deliverable-request-forms";
 
-export default async function DeliverableRequestsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{document?:string;request?:string;page?:string;view?:string}>}){
+export default async function DeliverableRequestsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams:Promise<{document?:string;request?:string;page?:string;view?:string;queue?:string}>}){
   const [{organisationId,projectId},search]=await Promise.all([params,searchParams]);
   const {supabase,user,access,preview}=await requireProject(organisationId,projectId);
   const role=String(access.role),engineer=role==="engineer";
   if(!["engineer","project_admin","document_controller"].includes(role))redirect(projectHomePath(organisationId,projectId,role));
   const base=`/app/${organisationId}/projects/${projectId}`;
   const history=search.view==="history";
+  const queue=role==="project_admin"&&!history&&(search.queue==="pm_review"||search.queue==="dcc")?search.queue:"all";
+  const queueHref=(targetQueue:typeof queue,targetPage=1)=>`${base}/requests?${new URLSearchParams({view:history?"history":"open",...(targetQueue!=="all"?{queue:targetQueue}:{}),...(targetPage>1?{page:String(targetPage)}:{})})}`;
+  const queueDescription=queue==="pm_review"?"Submission-date changes awaiting Project Manager review.":queue==="dcc"?"Requests awaiting DCC acceptance; no Project Manager decision is needed at this stage.":null;
+  const returnQueueLabel=history?"decided requests":queue==="pm_review"?"requests awaiting PM review":queue==="dcc"?"requests awaiting DCC":"open requests";
   const selectedRequest=z.uuid().safeParse(search.request);
   const page=selectedRequest.success?1:Math.max(1,Math.min(Number.parseInt(search.page??"1",10)||1,10000));
   let query=supabase.from("deliverable_requests").select("id,kind,status,requester_id,document_id,document_number,title,document_type,discipline,requested_date,previous_due_date,reason,created_at,pm_reviewed_at,pm_comment,dcc_reviewed_at,dcc_comment",{count:"exact"})
     .eq("organisation_id",organisationId).eq("project_id",projectId);
   if(selectedRequest.success)query=query.eq("id",selectedRequest.data);
-  else query=query.in("status",history?["accepted","rejected","cancelled","superseded"]:["pending_pm","pending_dcc"]);
+  else query=query.in("status",history?["accepted","rejected","cancelled","superseded"]:queue==="pm_review"?["pending_pm"]:queue==="dcc"?["pending_dcc"]:["pending_pm","pending_dcc"]);
   if(engineer)query=query.eq("requester_id",user.id);
   const {data,count,error}=await query.order("created_at",{ascending:false}).order("id").range((page-1)*25,page*25-1);
   if(error)throw new Error("Deliverable requests are temporarily unavailable. Please contact EngiCite support.");
@@ -68,9 +72,17 @@ export default async function DeliverableRequestsPage({params,searchParams}:{par
       <section className="min-w-0" aria-label="Deliverable request queue">
         <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[#dce5ef] pb-3">
           <nav aria-label="Request status" className="flex min-w-0 flex-wrap gap-1 rounded-xl bg-[#eef3fa] p-1"><Link className={requestTab(!history)} href={`${base}/requests`} aria-current={!history?"page":undefined}>Open requests</Link><Link className={requestTab(history)} href={`${base}/requests?view=history`} aria-current={history?"page":undefined}>Decision history</Link></nav>
-          <span className="text-xs text-[#617083]">{selectedRequest.success?"Selected request":`${count??0} ${history?"decided":"open"} request${count===1?"":"s"}`}</span>
+          <span className="text-xs text-[#617083]">{selectedRequest.success?"Selected request":queue!=="all"?`${count??0} request${count===1?"":"s"} awaiting ${queue==="pm_review"?"PM review":"DCC"}`:`${count??0} ${history?"decided":"open"} request${count===1?"":"s"}`}</span>
         </div>
-        {selectedRequest.success&&<Link href={`${base}/requests${history?"?view=history":""}`} className="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#10243e]">← View all {history?"decided":"open"} requests</Link>}
+        {role==="project_admin"&&!history&&!selectedRequest.success&&<div className="mb-4 space-y-2">
+          <nav aria-label="Open request review stage" className="flex flex-wrap gap-2">
+            <Link href={`${base}/requests`} className={requestQueueTab(queue==="all")} aria-current={queue==="all"?"page":undefined}>All open</Link>
+            <Link href={queueHref("pm_review")} className={requestQueueTab(queue==="pm_review")} aria-current={queue==="pm_review"?"page":undefined}>{preview?"Needs PM review":"Needs my review"}</Link>
+            <Link href={queueHref("dcc")} className={requestQueueTab(queue==="dcc")} aria-current={queue==="dcc"?"page":undefined}>Awaiting DCC</Link>
+          </nav>
+          {queueDescription&&<p className="text-sm leading-6 text-[#526675]">{queueDescription}</p>}
+        </div>}
+        {selectedRequest.success&&<Link href={queue==="all"?`${base}/requests${history?"?view=history":""}`:queueHref(queue)} className="mb-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#10243e]">← View all {returnQueueLabel}</Link>}
         <div className="space-y-3">{requests.map(request=><article id={`request-${request.id}`} aria-labelledby={`request-title-${request.id}`} key={request.id} className="ev-card min-w-0 scroll-mt-24 p-4 [overflow-wrap:anywhere] sm:p-5">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-[#617083]">{request.kind==="date_change"?"Submission date change":"Additional deliverable"}</p><span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${requestStatusStyle(request.status)}`}>{requestStatusLabel[request.status]}</span></div>
           <h2 id={`request-title-${request.id}`} className="mt-2 text-base font-semibold leading-6">{request.title}</h2>
@@ -93,14 +105,15 @@ export default async function DeliverableRequestsPage({params,searchParams}:{par
           {engineer&&!preview&&request.requester_id===user.id&&["pending_pm","pending_dcc"].includes(request.status)&&<CancelDeliverableRequestForm organisationId={organisationId} projectId={projectId} requestId={request.id}/>}
           {request.status==="accepted"&&request.document_id&&role!=="project_admin"&&<Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#10243e]" href={`${base}/documents/${request.document_id}`}>Open MDR deliverable →</Link>}
         </article>)}</div>
-        {!requests.length&&<p className="ev-card p-6 text-center text-sm text-[#617083]">{selectedRequest.success?"This request is not available in your current project access.":`No ${history?"decided":"open"} requests.`}</p>}
-        <nav aria-label="Request pages" className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">{page>1?<Link className="inline-flex min-h-11 items-center font-semibold text-[#10243e]" href={`${base}/requests?view=${history?"history":"open"}&page=${page-1}`}>← Previous</Link>:<span/>}<span className="text-xs text-[#617083]">Page {page} · {count??0} requests</span>{page*25<(count??0)?<Link className="inline-flex min-h-11 items-center font-semibold text-[#10243e]" href={`${base}/requests?view=${history?"history":"open"}&page=${page+1}`}>Next →</Link>:<span/>}</nav>
+        {!requests.length&&<p className="ev-card p-6 text-center text-sm text-[#617083]">{selectedRequest.success?"This request is not available in your current project access.":queue==="pm_review"?"No requests are awaiting Project Manager review.":queue==="dcc"?"No requests are awaiting DCC acceptance.":`No ${history?"decided":"open"} requests.`}</p>}
+        <nav aria-label="Request pages" className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">{page>1?<Link className="inline-flex min-h-11 items-center font-semibold text-[#10243e]" href={queueHref(queue,page-1)}>← Previous</Link>:<span/>}<span className="text-xs text-[#617083]">Page {page} · {count??0} requests</span>{page*25<(count??0)?<Link className="inline-flex min-h-11 items-center font-semibold text-[#10243e]" href={queueHref(queue,page+1)}>Next →</Link>:<span/>}</nav>
       </section>
     </div>
   </div>;
 }
 function formatDate(value:string){return new Date(`${value}T00:00:00Z`).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});}
 function requestTab(active:boolean){return `inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10243e] ${active?"bg-white text-[#10243e] shadow-sm":"text-[#526675] hover:bg-white/60"}`;}
+function requestQueueTab(active:boolean){return `inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10243e] ${active?"border-[#10243e] bg-[#eef3fa] text-[#10243e]":"border-[#dce5ef] bg-white text-[#526675] hover:bg-[#f7f9fc]"}`;}
 function requestStatusStyle(status:DeliverableRequest["status"]){
   if(status==="accepted")return "bg-[#eef3fa] text-[#10243e]";
   if(status==="rejected")return "bg-[#fff0eb] text-[#963c28]";
