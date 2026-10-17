@@ -117,18 +117,18 @@ export async function POST(
     const completed:CompletedIssueRevision[]=[];
     const pageSize=200,maxRows=50000;
     let expectedCount:number|undefined;
-    // Read eligible status labels through existing document RLS. Normalise in
+    // Read DCC-accepted predecessors through existing document RLS. Normalise in
     // the shared helper so legacy case/outer whitespace cannot produce drift
     // between the form, API and database guard. Do not trust a capped result.
     for(let offset=0;offset<maxRows;){
       const {data:predecessors,error:predecessorError,count}=await supabase
         .from("document_revisions")
-        .select("id,issue_status,created_at",{count:"exact"})
+        .select("id,issue_status,created_at,reviewed_at,control_status,state,overridden_by_revision_id",{count:"exact"})
         .eq("organisation_id",organisationId)
         .eq("project_id",projectId)
         .eq("document_id",documentId)
         .in("state",["ready","superseded"])
-        .in("control_status",["submitted","accepted"])
+        .eq("control_status","accepted")
         .is("overridden_by_revision_id",null)
         .order("id")
         .range(offset,offset+pageSize-1);
@@ -140,7 +140,8 @@ export async function POST(
       expectedCount=count;
       for(const predecessor of predecessors){
         if(typeof predecessor.issue_status!=="string"||typeof predecessor.created_at!=="string")return unavailable();
-        completed.push({issue_status:predecessor.issue_status,created_at:predecessor.created_at});
+        completed.push({issue_status:predecessor.issue_status,created_at:predecessor.created_at,reviewed_at:predecessor.reviewed_at,
+          control_status:predecessor.control_status,state:predecessor.state,overridden_by_revision_id:predecessor.overridden_by_revision_id});
       }
       if(isIssueSequenceAvailableForRevisions(body.data.issueStatus,completed)||offset+predecessors.length===count)break;
       offset+=predecessors.length;
@@ -152,8 +153,8 @@ export async function POST(
           error: {
             code: "ISSUE_SEQUENCE_REQUIRED",
             message: missingPredecessors.length
-              ?`${body.data.issueStatus} is unavailable until ${missingPredecessors.join(" and ")} ${missingPredecessors.length===1?"has":"have"} completed secure submission for this document.`
-              :"The controlled sequence must be submitted in order: IFR before IFA, then IFD or IFC. Complete the missing ordered stage before starting this upload.",
+              ?`${body.data.issueStatus} is unavailable until DCC has accepted ${missingPredecessors.join(" and ")} for this document.`
+              :"DCC must accept IFR before IFA is submitted, then accept IFA before IFD or IFC is submitted. Wait for acceptance of the required earlier stage before starting this upload.",
           },
         },
         { status: 409 },
@@ -208,7 +209,7 @@ export async function POST(
     const message = error.code === "23505"
       ? "This revision code already exists. Select Override existing submission if it has not been transmitted, or use the next revision code."
       : sequenceViolation
-        ? "The previous controlled issue stage must complete secure submission before this revision can be registered."
+        ? "DCC must accept each required earlier issue stage before the next controlled issue can be submitted."
         : error.code === "23514"
         ? "The final FEED or construction issue PDF requires its editable native source."
         : `The revision could not be registered. Reference: ${supportReference(error.code)}.`;

@@ -76,9 +76,9 @@ export function RevisionUpload({
   const [overrideMessage, setOverrideMessage] = useState("");
   const overrideRequest = useRef(0);
   const nativeRequired = requiresNativeCompanion(deliveryStage, issueStatus, selectedFile?.name);
-  const unavailableIssueStatuses = blockedIssueStatuses(completedIssueStatuses,completedIssueRevisions);
-  const hasSubmittedIfr = !unavailableIssueStatuses.includes(ISSUE_FOR_APPROVAL);
-  const hasSubmittedIfa = unavailableIssueStatuses.length===0;
+  const unavailableIssueStatuses = blockedIssueStatuses(completedIssueStatuses,completedIssueRevisions??[]);
+  const hasAcceptedIfr = !unavailableIssueStatuses.includes(ISSUE_FOR_APPROVAL);
+  const hasAcceptedIfa = unavailableIssueStatuses.length===0;
 
   function clearOverride() {
     overrideRequest.current += 1;
@@ -237,13 +237,13 @@ export function RevisionUpload({
       return;
     }
     const missingPredecessors=missingIssuePredecessors(String(formData.get("issueStatus")??""),completedIssueStatuses);
-    const orderedSequenceAvailable=!completedIssueRevisions||isIssueSequenceAvailableForRevisions(String(formData.get("issueStatus")??""),completedIssueRevisions);
+    const orderedSequenceAvailable=isIssueSequenceAvailableForRevisions(String(formData.get("issueStatus")??""),completedIssueRevisions??[]);
     if(missingPredecessors.length||!orderedSequenceAvailable){
       const statusInput=form.elements.namedItem("issueStatus");
       setFailed(true);
       setStatus(missingPredecessors.length
-        ?`Complete secure submission of ${missingPredecessors.join(" and ")} for this document before selecting this issue purpose.`
-        :"The controlled sequence must be submitted in order: IFR before IFA, then IFD or IFC. Complete the missing ordered stage before starting this upload.");
+        ?`DCC must accept ${missingPredecessors.join(" and ")} for this document before selecting this issue purpose.`
+        :"DCC must accept IFR before IFA is submitted, then accept IFA before IFD or IFC is submitted. Wait for acceptance of the required earlier stage before starting this upload.");
       if(statusInput instanceof HTMLElement)statusInput.focus();
       return;
     }
@@ -302,10 +302,10 @@ export function RevisionUpload({
             <input id={`${formId}-date`} className="ev-input min-w-0" name="issueDate" type="date" disabled={busy} />
           </div>
         </div>
-        {(!hasSubmittedIfr || !hasSubmittedIfa) && (
+        {(!hasAcceptedIfr || !hasAcceptedIfa) && (
           <div className="mt-2 flex items-center gap-1 text-xs leading-5 text-[#526279]">
-            <span>{!hasSubmittedIfr ? "Submit IFR first." : "IFR complete. Submit IFA next."}</span>
-            <HelpTip label="Controlled issue sequence guidance">IFR must complete secure submission before IFA becomes available. IFA must then complete secure submission before IFD or IFC becomes available.</HelpTip>
+            <span>{!hasAcceptedIfr ? "Await DCC acceptance of IFR first." : "IFR accepted. Await DCC acceptance of IFA."}</span>
+            <HelpTip label="Controlled issue sequence guidance">DCC must accept IFR before IFA can be submitted. DCC must then accept IFA before IFD or IFC can be submitted. Upload completion alone does not unlock the next stage.</HelpTip>
           </div>
         )}
       </fieldset>

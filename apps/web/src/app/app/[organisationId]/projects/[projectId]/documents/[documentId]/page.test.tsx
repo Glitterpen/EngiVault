@@ -25,7 +25,7 @@ vi.mock("@/components/document-issue-schedule",()=>({DocumentIssueSchedule:()=> 
 type Revision={
   id:string;uploaded_by:string;revision_code:string;issue_status:string;issue_date:string|null;
   state:string;original_filename:string;byte_size:number;native_original_filename:string|null;
-  native_byte_size:number|null;created_at:string;control_status:string;review_comment:string|null;
+  native_byte_size:number|null;created_at:string;reviewed_at:string|null;control_status:string;review_comment:string|null;
   submission_version:number;overridden_by_revision_id:string|null;
 };
 type QueryRead={table:string;selection:string;filters:[string,unknown][];order?:[string,{ascending:boolean}];values?:[string,string[]]};
@@ -42,7 +42,7 @@ const engineer={user_id:"engineer",display_name:"Process Engineer",email:"engine
 const revision=(overrides:Partial<Revision>={}):Revision=>({
   id:"revision",uploaded_by:"engineer",revision_code:"R01",issue_status:"Issued for Review (IFR)",issue_date:"2026-10-01",
   state:"ready",original_filename:"process-design.pdf",byte_size:2048,native_original_filename:null,native_byte_size:null,
-  created_at:"2026-10-01T12:00:00Z",control_status:"accepted",review_comment:null,submission_version:1,overridden_by_revision_id:null,...overrides,
+  created_at:"2026-10-01T12:00:00Z",reviewed_at:null,control_status:"accepted",review_comment:null,submission_version:1,overridden_by_revision_id:null,...overrides,
 });
 
 let role:string,preview:unknown,documentExists:boolean,disciplineAccess:boolean,deliveryStage:string|null;
@@ -280,9 +280,10 @@ describe("revision history and secure file actions",()=>{
 });
 
 describe("milestone and comparison inputs",()=>{
-  it("counts only complete submitted or accepted issue purposes for the controlled sequence",async()=>{
+  it("counts only complete DCC-accepted issue purposes for the controlled sequence",async()=>{
     revisions=[
       revision({id:"ready-submitted",control_status:"submitted"}),
+      revision({id:"ready-accepted-review"}),
       revision({id:"superseded-accepted",state:"superseded",issue_status:"Issued for Approval (IFA)"}),
       revision({id:"duplicate-ready",issue_status:"Issued for Approval (IFA)"}),
       revision({id:"pending",state:"pending_upload",control_status:"submitted",issue_status:"Issued for Design (IFD)"}),
@@ -293,6 +294,14 @@ describe("milestone and comparison inputs",()=>{
     ];
     await renderPage();
     expect(vi.mocked(RevisionUpload).mock.calls[0][0]).toMatchObject({organisationId:"org",projectId:"project",documentId:"doc",deliveryStage:"feed",completedIssueStatuses:["Issued for Review (IFR)","Issued for Approval (IFA)"]});
+    expect(vi.mocked(RevisionUpload).mock.calls[0][0].completedIssueRevisions).toEqual(revisions.slice(1,4).map(row=>({issue_status:row.issue_status,created_at:row.created_at,reviewed_at:row.reviewed_at,control_status:row.control_status,state:row.state,overridden_by_revision_id:row.overridden_by_revision_id})));
+  });
+  it("does not pass ready IFR or IFA records awaiting DCC acceptance as prerequisites",async()=>{
+    revisions=[revision({id:"ifr",control_status:"submitted"}),revision({id:"ifa",issue_status:"Issued for Approval (IFA)",control_status:"submitted"})];
+    await renderPage();
+    expect(vi.mocked(RevisionUpload).mock.calls[0][0].completedIssueStatuses).toEqual([]);
+    expect(vi.mocked(RevisionUpload).mock.calls[0][0].completedIssueRevisions).toEqual([]);
+    expect(revisions.every(row=>row.control_status==="submitted")).toBe(true);
   });
   it.each(["feed","ded"])("passes the actual %s delivery stage to upload validation",async stage=>{
     deliveryStage=stage;await renderPage();

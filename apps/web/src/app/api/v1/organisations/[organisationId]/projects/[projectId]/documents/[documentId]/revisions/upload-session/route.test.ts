@@ -9,7 +9,7 @@ vi.mock("@/lib/rate-limit",()=>({rateLimited:vi.fn()}));
 const params={organisationId:"a0000000-0000-4000-8000-000000000001",projectId:"b0000000-0000-4000-8000-000000000001",documentId:"c0000000-0000-4000-8000-000000000001"};
 const target="d0000000-0000-4000-8000-000000000001";
 const body={revisionCode:"A",issueStatus:"Issued for Review (IFR)",fileName:"drawing.pdf",mimeType:"application/pdf",size:10,sha256:"a".repeat(64)};
-const predecessor=(id:string,issue_status:string,created_at="2026-09-01T12:00:00Z")=>({id,issue_status,created_at});
+const predecessor=(id:string,issue_status:string,created_at="2026-09-01T12:00:00Z")=>({id,issue_status,created_at,reviewed_at:null,control_status:"accepted",state:"ready",overridden_by_revision_id:null});
 const rpc=vi.fn(),insert=vi.fn(),sign=vi.fn(),single=vi.fn(),predecessorRead=vi.fn();
 const query={select:vi.fn(),eq:vi.fn(),in:vi.fn(),is:vi.fn(),order:vi.fn(),range:predecessorRead,limit:vi.fn(),maybeSingle:single};
 const supabase={rpc,from:vi.fn((table:string)=>table==="document_revisions"||table==="upload_sessions"?{...query,insert}:query),storage:{from:vi.fn(()=>({createSignedUploadUrl:sign}))}};
@@ -78,9 +78,9 @@ describe("strict completed controlled issue sequence",()=>{
     expect(query.eq).toHaveBeenCalledWith("project_id",params.projectId);
     expect(query.eq).toHaveBeenCalledWith("document_id",params.documentId);
     expect(query.in).toHaveBeenCalledWith("state",["ready","superseded"]);
-    expect(query.in).toHaveBeenCalledWith("control_status",["submitted","accepted"]);
+    expect(query.eq).toHaveBeenCalledWith("control_status","accepted");
     expect(query.is).toHaveBeenCalledWith("overridden_by_revision_id",null);
-    expect(query.select).toHaveBeenCalledWith("id,issue_status,created_at",{count:"exact"});
+    expect(query.select).toHaveBeenCalledWith("id,issue_status,created_at,reviewed_at,control_status,state,overridden_by_revision_id",{count:"exact"});
   });
   it("does not treat Approved / Final as a completed canonical IFA prerequisite",async()=>{
     predecessorRead.mockResolvedValue({data:[predecessor("ifr","Issued for Review (IFR)"),predecessor("final","Approved / Final")],error:null,count:2});
@@ -120,5 +120,20 @@ describe("strict completed controlled issue sequence",()=>{
   it("still rejects a crafted acronym target instead of accepting it as a new status value",async()=>{
     expect((await post(terminalBody("IFD"))).status).toBe(422);
     expect(insert).not.toHaveBeenCalled();expect(predecessorRead).not.toHaveBeenCalled();
+  });
+  it("does not unlock IFA from a securely uploaded IFR still awaiting DCC acceptance",async()=>{
+    predecessorRead.mockResolvedValue({data:[{...predecessor("ifr","IFR"),control_status:"submitted"}],error:null,count:1});
+    const response=await post({...body,issueStatus:"Issued for Approval (IFA)"});
+    expect(response.status).toBe(409);expect((await response.json()).error.message).toContain("DCC must accept IFR");
+    expect(insert).not.toHaveBeenCalled();expect(sign).not.toHaveBeenCalled();
+  });
+  it("does not unlock IFD while IFA still awaits DCC acceptance",async()=>{
+    predecessorRead.mockResolvedValue({data:[predecessor("ifr","IFR"),{...predecessor("ifa","IFA"),control_status:"submitted"}],error:null,count:2});
+    expect((await post(terminalBody())).status).toBe(409);expect(insert).not.toHaveBeenCalled();
+  });
+  it("does not use a future DCC review timestamp to unlock the next stage",async()=>{
+    predecessorRead.mockResolvedValue({data:[{...predecessor("ifr","IFR"),reviewed_at:"2099-10-01T12:00:00Z"}],error:null,count:1});
+    expect((await post({...body,issueStatus:"Issued for Approval (IFA)"})).status).toBe(409);
+    expect(insert).not.toHaveBeenCalled();
   });
 });

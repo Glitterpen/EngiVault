@@ -51,7 +51,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
     .filter(member=>member.role==="engineer"&&(member.disciplines??[]).some(discipline=>disciplineMatches(discipline,String(doc.discipline))))
     .map<AssignableEngineer>(member=>({userId:member.user_id,name:member.display_name,email:member.email,assigned:assignedUsers.has(member.user_id)}));
 
-  const {data:revisions,error:revisionError}=await supabase.from("document_revisions").select("id,uploaded_by,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,control_status,review_comment,submission_version,overridden_by_revision_id").eq("document_id",documentId).order("created_at",{ascending:false});
+  const {data:revisions,error:revisionError}=await supabase.from("document_revisions").select("id,uploaded_by,revision_code,issue_status,issue_date,state,original_filename,byte_size,native_original_filename,native_byte_size,created_at,reviewed_at,control_status,review_comment,submission_version,overridden_by_revision_id").eq("document_id",documentId).order("created_at",{ascending:false});
   if(revisionError)return <ReadUnavailable title="Revision history is temporarily unavailable" href={retryHref}>Existing submissions could not be verified. Retry loading before starting another upload.</ReadUnavailable>;
   const revisionIds=(revisions??[]).map(revision=>revision.id);
   const {data:runs,error:processingError}=revisionIds.length?await supabase.from("processing_runs").select("revision_id,state,attempt,error_code,metrics,updated_at").in("revision_id",revisionIds):{data:[],error:null};
@@ -59,8 +59,9 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
   const runByRevision=new Map((runs??[]).map(run=>[run.revision_id,run]));
   const canUpload=isEngineer&&Boolean(disciplineAccess);
   const completedIssueRevisions=(revisions??[])
-    .filter(revision=>["ready","superseded"].includes(revision.state)&&["submitted","accepted"].includes(revision.control_status)&&revision.overridden_by_revision_id==null)
-    .map(revision=>({issue_status:revision.issue_status,created_at:revision.created_at}));
+    .filter(revision=>["ready","superseded"].includes(revision.state)&&revision.control_status==="accepted"&&revision.overridden_by_revision_id==null)
+    .map(revision=>({issue_status:revision.issue_status,created_at:revision.created_at,reviewed_at:revision.reviewed_at,
+      state:revision.state,control_status:revision.control_status,overridden_by_revision_id:revision.overridden_by_revision_id}));
   const completedIssueStatuses=[...new Set(completedIssueRevisions.map(revision=>revision.issue_status))];
   const readyRevisions=(revisions??[]).filter(revision=>revision.state==="ready");
   const schedule=schedules.get(documentId)!;
