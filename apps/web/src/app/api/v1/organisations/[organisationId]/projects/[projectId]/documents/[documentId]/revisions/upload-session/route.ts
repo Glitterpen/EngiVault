@@ -8,7 +8,7 @@ import {
   MAX_UPLOAD_BYTES,
 } from "@/lib/file-validation";
 import { DOCUMENT_ISSUE_STATUS_VALUES } from "@/lib/document-issue-status";
-import { requiredIssuePredecessor } from "@/lib/document-issue-sequence";
+import { isIssueSequenceAvailableForRevisions,missingIssuePredecessors,requiredIssuePredecessors,type CompletedIssueRevision } from "@/lib/document-issue-sequence";
 import { requiresNativeCompanion } from "@/lib/native-file-requirement";
 import type { ProjectDeliveryStage } from "@/lib/project-delivery-stage";
 import { rateLimited } from "@/lib/rate-limit";
@@ -108,31 +108,52 @@ export async function POST(
     );
   }
   const deliveryStage = project.delivery_stage as ProjectDeliveryStage;
-  const requiredPredecessor = requiredIssuePredecessor(body.data.issueStatus);
-  if (requiredPredecessor) {
-    const { data: predecessor, error: predecessorError } = await supabase
-      .from("document_revisions")
-      .select("id")
-      .eq("organisation_id", organisationId)
-      .eq("project_id", projectId)
-      .eq("document_id", documentId)
-      .eq("issue_status", requiredPredecessor)
-      .in("state", ["ready", "superseded"])
-      .in("control_status", ["submitted", "accepted"])
-      .limit(1)
-      .maybeSingle();
-    if (predecessorError) {
-      return Response.json(
-        { error: { code: "ISSUE_SEQUENCE_UNAVAILABLE", message: "The document issue sequence could not be verified. Try again shortly." } },
-        { status: 503 },
-      );
+  const requiredPredecessors = requiredIssuePredecessors(body.data.issueStatus);
+  if (requiredPredecessors.length) {
+    const unavailable=()=>Response.json(
+      { error: { code: "ISSUE_SEQUENCE_UNAVAILABLE", message: "The document issue sequence could not be verified. Try again shortly." } },
+      { status: 503 },
+    );
+    const completed:CompletedIssueRevision[]=[];
+    const pageSize=200,maxRows=50000;
+    let expectedCount:number|undefined;
+    // Read eligible status labels through existing document RLS. Normalise in
+    // the shared helper so legacy case/outer whitespace cannot produce drift
+    // between the form, API and database guard. Do not trust a capped result.
+    for(let offset=0;offset<maxRows;){
+      const {data:predecessors,error:predecessorError,count}=await supabase
+        .from("document_revisions")
+        .select("id,issue_status,created_at",{count:"exact"})
+        .eq("organisation_id",organisationId)
+        .eq("project_id",projectId)
+        .eq("document_id",documentId)
+        .in("state",["ready","superseded"])
+        .in("control_status",["submitted","accepted"])
+        .is("overridden_by_revision_id",null)
+        .order("id")
+        .range(offset,offset+pageSize-1);
+      if(predecessorError||!Array.isArray(predecessors)||predecessors.length>pageSize
+        ||count===null||!Number.isSafeInteger(count)||count<0||count>maxRows
+        ||(expectedCount!==undefined&&count!==expectedCount)
+        ||offset+predecessors.length>count
+        ||(!predecessors.length&&offset<count))return unavailable();
+      expectedCount=count;
+      for(const predecessor of predecessors){
+        if(typeof predecessor.issue_status!=="string"||typeof predecessor.created_at!=="string")return unavailable();
+        completed.push({issue_status:predecessor.issue_status,created_at:predecessor.created_at});
+      }
+      if(isIssueSequenceAvailableForRevisions(body.data.issueStatus,completed)||offset+predecessors.length===count)break;
+      offset+=predecessors.length;
     }
-    if (!predecessor) {
+    const missingPredecessors=missingIssuePredecessors(body.data.issueStatus,completed.map(revision=>revision.issue_status));
+    if (!isIssueSequenceAvailableForRevisions(body.data.issueStatus,completed)) {
       return Response.json(
         {
           error: {
             code: "ISSUE_SEQUENCE_REQUIRED",
-            message: `${body.data.issueStatus} is unavailable until ${requiredPredecessor} has completed secure submission for this document.`,
+            message: missingPredecessors.length
+              ?`${body.data.issueStatus} is unavailable until ${missingPredecessors.join(" and ")} ${missingPredecessors.length===1?"has":"have"} completed secure submission for this document.`
+              :"The controlled sequence must be submitted in order: IFR before IFA, then IFD or IFC. Complete the missing ordered stage before starting this upload.",
           },
         },
         { status: 409 },

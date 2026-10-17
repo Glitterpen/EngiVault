@@ -22,8 +22,10 @@ import {
 import { requiresNativeCompanion } from "@/lib/native-file-requirement";
 import {
   blockedIssueStatuses,
+  isIssueSequenceAvailableForRevisions,
+  missingIssuePredecessors,
   ISSUE_FOR_APPROVAL,
-  ISSUE_FOR_REVIEW,
+  type CompletedIssueRevision,
 } from "@/lib/document-issue-sequence";
 import { createClient } from "@/lib/supabase/browser";
 import { HelpTip } from "@/components/help-tip";
@@ -50,12 +52,14 @@ export function RevisionUpload({
   documentId,
   deliveryStage,
   completedIssueStatuses,
+  completedIssueRevisions,
 }: {
   organisationId: string;
   projectId: string;
   documentId: string;
   deliveryStage: ProjectDeliveryStage;
   completedIssueStatuses: string[];
+  completedIssueRevisions?: CompletedIssueRevision[];
 }) {
   const router = useRouter();
   const formId = useId();
@@ -72,9 +76,9 @@ export function RevisionUpload({
   const [overrideMessage, setOverrideMessage] = useState("");
   const overrideRequest = useRef(0);
   const nativeRequired = requiresNativeCompanion(deliveryStage, issueStatus, selectedFile?.name);
-  const unavailableIssueStatuses = blockedIssueStatuses(completedIssueStatuses);
-  const hasSubmittedIfr = completedIssueStatuses.includes(ISSUE_FOR_REVIEW);
-  const hasSubmittedIfa = completedIssueStatuses.includes(ISSUE_FOR_APPROVAL);
+  const unavailableIssueStatuses = blockedIssueStatuses(completedIssueStatuses,completedIssueRevisions);
+  const hasSubmittedIfr = !unavailableIssueStatuses.includes(ISSUE_FOR_APPROVAL);
+  const hasSubmittedIfa = unavailableIssueStatuses.length===0;
 
   function clearOverride() {
     overrideRequest.current += 1;
@@ -230,6 +234,17 @@ export function RevisionUpload({
       setFailed(true);
       setStatus("Select the purpose for which this revision is being issued.");
       if (statusInput instanceof HTMLElement) statusInput.focus();
+      return;
+    }
+    const missingPredecessors=missingIssuePredecessors(String(formData.get("issueStatus")??""),completedIssueStatuses);
+    const orderedSequenceAvailable=!completedIssueRevisions||isIssueSequenceAvailableForRevisions(String(formData.get("issueStatus")??""),completedIssueRevisions);
+    if(missingPredecessors.length||!orderedSequenceAvailable){
+      const statusInput=form.elements.namedItem("issueStatus");
+      setFailed(true);
+      setStatus(missingPredecessors.length
+        ?`Complete secure submission of ${missingPredecessors.join(" and ")} for this document before selecting this issue purpose.`
+        :"The controlled sequence must be submitted in order: IFR before IFA, then IFD or IFC. Complete the missing ordered stage before starting this upload.");
+      if(statusInput instanceof HTMLElement)statusInput.focus();
       return;
     }
     if (nativeRequired && !nativeFile) {

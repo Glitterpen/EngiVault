@@ -287,6 +287,9 @@ describe("milestone and comparison inputs",()=>{
       revision({id:"duplicate-ready",issue_status:"Issued for Approval (IFA)"}),
       revision({id:"pending",state:"pending_upload",control_status:"submitted",issue_status:"Issued for Design (IFD)"}),
       revision({id:"returned",control_status:"returned",issue_status:"Issued for Construction (IFC)"}),
+      revision({id:"failed",state:"failed",issue_status:"Issued for Design (IFD)"}),
+      revision({id:"processing",state:"processing",issue_status:"Issued for Design (IFD)"}),
+      revision({id:"overridden",issue_status:"Issued for Design (IFD)",overridden_by_revision_id:"replacement"}),
     ];
     await renderPage();
     expect(vi.mocked(RevisionUpload).mock.calls[0][0]).toMatchObject({organisationId:"org",projectId:"project",documentId:"doc",deliveryStage:"feed",completedIssueStatuses:["Issued for Review (IFR)","Issued for Approval (IFA)"]});

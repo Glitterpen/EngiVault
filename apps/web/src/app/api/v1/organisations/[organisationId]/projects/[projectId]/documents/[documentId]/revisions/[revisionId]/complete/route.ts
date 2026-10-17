@@ -16,6 +16,7 @@ export async function POST(_:Request,ctx:{params:Promise<{organisationId:string;
   const {data:revision}=await supabase.from("document_revisions").select("id").eq("id",revisionId).eq("organisation_id",organisationId).eq("project_id",projectId).eq("document_id",documentId).maybeSingle();
   if(!revision)return Response.json({error:{code:"NOT_FOUND",message:"Revision is unavailable."}},{status:404});
   const {error}=await supabase.rpc("complete_revision_upload",{target_revision:revisionId});
+  if(error?.code==="23514"&&error.message?.includes("issue sequence prerequisite"))return Response.json({error:{code:"ISSUE_SEQUENCE_REQUIRED",message:"Complete secure submission in order: IFR before IFA, then IFD or IFC. A required earlier submission is missing, returned or no longer current. Your existing files have not been changed."}},{status:409});
   if(error)return Response.json({error:{code:"UPLOAD_INCOMPLETE",message:submissionOverrideMessage(error.message)??(error.code==="23514"?"The controlled PDF and its required editable native source must both finish uploading before submission.":`The uploaded files could not enter secure processing. Reference: ${supportReference(error.code)}.`)}},{status:409});
   after(async()=>{try{await processNextDocumentRevision()}catch{console.error("[document-processing] Upload queued; scheduled processing will retry.");}});
   return Response.json({revisionId,state:"queued"});

@@ -58,9 +58,10 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
   if(processingError)return <ReadUnavailable title="Revision processing status is temporarily unavailable" href={retryHref}/>;
   const runByRevision=new Map((runs??[]).map(run=>[run.revision_id,run]));
   const canUpload=isEngineer&&Boolean(disciplineAccess);
-  const completedIssueStatuses=[...new Set((revisions??[])
-    .filter(revision=>["ready","superseded"].includes(revision.state)&&["submitted","accepted"].includes(revision.control_status))
-    .map(revision=>revision.issue_status))];
+  const completedIssueRevisions=(revisions??[])
+    .filter(revision=>["ready","superseded"].includes(revision.state)&&["submitted","accepted"].includes(revision.control_status)&&revision.overridden_by_revision_id==null)
+    .map(revision=>({issue_status:revision.issue_status,created_at:revision.created_at}));
+  const completedIssueStatuses=[...new Set(completedIssueRevisions.map(revision=>revision.issue_status))];
   const readyRevisions=(revisions??[]).filter(revision=>revision.state==="ready");
   const schedule=schedules.get(documentId)!;
 
@@ -74,7 +75,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
     <div className="mt-4 min-w-0 space-y-4">
       {canUpload&&<section id="submit-revision" aria-label="Submit revision" className="min-w-0 space-y-3">
         {!preview&&(revisions??[]).filter(revision=>revision.state==="pending_upload"&&revision.control_status==="submitted"&&revision.uploaded_by===user.id).map(revision=><section key={revision.id} className="min-w-0"><h2 className="break-words text-sm font-semibold">Resume revision {revision.revision_code} · {revision.issue_status}</h2><IncompleteUploadRecovery endpoint={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/${revision.id}/recovery`}/></section>)}
-        <RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage} completedIssueStatuses={completedIssueStatuses}/>
+        <RevisionUpload organisationId={organisationId} projectId={projectId} documentId={documentId} deliveryStage={deliveryStage} completedIssueStatuses={completedIssueStatuses} completedIssueRevisions={completedIssueRevisions}/>
       </section>}
         <section id="revision-history" aria-labelledby="revision-history-heading" className="min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
           <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id="revision-history-heading" className="inline-flex items-center gap-2 text-base font-semibold"><History size={17} aria-hidden="true" className="text-[#526675]"/>Revision history</h2><p className="text-xs text-[#526675]">Most recent first</p></header>

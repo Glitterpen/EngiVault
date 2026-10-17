@@ -9,15 +9,17 @@ vi.mock("@/lib/rate-limit",()=>({rateLimited:vi.fn()}));
 const params={organisationId:"a0000000-0000-4000-8000-000000000001",projectId:"b0000000-0000-4000-8000-000000000001",documentId:"c0000000-0000-4000-8000-000000000001"};
 const target="d0000000-0000-4000-8000-000000000001";
 const body={revisionCode:"A",issueStatus:"Issued for Review (IFR)",fileName:"drawing.pdf",mimeType:"application/pdf",size:10,sha256:"a".repeat(64)};
-const rpc=vi.fn(),insert=vi.fn(),sign=vi.fn(),single=vi.fn();
-const query={select:vi.fn(),eq:vi.fn(),in:vi.fn(),limit:vi.fn(),maybeSingle:single};
+const predecessor=(id:string,issue_status:string,created_at="2026-09-01T12:00:00Z")=>({id,issue_status,created_at});
+const rpc=vi.fn(),insert=vi.fn(),sign=vi.fn(),single=vi.fn(),predecessorRead=vi.fn();
+const query={select:vi.fn(),eq:vi.fn(),in:vi.fn(),is:vi.fn(),order:vi.fn(),range:predecessorRead,limit:vi.fn(),maybeSingle:single};
 const supabase={rpc,from:vi.fn((table:string)=>table==="document_revisions"||table==="upload_sessions"?{...query,insert}:query),storage:{from:vi.fn(()=>({createSignedUploadUrl:sign}))}};
 const get=(code="A")=>GET(new Request(`https://app.example.test/upload?revisionCode=${encodeURIComponent(code)}`),{params:Promise.resolve(params)});
 const post=(data:unknown=body)=>POST(new Request("https://app.example.test/upload",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(data)}),{params:Promise.resolve(params)});
 beforeEach(()=>{
   vi.clearAllMocks();vi.mocked(requireProject).mockResolvedValue({supabase,access:{role:"engineer"}} as never);vi.mocked(rateLimited).mockResolvedValue(false);
   rpc.mockResolvedValue({data:true,error:null});insert.mockResolvedValue({error:null});sign.mockResolvedValue({data:{path:"private/path",token:"test-token"},error:null});single.mockResolvedValue({data:{delivery_stage:"feed"},error:null});
-  query.select.mockReturnValue(query);query.eq.mockReturnValue(query);query.in.mockReturnValue(query);query.limit.mockReturnValue(query);
+  predecessorRead.mockReset();predecessorRead.mockResolvedValue({data:[predecessor("ifr","Issued for Review (IFR)"),predecessor("ifa","Issued for Approval (IFA)")],error:null,count:2});
+  query.select.mockReturnValue(query);query.eq.mockReturnValue(query);query.in.mockReturnValue(query);query.is.mockReturnValue(query);query.order.mockReturnValue(query);query.limit.mockReturnValue(query);
 });
 describe("override eligibility API",()=>{
   it("returns private uncached tenant-scoped eligibility",async()=>{
@@ -44,4 +46,79 @@ describe("secure upload registration",()=>{
   it("requires a valid original ID",async()=>{expect((await post({...body,overrideRevisionId:"not-a-uuid"})).status).toBe(422);expect(insert).not.toHaveBeenCalled();});
   it("retains required native-source validation for overrides",async()=>{const response=await post({...body,issueStatus:"Issued for Design (IFD)",overrideRevisionId:target});expect(response.status).toBe(422);expect(insert).not.toHaveBeenCalled();});
   it("denies engineers outside the document assignment",async()=>{rpc.mockResolvedValue({data:false,error:null});expect((await post({...body,overrideRevisionId:target})).status).toBe(403);expect(sign).not.toHaveBeenCalled();});
+});
+
+describe("strict completed controlled issue sequence",()=>{
+  const terminalBody=(issueStatus="Issued for Design (IFD)")=>({...body,issueStatus,fileName:"design.docx",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+  it("requires a completed IFR before IFA and returns no signed URL on failure",async()=>{
+    predecessorRead.mockResolvedValue({data:[],error:null,count:0});
+    const response=await post({...body,issueStatus:"Issued for Approval (IFA)"});
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.message).toContain("Issued for Review (IFR)");
+    expect(insert).not.toHaveBeenCalled();expect(sign).not.toHaveBeenCalled();
+  });
+  it.each(["Issued for Design (IFD)","Issued for Construction (IFC)"])("does not unlock %s from legacy IFA alone",async issueStatus=>{
+    predecessorRead.mockResolvedValue({data:[predecessor("ifa","Issued for Approval (IFA)")],error:null,count:1});
+    const response=await post(terminalBody(issueStatus));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.message).toContain("Issued for Review (IFR)");
+    expect(insert).not.toHaveBeenCalled();expect(sign).not.toHaveBeenCalled();
+  });
+  it.each(["Issued for Design (IFD)","Issued for Construction (IFC)"])("requires the completed IFA as well as IFR for %s",async issueStatus=>{
+    predecessorRead.mockResolvedValue({data:[predecessor("ifr","Issued for Review (IFR)")],error:null,count:1});
+    const response=await post(terminalBody(issueStatus));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.message).toContain("Issued for Approval (IFA)");
+    expect(insert).not.toHaveBeenCalled();
+  });
+  it("matches canonical completed labels with case and outer whitespace normalised",async()=>{
+    predecessorRead.mockResolvedValue({data:[predecessor("ifr"," issued FOR review (ifr) "),predecessor("ifa"," ISSUED FOR APPROVAL (ifa) ")],error:null,count:2});
+    expect((await post(terminalBody())).status).toBe(201);
+    expect(query.eq).toHaveBeenCalledWith("organisation_id",params.organisationId);
+    expect(query.eq).toHaveBeenCalledWith("project_id",params.projectId);
+    expect(query.eq).toHaveBeenCalledWith("document_id",params.documentId);
+    expect(query.in).toHaveBeenCalledWith("state",["ready","superseded"]);
+    expect(query.in).toHaveBeenCalledWith("control_status",["submitted","accepted"]);
+    expect(query.is).toHaveBeenCalledWith("overridden_by_revision_id",null);
+    expect(query.select).toHaveBeenCalledWith("id,issue_status,created_at",{count:"exact"});
+  });
+  it("does not treat Approved / Final as a completed canonical IFA prerequisite",async()=>{
+    predecessorRead.mockResolvedValue({data:[predecessor("ifr","Issued for Review (IFR)"),predecessor("final","Approved / Final")],error:null,count:2});
+    expect((await post(terminalBody())).status).toBe(409);expect(insert).not.toHaveBeenCalled();
+  });
+  it("retains other issue-purpose behaviour without adding predecessor rules",async()=>{
+    expect((await post({...body,issueStatus:"Issued for Information (IFI)"})).status).toBe(201);
+    expect(predecessorRead).not.toHaveBeenCalled();
+  });
+  it("fails closed without leaking diagnostics if predecessor verification fails",async()=>{
+    predecessorRead.mockResolvedValue({data:null,error:{message:"private database diagnostic"},count:null});
+    const response=await post(terminalBody());
+    expect(response.status).toBe(503);expect(await response.text()).not.toContain("private database diagnostic");
+    expect(insert).not.toHaveBeenCalled();expect(sign).not.toHaveBeenCalled();
+  });
+  it("pages eligible history until both prerequisites are found instead of trusting a row cap",async()=>{
+    predecessorRead.mockResolvedValueOnce({data:Array.from({length:200},(_,index)=>predecessor(String(index),index===0?"Issued for Approval (IFA)":"Draft / Work in Progress")),error:null,count:201})
+      .mockResolvedValueOnce({data:[predecessor("earlier-ifr","Issued for Review (IFR)")],error:null,count:201});
+    expect((await post(terminalBody())).status).toBe(201);
+    expect(predecessorRead.mock.calls).toEqual([[0,199],[200,399]]);
+  });
+  it("does not trust a changing or incomplete history while verifying the prerequisites",async()=>{
+    predecessorRead.mockResolvedValueOnce({data:[predecessor("ifa","Issued for Approval (IFA)")],error:null,count:2})
+      .mockResolvedValueOnce({data:[predecessor("ifr","Issued for Review (IFR)")],error:null,count:3});
+    expect((await post(terminalBody())).status).toBe(503);
+    expect(predecessorRead.mock.calls).toEqual([[0,199],[1,200]]);
+    expect(insert).not.toHaveBeenCalled();
+  });
+  it("rejects a legacy IFA followed by IFR until a new correctly ordered IFA completes",async()=>{
+    predecessorRead.mockResolvedValue({data:[predecessor("ifa","Issued for Approval (IFA)","2026-09-01T12:00:00Z"),predecessor("ifr","Issued for Review (IFR)","2026-09-02T12:00:00Z")],error:null,count:2});
+    const response=await post(terminalBody());
+    expect(response.status).toBe(409);expect((await response.json()).error.message).toContain("IFR before IFA");
+    expect(insert).not.toHaveBeenCalled();expect(sign).not.toHaveBeenCalled();
+    predecessorRead.mockResolvedValue({data:[predecessor("ifa","IFA","2026-09-01T12:00:00Z"),predecessor("ifr"," IFR ","2026-09-02T12:00:00Z"),predecessor("new-ifa"," ifa ","2026-09-03T12:00:00Z")],error:null,count:3});
+    expect((await post(terminalBody())).status).toBe(201);
+  });
+  it("still rejects a crafted acronym target instead of accepting it as a new status value",async()=>{
+    expect((await post(terminalBody("IFD"))).status).toBe(422);
+    expect(insert).not.toHaveBeenCalled();expect(predecessorRead).not.toHaveBeenCalled();
+  });
 });

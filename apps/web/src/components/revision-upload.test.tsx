@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/browser",()=>({createClient:vi.fn()}));
 const fetchMock=vi.fn();
 const props={organisationId:"org",projectId:"project",documentId:"doc",deliveryStage:"feed" as const,completedIssueStatuses:[]};
 function prepare(){render(<RevisionUpload {...props}/>);fireEvent.change(screen.getByRole("textbox",{name:"Revision"}),{target:{value:"A"}});fireEvent.change(screen.getByRole("combobox"),{target:{value:"Issued for Review (IFR)"}});}
-beforeEach(()=>{vi.stubGlobal("fetch",fetchMock);fetchMock.mockReset();});
+beforeEach(()=>{vi.stubGlobal("fetch",fetchMock);fetchMock.mockReset();vi.mocked(createClient).mockClear();});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
 async function readBytes(blob:Blob):Promise<ArrayBuffer>{
@@ -111,6 +111,53 @@ describe("submission override checkbox",()=>{
 });
 
 describe("revision upload presentation and accessibility",()=>{
+  it("does not unlock IFD or IFC from a legacy IFA-only history",()=>{
+    render(<RevisionUpload {...props} completedIssueStatuses={["Issued for Approval (IFA)"]}/>);
+    for(const purpose of ["Issued for Approval (IFA)","Issued for Design (IFD)","Issued for Construction (IFC)"]){
+      expect((screen.getByRole("option",{name:purpose}) as HTMLOptionElement).disabled).toBe(true);
+    }
+    expect(screen.getByText("Submit IFR first.")).toBeTruthy();
+  });
+
+  it.each(["Issued for Approval (IFA)","Issued for Design (IFD)","Issued for Construction (IFC)"])("blocks a manipulated disabled %s selection before checksum, network or storage work",purpose=>{
+    render(<RevisionUpload {...props} completedIssueStatuses={["Issued for Approval (IFA)"]}/>);
+    fireEvent.change(screen.getByRole("textbox",{name:"Revision"}),{target:{value:"D01"}});
+    const select=screen.getByRole("combobox") as HTMLSelectElement;
+    (screen.getByRole("option",{name:purpose}) as HTMLOptionElement).disabled=false;
+    fireEvent.change(select,{target:{value:purpose}});
+    const file=new File(["%PDF-1.7"],"design.pdf",{type:"application/pdf"});
+    fireEvent.change(screen.getByLabelText("Controlled issue file"),{target:{files:{item:()=>file}}});
+    fireEvent.click(screen.getByRole("button",{name:"Start secure upload"}));
+    expect(screen.getByRole("alert").textContent).toContain("Complete secure submission of Issued for Review (IFR)");
+    expect(document.activeElement).toBe(select);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it("normalises completed controlled labels consistently in options and guidance",()=>{
+    render(<RevisionUpload {...props} completedIssueStatuses={[" issued FOR review (ifr) "," ISSUED FOR APPROVAL (ifa) "]}/>);
+    expect((screen.getByRole("option",{name:"Issued for Design (IFD)"}) as HTMLOptionElement).disabled).toBe(false);
+    expect(screen.queryByText("Submit IFR first.")).toBeNull();
+    expect(screen.queryByText("IFR complete. Submit IFA next.")).toBeNull();
+  });
+
+  it("blocks a terminal issue when the legacy IFA was submitted before the only completed IFR",()=>{
+    render(<RevisionUpload {...props} completedIssueStatuses={["Issued for Review (IFR)","Issued for Approval (IFA)"]} completedIssueRevisions={[
+      {issue_status:"Issued for Approval (IFA)",created_at:"2026-09-01T12:00:00Z"},
+      {issue_status:"Issued for Review (IFR)",created_at:"2026-09-02T12:00:00Z"},
+    ]}/>);
+    const option=screen.getByRole("option",{name:"Issued for Design (IFD)"}) as HTMLOptionElement;
+    expect(option.disabled).toBe(true);
+    option.disabled=false;
+    fireEvent.change(screen.getByRole("combobox"),{target:{value:option.value}});
+    fireEvent.change(screen.getByRole("textbox",{name:"Revision"}),{target:{value:"D01"}});
+    const file=new File(["%PDF-1.7"],"design.pdf",{type:"application/pdf"});
+    fireEvent.change(screen.getByLabelText("Controlled issue file"),{target:{files:{item:()=>file}}});
+    fireEvent.click(screen.getByRole("button",{name:"Start secure upload"}));
+    expect(screen.getByRole("alert").textContent).toContain("IFR before IFA");
+    expect(fetchMock).not.toHaveBeenCalled();expect(createClient).not.toHaveBeenCalled();
+  });
+
   it("names the form and groups revision details separately from files",()=>{
     render(<RevisionUpload {...props}/>);
     expect(screen.getByRole("form",{name:"Upload revision"}).getAttribute("aria-busy")).toBe("false");
