@@ -6,9 +6,10 @@ import { clearNotification } from "@/app/app/workflow-actions";
 import { NotificationReadReceipt } from "@/components/notification-read-receipt";
 import { requireNotificationUser } from "@/lib/auth";
 import { notificationDestination } from "@/lib/notification-links";
-import { loadNotificationDocumentContext } from "@/lib/notification-document-context";
+import { loadNotificationDocumentContext,type NotificationDocumentContext } from "@/lib/notification-document-context";
 import {HelpTip} from "@/components/help-tip";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
+import {ReadUnavailable} from "@/components/read-unavailable";
 
 type NotificationRow = {
   id: string;
@@ -33,12 +34,17 @@ export default async function NotificationPreviewPage({
   if (!z.uuid().safeParse(notificationId).success) notFound();
 
   const { supabase, user, preview } = await requireNotificationUser();
-  const { data } = await supabase
-    .from("notifications")
-    .select("id,organisation_id,project_id,kind,title,body,href,read_at,created_at")
-    .eq("id", notificationId)
-    .eq("recipient_user_id", user.id)
-    .maybeSingle();
+  const retryHref=`/app/notifications/${notificationId}`;
+  let read:{data:unknown;error?:unknown};
+  try{
+    read=await supabase.from("notifications")
+      .select("id,organisation_id,project_id,kind,title,body,href,read_at,created_at")
+      .eq("id",notificationId).eq("recipient_user_id",user.id).maybeSingle();
+  }catch{
+    return <ReadUnavailable title="Notification could not be loaded" href={retryHref}/>;
+  }
+  if(read.error)return <ReadUnavailable title="Notification could not be loaded" href={retryHref}/>;
+  const {data}=read;
   if (!data) notFound();
 
   const notification = data as NotificationRow;
@@ -48,21 +54,31 @@ export default async function NotificationPreviewPage({
     projectId: notification.project_id,
   });
 
+  let destinationReadFailed=false;
   if (destination && notification.organisation_id && notification.project_id) {
-    const { data: access } = await supabase
-      .from("project_access")
-      .select("project_id")
-      .eq("organisation_id", notification.organisation_id)
-      .eq("project_id", notification.project_id)
-      .maybeSingle();
-    if (!access) destination = null;
+    try{
+      const {data:access,error:accessError}=await supabase.from("project_access")
+        .select("project_id").eq("organisation_id",notification.organisation_id)
+        .eq("project_id",notification.project_id).maybeSingle();
+      destinationReadFailed=Boolean(accessError);
+      if(accessError||!access)destination=null;
+    }catch{
+      destinationReadFailed=true;
+      destination=null;
+    }
   }
 
   // Enrich only the validated, accessible destination, using the same member
   // client as the message. Optional document context must never widen access.
-  const documentContext = destination
-    ? (await loadNotificationDocumentContext(supabase, [{ id: notification.id, href: destination }])).get(notification.id)
-    : undefined;
+  let documentContext:NotificationDocumentContext|undefined;
+  try{
+    documentContext=destination
+      ?(await loadNotificationDocumentContext(supabase,[{id:notification.id,href:destination}])).get(notification.id)
+      :undefined;
+  }catch{
+    // Optional enrichment cannot turn an already authorised message into an error.
+    documentContext=undefined;
+  }
 
   return (
     <div className="mx-auto min-w-0 max-w-3xl space-y-5">
@@ -91,7 +107,10 @@ export default async function NotificationPreviewPage({
             </p>
           )}
 
-          {!destination && notification.href && (
+          {destinationReadFailed ? <div role="alert" className="mt-5 rounded-xl border border-[#e3ccb7] bg-[#fffaf5] p-3 text-sm leading-6 text-[#7c431f]">
+            <p>The related project page could not be verified. Your notification remains available.</p>
+            <a href={retryHref} data-preview-safe className="mt-1 inline-flex min-h-11 items-center rounded-lg font-semibold underline">Retry related page check</a>
+          </div> : !destination && notification.href && (
             <div className="mt-5 flex gap-3 rounded-xl border border-[#d6e0ed] bg-[#f7f9fc] p-3 text-sm leading-6 text-[#617083]">
               <Info size={18} className="mt-0.5 shrink-0 text-[#10243e]" aria-hidden="true"/>
               <p>The related project page is no longer available to your account. The notification remains here for reference.</p>
@@ -109,7 +128,7 @@ export default async function NotificationPreviewPage({
               )}
               <Link href="/app/notifications" className="ev-button-secondary min-h-11 w-full sm:w-auto"><ArrowLeft size={16} aria-hidden="true"/> Return to notifications</Link>
               {destination && (
-                <Link href={destination} className="ev-button min-h-11 w-full sm:w-auto">Open related project page <ExternalLink size={15} aria-hidden="true"/></Link>
+                <Link href={destination} className="ev-button min-h-11 w-full sm:w-auto">{documentContext?"Open related document":"Open related project page"} <ExternalLink size={15} aria-hidden="true"/></Link>
               )}
             </div>
           </footer>

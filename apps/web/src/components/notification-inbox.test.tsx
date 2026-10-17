@@ -15,6 +15,23 @@ const manyItems:NotificationInboxItem[]=Array.from({length:25},(_,index)=>({
   created_at:new Date(Date.UTC(2026,9,17,12)-index*60*60*1000).toISOString(),
 }));
 
+describe("server-paged notification browsing",()=>{
+  it("keeps search coverage behind keyboard-accessible help outside the input label",()=>{
+    render(<NotificationInbox items={items} paging={{q:"",unreadOnly:false,page:1,pages:3,total:65,allCount:65,unreadCount:42}}/>);
+    expect(screen.getByRole("searchbox",{name:"Search message text"})).toBeTruthy();expect(screen.queryByRole("tooltip")).toBeNull();
+    const help=screen.getByRole("button",{name:"Notification search coverage"});expect(help.closest("label")).toBeNull();
+    fireEvent.focus(help);expect(screen.getByRole("tooltip").textContent).toContain("titles, message text and event names across your inbox, including older messages");
+    fireEvent.keyDown(help,{key:"Escape"});expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+  it("keeps server-paged GET filters, help and navigation available in read-only preview",()=>{
+    render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"engineer",displayName:"Engineer",disciplines:["Electrical"],expiresAt:"2099-01-01"}}><NotificationInbox items={manyItems} paging={{q:"Cable",unreadOnly:true,page:2,pages:3,total:65,allCount:100,unreadCount:65}}/></AdminPreviewBoundary>);
+    const form=screen.getByRole("form",{name:"Search notification history"});expect(form.getAttribute("method")).toBe("get");expect(form.hasAttribute("data-preview-safe")).toBe(true);
+    expect((screen.getByRole("searchbox",{name:"Search message text"}) as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByRole("button",{name:"Notification search coverage"}) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole("link",{name:"Next notifications page"}).getAttribute("href")).toBe("/app/notifications?q=Cable&unread=1&page=3");
+  });
+});
+
 describe("clean notification inbox",()=>{
   it("keeps the supplied newest-first order and safe internal message destinations",()=>{
     render(<NotificationInbox items={items}/>);

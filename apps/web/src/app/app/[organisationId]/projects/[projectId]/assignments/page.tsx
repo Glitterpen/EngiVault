@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
-  FileCheck2,
   FileUp,
   MessageSquareWarning,
 } from "lucide-react";
@@ -30,7 +29,7 @@ type DocumentRow={id:string;document_number:string;title:string;discipline:strin
 type RevisionRow={id:string;document_id:string;revision_code:string;issue_status:string;state:string;control_status:string;review_comment:string|null;created_at:string;reviewed_at:string|null;overridden_by_revision_id:string|null};
 type ProjectRow={code:string;name:string;project_introduction:string|null;key_objectives:string[];planned_start_date:string|null;planned_end_date:string|null;delivery_stage:ProjectDeliveryStage};
 type NoticeRow={id:string;title:string;body:string;href:string|null;created_at:string;read_at:string|null};
-type DeliverableItem={schedule:DocumentSchedule;document:DocumentRow;latest:RevisionRow|null;credit:number;status:EngineerDeliverableState};
+type DeliverableItem={schedule:DocumentSchedule;document:DocumentRow;latest:RevisionRow|null;credit:number;acceptedIssueStatus:string|null;status:EngineerDeliverableState};
 type ProjectImpactRow={project_actual_percent:number;project_planned_percent:number;project_variance_points:number;project_total_documents:number;project_total_weight:number;engineer_actual_percent:number;engineer_planned_percent:number;engineer_variance_points:number;engineer_share_percent:number;engineer_project_contribution_percent:number;engineer_project_expected_contribution_percent:number;engineer_project_delay_impact_points:number;engineer_total_documents:number;engineer_completed_documents:number;engineer_overdue_documents:number};
 type View="all"|"action"|"review"|"accepted";
 
@@ -40,12 +39,12 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const isEngineer=String(access.role)==="engineer";
   if(!isEngineer)redirect(projectHomePath(organisationId,projectId,String(access.role)));
 
-  const [{data:disciplineRows,error:disciplineError},{data:assignmentRows,error:assignmentError},{data:documentRows,error:documentError},{data:projectData,error:projectError},{data:noticeData},{data:impactData,error:impactError}]=await Promise.all([
+  const [{data:disciplineRows,error:disciplineError},{data:assignmentRows,error:assignmentError},{data:documentRows,error:documentError},{data:projectData,error:projectError},{data:noticeData,error:noticeError},{data:impactData,error:impactError}]=await Promise.all([
     supabase.from("project_member_disciplines").select("discipline").eq("organisation_id",organisationId).eq("project_id",projectId).eq("user_id",user.id).order("discipline"),
     supabase.from("document_assignments").select("document_id").eq("organisation_id",organisationId).eq("project_id",projectId).eq("user_id",user.id).eq("status","active"),
     supabase.from("documents").select("id,document_number,title,discipline,document_type,planned_submission_date,planned_final_date,required_issue_status,responsible_party,progress_weight").eq("organisation_id",organisationId).eq("project_id",projectId).eq("lifecycle_status","active").order("discipline").order("document_number").limit(5000),
     supabase.from("projects").select("code,name,project_introduction,key_objectives,planned_start_date,planned_end_date,delivery_stage").eq("organisation_id",organisationId).eq("id",projectId).maybeSingle(),
-    supabase.from("notifications").select("id,title,body,href,created_at,read_at").eq("organisation_id",organisationId).eq("project_id",projectId).order("created_at",{ascending:false}).limit(3),
+    (async()=>{try{return await supabase.from("notifications").select("id,title,body,href,created_at,read_at").eq("organisation_id",organisationId).eq("project_id",projectId).order("created_at",{ascending:false}).limit(3);}catch{return {data:null,error:true};}})(),
     supabase.rpc("get_engineer_project_impact",{target_organisation:organisationId,target_project:projectId}),
   ]);
   const retryPath=`/app/${organisationId}/projects/${projectId}/assignments`;
@@ -73,7 +72,8 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     // The scoped view sees the complete accepted history even when the separate
     // latest-submission listing reaches the API row cap on a large register.
     const credit=schedule.progress_credit??projectIssueProgressCredit(accepted?.issue_status,deliveryStage);
-    return {document,latest,credit,schedule,status:engineerDeliverableState({plannedSubmissionDate:schedule.next_submission_date,submissionOverdue:schedule.overdue,controlStatus:latest?.control_status??null,progressCredit:credit})};
+    const acceptedIssueStatus=accepted&&projectIssueProgressCredit(accepted.issue_status,deliveryStage)===credit?accepted.issue_status:null;
+    return {document,latest,credit,acceptedIssueStatus,schedule,status:engineerDeliverableState({plannedSubmissionDate:schedule.next_submission_date,submissionOverdue:schedule.overdue,controlStatus:latest?.control_status??null,progressCredit:credit})};
   });
   const view:View=requestedView==="action"||requestedView==="review"||requestedView==="accepted"?requestedView:"all";
   const search=(typeof requestedSearch==="string"?requestedSearch:"").trim().slice(0,180);
@@ -99,7 +99,8 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const dueSoonCount=deliverables.filter(item=>item.status==="due_soon").length;
   const health=engineerProgressHealth({variancePoints:engineerVariance,overdueCount,returnedCount,dueSoonCount,deliverableCount:deliverables.length});
   const closeOutActions=deliverables.filter(item=>requiresEngineerAction(item.status)).sort(compareEngineerActions);
-  const notices=(noticeData??[]) as NoticeRow[];
+  const noticesAvailable=!noticeError;
+  const notices=(noticesAvailable?noticeData??[]:[]) as NoticeRow[];
   const base=`/app/${organisationId}/projects/${projectId}/assignments`;
 
   return <div className="mx-auto min-w-0 max-w-[1450px]">
@@ -113,7 +114,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     </header>
 
     <section aria-label="Assignment summary" className="mt-2 min-w-0 overflow-hidden rounded-xl border border-[#dde4eb] bg-white">
-      <div className="min-w-0 px-3 py-2.5 sm:px-4"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h2 className="text-xs font-semibold text-[#526675]">My progress</h2><p className="text-xl font-semibold tabular-nums">{completion}%</p>{impactAvailable&&<span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${healthConfig[health].badge}`}>{healthConfig[health].label}</span>}</div><div role="progressbar" aria-label="Stage-weighted progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#dce5ef]"><div className="h-full rounded-full bg-[#10243e]" style={{width:`${completion}%`}}/></div><p className="mt-1 text-[11px] leading-4 text-[#526675]">DCC accepted · <span>100% at {projectTerminalIssueStatus(deliveryStage)}</span></p></div>
+      <div className="min-w-0 px-3 py-2.5 sm:px-4"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h2 className="text-xs font-semibold text-[#526675]">My progress</h2><p className="text-xl font-semibold tabular-nums">{completion}%</p>{impactAvailable&&<span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${healthConfig[health].badge}`}>{healthConfig[health].label}</span>}</div><div role="progressbar" aria-label="Stage-weighted progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#dce5ef]"><div className="h-full rounded-full bg-[#10243e]" style={{width:`${completion}%`}}/></div><p className="mt-1 text-xs leading-5 text-[#526675]">Highest DCC-accepted milestone · <span>100% at {projectTerminalIssueStatus(deliveryStage)}</span></p></div>
     </section>
 
       <section id="deliverables" aria-label="My deliverables" className="mt-3 min-w-0">
@@ -126,7 +127,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
         <nav aria-label="Deliverable status" className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-[#dde4eb] bg-white p-1 sm:flex sm:flex-wrap">
           <Filter href={filterHref(base,"all",search)} active={view==="all"} label="All" count={deliverables.length}/>
           <Filter href={filterHref(base,"action",search)} active={view==="action"} label="Action required" count={actionCount}/>
-          <Filter href={filterHref(base,"review",search)} active={view==="review"} label="In DCC review" count={reviewCount}/>
+          <Filter href={filterHref(base,"review",search)} active={view==="review"} label="Awaiting DCC" count={reviewCount}/>
           <Filter href={filterHref(base,"accepted",search)} active={view==="accepted"} label="Accepted" count={acceptedCount}/>
         </nav>
         <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-x-3"><h2 className="text-sm font-semibold">Submissions by issue purpose <HelpTip label="Submission grouping">Grouped by the latest submitted revision’s issue purpose, not the next required stage. Search and status apply across all groups. Large groups show eight deliverables per page. Open Details &amp; schedule for revision requirements and deadlines.</HelpTip></h2><p role="status" className="text-xs text-[#526675]">{filtered.length} of {deliverables.length} deliverables</p></div>
@@ -149,7 +150,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     <CloseOutActions actions={closeOutActions} organisationId={organisationId} projectId={projectId} projectTotalWeight={projectTotalWeight}/>
       <div className="mt-4 grid min-w-0 items-start gap-3 lg:grid-cols-2">
         <details className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">Project brief, objectives and dates</summary><ProjectBrief project={project}/></details>
-        <details className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold"><Bell size={15} aria-hidden="true" className="mr-2 inline"/>Engineer notifications <span className="ml-1 font-normal text-[#526675]">({notices.length} recent)</span></summary><div className="border-t border-[#e7ecef] px-4 py-2">{notices.length?<ul className="divide-y divide-[#e7ecef]">{notices.map(notice=><li key={notice.id}><Link href={`/app/notifications/${notice.id}`} className="block min-h-11 rounded-lg py-3"><p className="break-words text-sm font-semibold">{notice.title}{!notice.read_at&&<span className="ml-2 text-xs font-medium text-[#10243e]">Unread</span>}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#526675]">{notice.body}</p></Link></li>)}</ul>:<p className="py-3 text-sm text-[#526675]">No project notifications yet.</p>}<Link href="/app/notifications" className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#10243e]">View all notifications</Link></div></details>
+        <details id="engineer-notifications" className="min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold"><Bell size={15} aria-hidden="true" className="mr-2 inline"/>Engineer notifications <span className="ml-1 font-normal text-[#526675]">({noticesAvailable?`${notices.length} recent`:"Unavailable"})</span></summary><div className="border-t border-[#e7ecef] px-4 py-2">{!noticesAvailable?<div role="alert" className="py-3 text-sm leading-6 text-[#7c431f]"><p>Recent notifications could not be loaded. Your deliverables remain available.</p><a href={`${filterHref(base,view,search)}#engineer-notifications`} data-preview-safe className="inline-flex min-h-11 items-center rounded-lg font-semibold underline">Retry notifications</a></div>:notices.length?<ul className="divide-y divide-[#e7ecef]">{notices.map(notice=><li key={notice.id}><Link href={`/app/notifications/${notice.id}`} className="block min-h-11 rounded-lg py-3"><p className="break-words text-sm font-semibold">{notice.title}{!notice.read_at&&<span className="ml-2 text-xs font-medium text-[#10243e]">Unread</span>}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#526675]">{notice.body}</p></Link></li>)}</ul>:<p className="py-3 text-sm text-[#526675]">No project notifications yet.</p>}<Link href="/app/notifications" className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#10243e]">View all notifications</Link></div></details>
       </div>
   </div>;
 }
@@ -228,16 +229,33 @@ function DeliverableCard({item,organisationId,projectId}:{item:DeliverableItem;o
   const config=statusConfig[status];
   const href=`/app/${organisationId}/projects/${projectId}/documents/${document.id}#submit-revision`;
   const action=status==="returned"?"Upload corrected revision":status==="next_revision"?"Upload next revision":latest?"Open deliverable":"Submit first revision";
-  return <article className="min-w-0 p-4 sm:px-5"><div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-semibold text-[#526675]">{document.document_number}</p><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.tone}`}>{config.label}</span></div><h3 className="mt-1 break-words text-base font-semibold">{document.title}</h3><p className="mt-1 break-words text-xs leading-5 text-[#526675]">{document.discipline} · {document.document_type}{document.responsible_party?` · ${document.responsible_party}`:""}</p><div className="mt-2 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-[#526675]"><span className="inline-flex items-center gap-1.5"><Clock3 size={14} aria-hidden="true"/>{item.schedule.next_submission_date?`Next due: ${formatDate(item.schedule.next_submission_date)}`:"No next submission scheduled"}</span><span className="inline-flex min-w-0 items-start gap-1.5 break-words"><FileCheck2 size={14} aria-hidden="true" className="mt-0.5 shrink-0"/>{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</span></div></div><div className="flex min-w-0 flex-col items-stretch sm:items-end"><Link href={href} className={`${requiresEngineerAction(status)?"ev-button":"ev-button-secondary"} w-full sm:w-auto`}><FileUp size={16} aria-hidden="true"/>{action}</Link>{item.schedule.next_submission_date&&<Link className="inline-flex min-h-11 items-center justify-center rounded-lg text-xs font-semibold text-[#10243e]" href={`/app/${organisationId}/projects/${projectId}/requests?document=${document.id}#new-request`}>Request submission date change</Link>}</div></div>
+  return <article className="min-w-0 p-4 sm:px-5"><div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="break-all text-xs font-semibold text-[#526675]">{document.document_number}</p><span aria-label={`Action status: ${config.label}`} className={`rounded-full px-2 py-0.5 text-xs font-medium ${config.tone}`}>{config.label}</span></div><h3 className="mt-1 break-words text-base font-semibold">{document.title}</h3><p className="mt-1 break-words text-xs leading-5 text-[#526675]">{document.discipline} · {document.document_type}{document.responsible_party?` · ${document.responsible_party}`:""}</p><p className="mt-2 inline-flex items-center gap-1.5 text-xs leading-5 text-[#526675]"><Clock3 size={14} aria-hidden="true"/>{item.schedule.next_submission_date?`Next due: ${formatDate(item.schedule.next_submission_date)}`:"No next submission scheduled"}</p></div><div className="flex min-w-0 flex-col items-stretch sm:items-end"><Link href={href} className={`${requiresEngineerAction(status)?"ev-button":"ev-button-secondary"} w-full sm:w-auto`}><FileUp size={16} aria-hidden="true"/>{action}</Link>{item.schedule.next_submission_date&&<Link className="inline-flex min-h-11 items-center justify-center rounded-lg text-xs font-semibold text-[#10243e]" href={`/app/${organisationId}/projects/${projectId}/requests?document=${document.id}#new-request`}>Request submission date change</Link>}</div></div>
+    <dl aria-label={`Submission and earned progress for ${document.document_number}`} className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 border-t border-[#e7ecef] pt-3 text-xs leading-5 sm:grid-cols-3">
+      <div className="col-span-2 min-w-0 sm:col-span-1"><dt className="font-medium text-[#617083]">Latest submission</dt><dd className="mt-0.5 break-words text-[#35485d]">{latest?`Latest ${latest.revision_code} · ${latest.issue_status}`:"No revision submitted"}</dd></div>
+      <div className="min-w-0"><dt className="font-medium text-[#617083]">Review status</dt><dd className="mt-0.5 break-words font-medium text-[#10243e]">{latestReviewLabel(latest)}</dd></div>
+      <div className="min-w-0"><dt className="font-medium text-[#617083]">Earned milestone</dt><dd className="mt-0.5 break-words text-[#10243e]"><span className="font-semibold">Highest accepted progress: {item.credit}%</span>{item.acceptedIssueStatus&&<span className="mt-0.5 block text-[#526675]">{item.acceptedIssueStatus}</span>}</dd></div>
+    </dl>
     {latest?.review_comment&&<div className="mt-3 flex gap-2 rounded-lg border border-[#efc6b4] bg-[#fff8f4] p-3"><MessageSquareWarning size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-[#a5452f]"/><div className="min-w-0"><p className="text-xs font-semibold text-[#a5452f]">Document Controller feedback</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-[#754333]">{latest.review_comment}</p></div></div>}
-    <details className="group/schedule mt-1 min-w-0"><summary className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg text-xs font-semibold text-[#10243e]">Details &amp; schedule<span className="sr-only"> for {document.document_number}</span><ChevronDown size={14} aria-hidden="true" className="shrink-0 group-open/schedule:rotate-180"/></summary><div className="grid min-w-0 gap-3 rounded-xl bg-[#f6f8fa] p-3 text-xs leading-5 text-[#526675] sm:grid-cols-3"><DocumentIssueSchedule schedule={item.schedule}/><span className="break-words">Required: {document.required_issue_status||"To be confirmed"}</span><span>Progress credit: {item.credit}%</span></div></details>
+    <details className="group/schedule mt-1 min-w-0"><summary className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg text-xs font-semibold text-[#10243e]">Details &amp; schedule<span className="sr-only"> for {document.document_number}</span><ChevronDown size={14} aria-hidden="true" className="shrink-0 group-open/schedule:rotate-180"/></summary><div className="grid min-w-0 gap-3 rounded-xl bg-[#f6f8fa] p-3 text-xs leading-5 text-[#526675] sm:grid-cols-2"><DocumentIssueSchedule schedule={item.schedule}/><span className="break-words">Required: {document.required_issue_status||"To be confirmed"}</span></div></details>
   </article>;
+}
+
+function latestReviewLabel(revision:RevisionRow|null){
+  if(!revision)return "Not submitted";
+  if(revision.overridden_by_revision_id)return "Overridden";
+  if(revision.state==="pending_upload")return "Upload incomplete";
+  if(revision.state==="failed")return "Security checks need attention";
+  if(revision.state!=="ready"&&revision.state!=="superseded")return "Security checks in progress";
+  if(revision.control_status==="accepted")return "Accepted by DCC";
+  if(revision.control_status==="returned")return "Returned by DCC";
+  if(revision.control_status!=="submitted")return "Review status unavailable";
+  return "Awaiting DCC review";
 }
 
 const statusConfig:Record<EngineerDeliverableState,{label:string;tone:string;border:string}>={
   accepted:{label:"Stage accepted",tone:"bg-[#eef3fa] text-[#10243e]",border:"border-l-[#10243e]"},
   next_revision:{label:"Next revision required",tone:"bg-[#e7f0fb] text-[#244f7c]",border:"border-l-[#3f77ad]"},
-  in_review:{label:"In DCC review",tone:"bg-[#fff7dd] text-[#7a5a00]",border:"border-l-[#d39b1f]"},
+  in_review:{label:"Awaiting DCC",tone:"bg-[#fff7dd] text-[#7a5a00]",border:"border-l-[#d39b1f]"},
   returned:{label:"Returned · action required",tone:"bg-[#fff0e9] text-[#a5452f]",border:"border-l-[#e8733f]"},
   overdue:{label:"Overdue",tone:"bg-[#fde8e4] text-[#9b2f28]",border:"border-l-[#b53b31]"},
   due_soon:{label:"Due soon",tone:"bg-[#fff7dd] text-[#7a5a00]",border:"border-l-[#d39b1f]"},

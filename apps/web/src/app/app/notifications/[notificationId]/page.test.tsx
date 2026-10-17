@@ -66,7 +66,7 @@ it.each([false,true])("preserves authorised document identity with the existing 
   const context=screen.getByRole("region",{name:"Related document"});
   expect(context.textContent).toContain("NWC-CRX-LST-INS-0001-00");expect(context.textContent).toContain("Instrumentation");
   expect(screen.getByRole("heading",{level:2,name:"Preliminary I/O List"})).toBeTruthy();
-  expect(screen.getByRole("link",{name:"Open related project page"}).getAttribute("href")).toBe(documentHref);
+  expect(screen.getByRole("link",{name:"Open related document"}).getAttribute("href")).toBe(documentHref);
   expect(NotificationReadReceipt).toHaveBeenCalledTimes(isPreview?0:1);expect(screen.queryByRole("form")!==null).toBe(!isPreview);
 });
 it("keeps the notification readable when optional document context is inaccessible or unavailable",async()=>{
@@ -84,4 +84,35 @@ it("rejects malformed notification identifiers before reading authentication or 
 it("does not render a missing or unauthorised notification",async()=>{
   row=null;await expect(page()).rejects.toThrow("not found");expect(from.mock.calls).toEqual([["notifications"]]);expect(NotificationReadReceipt).not.toHaveBeenCalled();
   expect(loadNotificationDocumentContext).not.toHaveBeenCalled();
+});
+it.each(["response","exception"])("shows a retry state instead of a false not-found result on notification read %s",async failure=>{
+  if(failure==="response")notificationQuery.maybeSingle.mockResolvedValueOnce({data:null,error:{message:"private notification diagnostic"}});
+  else notificationQuery.maybeSingle.mockRejectedValueOnce(new Error("private notification diagnostic"));
+  render(await page());
+  expect(screen.getByRole("heading",{level:1,name:"Notification could not be loaded"})).toBeTruthy();
+  expect(screen.getByRole("link",{name:"Retry loading"}).getAttribute("href")).toBe(`/app/notifications/${notificationId}`);
+  expect(document.body.textContent).not.toContain("private notification diagnostic");
+  expect(NotificationReadReceipt).not.toHaveBeenCalled();expect(loadNotificationDocumentContext).not.toHaveBeenCalled();
+  expect(from.mock.calls).toEqual([["notifications"]]);
+});
+it.each(["response","exception"])("keeps the message readable when destination verification %s fails without claiming access was revoked",async failure=>{
+  if(failure==="response")accessQuery.maybeSingle.mockResolvedValueOnce({data:null,error:{message:"private access diagnostic"}});
+  else accessQuery.maybeSingle.mockRejectedValueOnce(new Error("private access diagnostic"));
+  render(await page());
+  expect(screen.getByText(/Customer document body/)).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("related project page could not be verified");
+  expect(screen.getByRole("link",{name:"Retry related page check"}).getAttribute("href")).toBe(`/app/notifications/${notificationId}`);
+  expect(screen.queryByRole("link",{name:"Open related project page"})).toBeNull();
+  expect(screen.queryByText(/no longer available to your account/)).toBeNull();
+  expect(document.body.textContent).not.toContain("private access diagnostic");
+  expect(loadNotificationDocumentContext).not.toHaveBeenCalled();
+  expect(vi.mocked(NotificationReadReceipt).mock.calls[0][0]).toEqual({notificationId,unread:true});
+});
+it("keeps optional document context failures from hiding an authorised notification",async()=>{
+  vi.mocked(loadNotificationDocumentContext).mockRejectedValueOnce(new Error("optional context unavailable"));
+  render(await page());
+  expect(screen.getByText(/Customer document body/)).toBeTruthy();
+  expect(screen.getByRole("link",{name:"Open related project page"}).getAttribute("href")).toBe(href);
+  expect(screen.queryByRole("region",{name:"Related document"})).toBeNull();
+  expect(vi.mocked(NotificationReadReceipt).mock.calls[0][0]).toEqual({notificationId,unread:true});
 });

@@ -222,7 +222,7 @@ describe("revision upload presentation and accessibility",()=>{
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("exposes determinate progress and preserves secure completion",async()=>{
+  it("exposes honest upload stages without fabricated percentages and preserves secure completion",async()=>{
     const upload=vi.fn().mockResolvedValue({error:null});
     vi.mocked(createClient).mockReturnValue({storage:{from:()=>({uploadToSignedUrl:upload})}} as unknown as ReturnType<typeof createClient>);
     vi.spyOn(Blob.prototype,"arrayBuffer").mockImplementation(function(this:Blob){return readBytes(this);});
@@ -237,12 +237,17 @@ describe("revision upload presentation and accessibility",()=>{
       fireEvent.click(screen.getByRole("button",{name:"Start secure upload"}));
       await waitFor(()=>expect(fetchMock).toHaveBeenCalledTimes(1));
       expect(screen.getByRole("form",{name:"Upload revision"}).getAttribute("aria-busy")).toBe("true");
-      expect(screen.getByRole("progressbar",{name:"Secure upload progress"}).getAttribute("aria-valuenow")).toBe("25");
+      const stages=screen.getByRole("region",{name:"Secure upload stages"});
+      expect(stages.querySelector('[aria-current="step"]')?.textContent).toContain("Prepare upload");
+      expect(screen.queryByRole("progressbar")).toBeNull();
+      expect(screen.getByText("Preparing secure upload links...")).toBeTruthy();
+      expect(stages.textContent).not.toContain("25%");
       expect((screen.getByRole("textbox",{name:"Revision"}) as HTMLInputElement).disabled).toBe(true);
       expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({revisionCode:"A",issueStatus:"Issued for Review (IFR)",issueDate:"2026-10-16",fileName:"review.pdf"});
       resolve(Response.json({revisionId:"rev",path:"primary",token:"token"}));
       await screen.findByText("Upload complete. The revision is queued for secure processing.");
-      expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
+      expect(stages.querySelector('[aria-current="step"]')?.textContent).toContain("Queued for security checks");
+      expect(screen.queryByRole("progressbar")).toBeNull();
       expect(screen.getByRole("form",{name:"Upload revision"}).getAttribute("aria-busy")).toBe("false");
       expect(fetchMock.mock.calls[1][0]).toContain("/revisions/rev/complete");
       expect(upload).toHaveBeenCalledWith("primary","token",expect.any(File),{contentType:"application/pdf",upsert:false});

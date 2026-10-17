@@ -66,3 +66,13 @@ it("keeps due dates, document links and role-gated row actions alongside the pur
   expect(screen.queryByRole("button",{name:"Manage EL-001"})).toBeNull();
   expect(screen.getAllByText("IFR",{exact:true})).toHaveLength(2);
 });
+
+it("carries only the current MDR browsing query on both mobile and desktop document links",()=>{
+  const query="q=load&records=removed&folder=Electrical&folderPage=2";
+  render(<MdrDocumentRows docs={[document()]} organisationId="org" projectId="project" canManage={false} title="Electrical" returnToMdr={query}/>);
+  for(const link of screen.getAllByRole("link",{name:/EL-001.*Electrical load list/})){
+    const target=new URL(link.getAttribute("href")!,"https://engicite.test");
+    expect(target.pathname).toBe("/app/org/projects/project/documents/document");
+    expect(target.searchParams.get("mdr")).toBe(query);
+  }
+});

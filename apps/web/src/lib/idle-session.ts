@@ -1,10 +1,17 @@
 export const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+export const IDLE_WARNING_MS = 60 * 1000;
 
 /** Refreshes and navigation must not restart a session's inactivity clock. */
-export function watchIdleSession(key: string, expire: () => void) {
+export function watchIdleSession(key: string, expire: () => void, warn?: (remainingSeconds: number | null) => void) {
   let lastActivity = Date.now();
   let expired = false;
   let timer: ReturnType<typeof setTimeout>;
+  let warningSeconds: number | null | undefined;
+  const updateWarning = (seconds: number | null) => {
+    if (seconds === warningSeconds) return;
+    warningSeconds = seconds;
+    warn?.(seconds);
+  };
   const read = () => {
     try {
       const value = localStorage.getItem(key);
@@ -21,6 +28,7 @@ export function watchIdleSession(key: string, expire: () => void) {
     if (Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
       expired = true;
       clearTimeout(timer);
+      updateWarning(null);
       expire();
       return true;
     }
@@ -28,7 +36,12 @@ export function watchIdleSession(key: string, expire: () => void) {
   };
   const schedule = () => {
     clearTimeout(timer);
-    if (!check()) timer = setTimeout(schedule, IDLE_TIMEOUT_MS - (Date.now() - lastActivity));
+    if (check()) return;
+    const remaining = IDLE_TIMEOUT_MS - (Date.now() - lastActivity);
+    const warning = Boolean(warn) && remaining <= IDLE_WARNING_MS;
+    updateWarning(warning ? Math.ceil(remaining / 1000) : null);
+    // A warning only observes the existing deadline; it never records activity.
+    timer = setTimeout(schedule, warning ? Math.min(1000, remaining) : warn ? remaining - IDLE_WARNING_MS : remaining);
   };
   const activity = (event: Event) => {
     // Includes touch-generated and keyboard-activated clicks, not mouse movement,

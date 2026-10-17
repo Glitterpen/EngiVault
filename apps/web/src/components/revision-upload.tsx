@@ -45,6 +45,14 @@ type UploadSession = {
   token: string;
   native?: { path: string; token: string };
 };
+const UPLOAD_STAGES=[
+  {key:"checking",label:"Check files"},
+  {key:"preparing",label:"Prepare upload"},
+  {key:"transferring",label:"Transfer files"},
+  {key:"registering",label:"Register submission"},
+  {key:"queued",label:"Queued for security checks"},
+] as const;
+type UploadStage=(typeof UPLOAD_STAGES)[number]["key"]|null;
 
 export function RevisionUpload({
   organisationId,
@@ -65,7 +73,7 @@ export function RevisionUpload({
   const formId = useId();
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<UploadStage>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [nativeFile, setNativeFile] = useState<File | null>(null);
   const [issueStatus, setIssueStatus] = useState("");
@@ -117,8 +125,8 @@ export function RevisionUpload({
   async function submit(formData: FormData, file: File, companion: File | null) {
     setBusy(true);
     setFailed(false);
-    setProgress(8);
-    setStatus("Validating controlled files...");
+    setUploadStage("checking");
+    setStatus("Checking file types and calculating checksums...");
     try {
       const preparedPrimary = await prepareFile(file, false);
       const preparedNative = companion ? await prepareFile(companion, true) : null;
@@ -126,8 +134,8 @@ export function RevisionUpload({
         throw new Error(`Attach the editable native source before submitting ${projectTerminalIssueStatus(deliveryStage)}.`);
       }
 
-      setProgress(25);
-      setStatus(preparedNative ? "Calculating checksums for both files..." : "Calculating file checksum...");
+      setUploadStage("preparing");
+      setStatus("Preparing secure upload links...");
       const response = await fetch(
         `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/upload-session`,
         {
@@ -160,7 +168,7 @@ export function RevisionUpload({
       if (!response.ok) throw new Error(session.error?.message ?? "Upload session failed.");
 
       const storage = createClient().storage.from("documents");
-      setProgress(45);
+      setUploadStage("transferring");
       setStatus("Uploading the controlled issue file to private storage...");
       const { error } = await storage.uploadToSignedUrl(session.path, session.token, preparedPrimary.file, {
         contentType: preparedPrimary.mimeType,
@@ -170,7 +178,7 @@ export function RevisionUpload({
 
       if (preparedNative) {
         if (!session.native) throw new Error("The native-source upload link is unavailable. Start the upload again.");
-        setProgress(68);
+        setUploadStage("transferring");
         setStatus("Uploading the editable native source to private storage...");
         const { error: nativeError } = await storage.uploadToSignedUrl(
           session.native.path,
@@ -181,7 +189,7 @@ export function RevisionUpload({
         if (nativeError) throw nativeError;
       }
 
-      setProgress(88);
+      setUploadStage("registering");
       setStatus("Moving the complete revision into secure quarantine...");
       const completed = await fetch(
         `/api/v1/organisations/${organisationId}/projects/${projectId}/documents/${documentId}/revisions/${session.revisionId}/complete`,
@@ -192,7 +200,7 @@ export function RevisionUpload({
       }
       const completion = await completed.json();
       if (!completed.ok) throw new Error(completion.error?.message ?? "Upload completion failed.");
-      setProgress(100);
+      setUploadStage("queued");
       setStatus(preparedNative
         ? "Upload complete. The PDF and native source are queued for security processing."
         : "Upload complete. The revision is queued for secure processing.");
@@ -200,7 +208,7 @@ export function RevisionUpload({
       clearOverride();
     } catch (error) {
       setFailed(true);
-      setProgress(0);
+      setUploadStage(null);
       setStatus(customerErrorMessage(error,"Upload failed."));
       // Expose recovery if registration succeeded but a later upload step failed.
       router.refresh();
@@ -392,13 +400,19 @@ export function RevisionUpload({
           {busy ? "Working..." : "Start secure upload"}
         </button>
       </div>
-      {(busy || progress === 100) && (
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between text-xs font-medium text-[#526279]"><span>Secure upload</span><span>{progress}%</span></div>
-          <div role="progressbar" aria-label="Secure upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 overflow-hidden rounded-full bg-[#eef3fa]">
-            <div className="h-full rounded-full bg-[#10243e] transition-all motion-reduce:transition-none" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
+      {uploadStage && (
+        <section aria-label="Secure upload stages" className="mt-4 rounded-xl border border-[#d6e0ed] bg-[#f7f9fc] p-3">
+          <p className="text-xs font-semibold text-[#24384f]">Upload stages</p>
+          <ol className="mt-2 flex min-w-0 flex-wrap gap-x-4 gap-y-2 text-xs leading-5">
+            {UPLOAD_STAGES.map((stage,index)=>{
+              const current=UPLOAD_STAGES.findIndex(item=>item.key===uploadStage),active=index===current,done=index<current;
+              return <li key={stage.key} aria-current={active?"step":undefined} className={active?"font-semibold text-[#10243e]":done?"text-[#405566]":"text-[#617083]"}>
+                <span aria-hidden="true" className="mr-1.5">{done?"✓":`${index+1}.`}</span>{stage.label}
+                <span className="sr-only">{done?" — complete":active?uploadStage==="queued"?" — queued":" — in progress":" — not started"}</span>
+              </li>;
+            })}
+          </ol>
+        </section>
       )}
       {status && (
         <p

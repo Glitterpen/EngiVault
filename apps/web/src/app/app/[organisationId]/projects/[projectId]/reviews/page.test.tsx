@@ -24,7 +24,8 @@ const select = vi.fn();
 const eq = vi.fn();
 const neq = vi.fn();
 const order = vi.fn();
-const page = () => ReviewsPage({ params: Promise.resolve({ organisationId, projectId }) });
+const range = vi.fn();
+const page = (query:Record<string,string>={}) => ReviewsPage({ params: Promise.resolve({ organisationId, projectId }),searchParams:Promise.resolve(query) });
 
 function row(id: string, state = "ready", nativeFilename: string | null = null): SubmissionReviewRow {
   return {
@@ -41,12 +42,13 @@ beforeEach(() => {
   error = null;
   role = "document_controller";
   preview = null;
-  const builder = { select, eq, neq, order };
+  const builder = { select, eq, neq, order,range };
   from.mockReturnValue(builder);
   select.mockReturnValue(builder);
   eq.mockReturnValue(builder);
   neq.mockReturnValue(builder);
-  order.mockImplementation(async () => ({ data: rows, error }));
+  order.mockReturnValue(builder);
+  range.mockImplementation(async(start:number,end:number) => ({ data: rows.slice(start,end+1), error,count:rows.length }));
   vi.mocked(requireProject).mockImplementation(async () => ({ supabase: { from }, access: { role }, preview } as never));
 });
 afterEach(cleanup);
@@ -166,4 +168,23 @@ it.each(["engineer", "project_admin", "organisation_admin", "viewer"])("blocks %
   role = nextRole;
   await expect(page()).rejects.toThrow("notFound");
   expect(from).not.toHaveBeenCalled();
+});
+it("searches the entire authorised queue and links to later result pages without changing review actions",async()=>{
+  rows=Array.from({length:56},(_,index)=>row(String(index).padStart(3,"0")));
+  render(await page({page:"2"}));
+  expect(document.querySelectorAll("details")).toHaveLength(25);
+  expect(screen.getByRole("status").textContent).toContain("Showing 26–50 of 56");
+  expect(screen.getByRole("link",{name:"Next submissions page"}).getAttribute("href")).toBe(`${base}/reviews?page=3`);
+  expect(screen.getByRole("form",{name:"Search submission review"}).getAttribute("method")).toBe("get");
+  expect(range).toHaveBeenCalledWith(0,499);
+  cleanup();render(await page({q:"MEC-055"}));
+  expect(document.querySelectorAll("details")).toHaveLength(1);expect(screen.getByText("Engineering document 055")).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toContain("1 matching submissions");
+});
+it("keeps status and search browsing usable in read-only preview and reports an empty match honestly",async()=>{
+  preview={targetUserId:"dcc-member"};render(await page({q:"not found",state:"ready"}));
+  expect(screen.getByText(/No submissions match/)).toBeTruthy();
+  expect(screen.getByRole("form",{name:"Search submission review"}).hasAttribute("data-preview-safe")).toBe(true);
+  expect(screen.getByRole("combobox",{name:"Security status"})).toHaveProperty("value","ready");
+  expect(screen.queryByRole("button",{name:"Approve submission"})).toBeNull();
 });

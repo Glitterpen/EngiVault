@@ -28,8 +28,8 @@ async function expand(name:string){
   return details;
 }
 
-beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal("fetch",request);request.mockImplementation(async()=>response());});
-afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+beforeEach(()=>{window.history.replaceState(null,"","/");vi.clearAllMocks();vi.stubGlobal("fetch",request);request.mockImplementation(async()=>response());});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();window.history.replaceState(null,"","/");});
 
 it("shows every discipline collapsed initially and makes no eager document requests",()=>{
   render(<MdrDisciplineFolders {...props}/>);
@@ -429,4 +429,76 @@ it("shows a genuine empty-folder response without fabricating a query failure",a
   await expand("Electrical");
   await waitFor(()=>expect(screen.getByText("No documents remain in this discipline for this search.")).toBeTruthy());
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("remembers each discipline page after closing, switching folders and reopening",async()=>{
+  request.mockImplementation(async(target:string)=>{
+    const query=new URL(target,"https://engicite.test").searchParams;
+    const discipline=query.get("discipline")!,page=Number(query.get("page"));
+    return response({documents:[document(discipline==="Electrical"&&page===2?"EL-026":discipline==="Electrical"?"EL-001":"ME-001",discipline)],page,total:discipline==="Electrical"?27:2});
+  });
+  render(<MdrDisciplineFolders {...props}/>);
+  await expand("Electrical");
+  await screen.findAllByRole("link",{name:/^EL-001/});
+  fireEvent.click(screen.getByRole("button",{name:"Next page in Electrical"}));
+  await screen.findAllByRole("link",{name:/^EL-026/});
+  await expand("Mechanical");
+  await screen.findAllByRole("link",{name:/^ME-001/});
+  await expand("Electrical");
+  await screen.findAllByRole("link",{name:/^EL-026/});
+  fireEvent.click(screen.getByRole("button",{name:"Close Electrical folder"}));
+  await expand("Electrical");
+  await screen.findAllByRole("link",{name:/^EL-026/});
+  expect(screen.getByText("27 documents · Page 2 of 2")).toBeTruthy();
+});
+
+it("restores a back-navigation URL and carries its search, record view and page into document links",async()=>{
+  window.history.replaceState(null,"","/app/org/projects/project/documents?q=load&records=removed&folder=Electrical&folderPage=2");
+  request.mockImplementation(async()=>response({documents:[document("EL-026")],page:2}));
+  const {unmount}=render(<MdrDisciplineFolders {...props} search="load" records="removed"/>);
+  const links=await screen.findAllByRole("link",{name:/^EL-026/});
+  expect(folder("Electrical").open).toBe(true);
+  expect(request.mock.calls.every(([target])=>new URL(String(target),"https://engicite.test").searchParams.get("page")==="2")).toBe(true);
+  const target=new URL(links[0].getAttribute("href")!,"https://engicite.test");
+  expect(Object.fromEntries(new URLSearchParams(target.searchParams.get("mdr")!)))
+    .toEqual({q:"load",records:"removed",folder:"Electrical",folderPage:"2"});
+  fireEvent.click(screen.getByRole("button",{name:"Close Electrical folder"}));
+  await expand("Electrical");
+  await screen.findAllByRole("link",{name:/^EL-026/});
+  expect(screen.getByText("27 documents · Page 2 of 2")).toBeTruthy();
+  unmount();
+  render(<MdrDisciplineFolders {...props} search="load" records="removed"/>);
+  await screen.findAllByRole("link",{name:/^EL-026/});
+  expect(screen.getByText("27 documents · Page 2 of 2")).toBeTruthy();
+});
+
+it("replaces browsing history without adding Back entries and stays collapsed on a clean URL",async()=>{
+  window.history.replaceState(null,"","/app/org/projects/project/documents");
+  const length=window.history.length;
+  request.mockImplementation(async(target:string)=>{
+    const page=Number(new URL(target,"https://engicite.test").searchParams.get("page"));
+    return response({documents:[document(page===2?"EL-026":"EL-001")],page});
+  });
+  render(<MdrDisciplineFolders {...props}/>);
+  expect(disciplines.every(({name})=>!folder(name).open)).toBe(true);
+  await expand("Electrical");
+  await screen.findAllByRole("link",{name:/^EL-001/});
+  fireEvent.click(screen.getByRole("button",{name:"Next page in Electrical"}));
+  await screen.findAllByRole("link",{name:/^EL-026/});
+  expect(Object.fromEntries(new URLSearchParams(window.location.search))).toEqual({folder:"Electrical",folderPage:"2"});
+  expect(window.history.length).toBe(length);
+  await act(async()=>{window.history.replaceState(null,"","/app/org/projects/project/documents");window.dispatchEvent(new PopStateEvent("popstate"));});
+  expect(disciplines.every(({name})=>!folder(name).open)).toBe(true);
+});
+
+it("ignores remembered folders from another project or unavailable discipline",()=>{
+  window.history.replaceState(null,"","/app/another-org/projects/another-project/documents?folder=Electrical&folderPage=2");
+  const {unmount}=render(<MdrDisciplineFolders {...props}/>);
+  expect(disciplines.every(({name})=>!folder(name).open)).toBe(true);
+  expect(request).not.toHaveBeenCalled();
+  unmount();
+  window.history.replaceState(null,"","/app/org/projects/project/documents?folder=Unknown&folderPage=2");
+  render(<MdrDisciplineFolders {...props}/>);
+  expect(disciplines.every(({name})=>!folder(name).open)).toBe(true);
+  expect(request).not.toHaveBeenCalled();
 });

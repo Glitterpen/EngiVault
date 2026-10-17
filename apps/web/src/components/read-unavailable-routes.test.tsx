@@ -30,14 +30,14 @@ vi.mock("@/components/document-assignment-manager",()=>({DocumentAssignmentManag
 vi.mock("@/components/work-package-generate",()=>({WorkPackageGenerate:()=><button>Generate package ZIP</button>}));
 
 type ReadResult={data:unknown;error?:{code:string;message:string}|null};
-type Read={source:string;filters:[string,unknown][];orders:string[];limit?:number};
+type Read={source:string;filters:[string,unknown][];orders:string[];limit?:number;range?:[number,number]};
 const params={organisationId:"org",projectId:"project",documentId:"document",packageId:"package",comparisonId:"comparison"};
 const error={code:"XX000",message:"Internal Supabase Railway secret backend failure"};
 let results:Record<string,ReadResult>,reads:Read[],role:string,preview:unknown;
 
 function query(source:string){
   const read:Read={source,filters:[],orders:[]};reads.push(read);
-  const result=results[source]??{data:[]};
+  const raw=results[source]??{data:[]};const result={...raw,count:Array.isArray(raw.data)?raw.data.length:1};
   const promise=Promise.resolve(result);
   const chain={
     select:()=>chain,
@@ -45,6 +45,7 @@ function query(source:string){
     in:(column:string,value:unknown)=>{read.filters.push([column,value]);return chain;},
     order:(column:string)=>{read.orders.push(column);return chain;},
     limit:(value:number)=>{read.limit=value;return chain;},
+    range:(start:number,end:number)=>{read.range=[start,end];return chain;},
     maybeSingle:async()=>({...result,data:Array.isArray(result.data)?result.data[0]??null:result.data}),
     then:promise.then.bind(promise),
   };
@@ -100,7 +101,7 @@ describe("organisation read failures are not empty data or denied access",()=>{
     results.audit_events={data:null,error};render(await AuditPage({params:baseParams(),searchParams:Promise.resolve({action:"revision.upload_completed"})}));
     unavailable("Audit log is temporarily unavailable","/app/org/audit?action=revision.upload_completed");
     expect(screen.queryByText(/No audit events/)).toBeNull();
-    expect(reads.find(r=>r.source==="audit_events")).toMatchObject({filters:[["organisation_id","org"],["action","revision.upload_completed"]],orders:["created_at"],limit:200});
+    expect(reads.find(r=>r.source==="audit_events")).toMatchObject({filters:[["organisation_id","org"],["action","revision.upload_completed"]],orders:["created_at","id"],range:[0,24]});
   });
   it("only shows the audit empty state after a successful empty read",async()=>{
     render(await AuditPage({params:baseParams(),searchParams:Promise.resolve({})}));

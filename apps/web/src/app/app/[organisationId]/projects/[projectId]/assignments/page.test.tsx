@@ -95,7 +95,7 @@ it("pages large groups independently while search and status counts cover the wh
   expect(within(submissions).getByText("Deliverable d08")).toBeTruthy();
   expect(within(submissions).queryByText("Deliverable d00")).toBeNull();
   expect(screen.getByText("30 of 30 deliverables")).toBeTruthy();
-  expect(within(screen.getByRole("navigation",{name:"Deliverable status"})).getByRole("link",{name:/In DCC review.*30/})).toBeTruthy();
+  expect(within(screen.getByRole("navigation",{name:"Deliverable status"})).getByRole("link",{name:/Awaiting DCC.*30/})).toBeTruthy();
   rerender(await page("review","Deliverable d29"));
   submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
   expect(submissions.querySelector("details")?.hasAttribute("open")).toBe(false);
@@ -215,7 +215,7 @@ it("keeps FEED IFD acceptance at full progress and does not require a constructi
   render(await page("accepted"));
   const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
   expect(submissions.textContent).toContain("Stage accepted");
-  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(submissions.textContent).toContain("Highest accepted progress: 100%");
   expect(submissions.textContent).not.toContain("Next revision required");
   expect(screen.getAllByText("100% at Issued for Design (IFD)").length).toBeGreaterThan(0);
   const progress=screen.getByRole("progressbar",{name:"Stage-weighted progress"});
@@ -235,7 +235,7 @@ it("retains the highest accepted milestone while keeping the latest IFA submissi
   const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
   expect(submissions.querySelector("summary")?.textContent).toContain("Issued for Approval (IFA)");
   expect(submissions.textContent).toContain("Latest A01 · Issued for Approval (IFA)");
-  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(submissions.textContent).toContain("Highest accepted progress: 100%");
   expect(submissions.textContent).toContain("Stage accepted");
   expect(submissions.textContent).not.toContain("Next revision required");
   expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
@@ -249,7 +249,7 @@ it("uses complete scoped progress when the latest-submission listing omits an ea
   render(await page("accepted"));
   const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
   expect(submissions.textContent).toContain("Latest A01 · Issued for Approval (IFA)");
-  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(submissions.textContent).toContain("Highest accepted progress: 100%");
   expect(submissions.textContent).toContain("Stage accepted");
   expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
 });
@@ -282,7 +282,7 @@ it("keeps the latest returned submission and its feedback actionable without los
   const submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
   expect(submissions.textContent).toContain("Latest A02 · Issued for Approval (IFA)");
   expect(submissions.textContent).toContain("Resolve the cable schedule comments.");
-  expect(submissions.textContent).toContain("Progress credit: 100%");
+  expect(submissions.textContent).toContain("Highest accepted progress: 100%");
   expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
   fireEvent.click(submissions.querySelector("summary")!);
   expect(within(submissions).getByRole("link",{name:"Upload corrected revision"}).getAttribute("href")).toBe("/app/org/projects/project/documents/doc#submit-revision");
@@ -330,7 +330,7 @@ it.each(["m-unique","pressure balance","mechanical","design specification","r-un
   expect(within(submissions).getAllByText("Pressure balance")).toHaveLength(1);
   const statuses=screen.getByRole("navigation",{name:"Deliverable status"});
   expect(within(statuses).getByRole("link",{name:/All.*2/})).toBeTruthy();
-  expect(within(statuses).getByRole("link",{name:/In DCC review.*1/})).toBeTruthy();
+  expect(within(statuses).getByRole("link",{name:/Awaiting DCC.*1/})).toBeTruthy();
 });
 
 it("submits search as a GET, retains search across status filters, and clears it without changing the status",async()=>{
@@ -367,4 +367,57 @@ it("preserves an unsubmitted search draft across status rendering and resets it 
   expect((screen.getByRole("searchbox",{name:"Search deliverables"}) as HTMLInputElement).value).toBe("Draft search");
   rerender(await page("action",""));
   expect((screen.getByRole("searchbox",{name:"Search deliverables"}) as HTMLInputElement).value).toBe("");
+});
+it("keeps deliverables available when recent notifications fail instead of presenting a false empty inbox",async()=>{
+  state.hasDocument=true;state.failed="notifications";
+  render(await page("action","Mechanical"));
+  expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
+  expect(within(screen.getByRole("region",{name:"Submissions by issue purpose"})).getByText("Mechanical design")).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("Recent notifications could not be loaded");
+  expect(screen.queryByText("No project notifications yet.")).toBeNull();
+  expect(screen.getByRole("link",{name:"Retry notifications"}).getAttribute("href")).toBe("/app/org/projects/project/assignments?view=action&q=Mechanical#engineer-notifications");
+  expect(document.body.textContent).not.toContain("private failure");
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("0");
+});
+it("separates latest purpose, DCC decision and retained accepted credit without implying transmission",async()=>{
+  state.hasDocument=true;
+  state.revisions=[
+    {id:"latest",document_id:"doc",issue_status:"Issued for Approval (IFA)",revision_code:"A01",state:"ready",control_status:"accepted",created_at:"2026-10-16T12:00:00Z"},
+    {id:"earned",document_id:"doc",issue_status:"Issued for Design (IFD)",revision_code:"IFD",state:"ready",control_status:"accepted",created_at:"2026-10-02T12:00:00Z"},
+  ];
+  const before=JSON.stringify(state.revisions);
+  render(await page());
+  const progress=screen.getByText("Highest accepted progress: 100%");
+  const submission=screen.getByText("Latest A01 · Issued for Approval (IFA)");
+  expect(screen.getByText("Latest submission")).toBeTruthy();expect(screen.getByText("Review status")).toBeTruthy();
+  expect(screen.getByText("Accepted by DCC")).toBeTruthy();
+  expect(progress.closest("details")).toBe(submission.closest("details"));
+  expect(progress.closest("dd")?.textContent).toContain("Issued for Design (IFD)");
+  expect(screen.queryByText(/Transmitted/)).toBeNull();
+  expect(JSON.stringify(state.revisions)).toBe(before);
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("100");
+});
+it.each([
+  {state:"ready",control_status:"submitted",label:"Awaiting DCC review"},
+  {state:"processing",control_status:"accepted",label:"Security checks in progress"},
+  {state:"failed",control_status:"accepted",label:"Security checks need attention"},
+  {state:"processing",control_status:"submitted",label:"Security checks in progress"},
+  {state:"failed",control_status:"submitted",label:"Security checks need attention"},
+  {state:"ready",control_status:"returned",label:"Returned by DCC"},
+])("names the actual latest-review state without changing status filters: $state / $control_status",async revision=>{
+  state.hasDocument=true;
+  state.revisions=[{document_id:"doc",issue_status:"Issued for Review (IFR)",revision_code:"R01",state:revision.state,control_status:revision.control_status}];
+  render(await page());
+  expect(screen.getByText(revision.label)).toBeTruthy();
+  expect(screen.getByText("Latest R01 · Issued for Review (IFR)")).toBeTruthy();
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("0");
+  expect(screen.getByRole("link",{name:/Awaiting DCC/}).textContent).toContain(revision.control_status==="submitted"?"1":"0");
+});
+it("does not label a legacy pending upload with default accepted status as DCC-accepted",async()=>{
+  state.hasDocument=true;
+  state.revisions=[{document_id:"doc",issue_status:"Issued for Review (IFR)",revision_code:"R01",state:"pending_upload",control_status:"accepted"}];
+  render(await page());
+  expect(screen.getByText("No revision submitted")).toBeTruthy();
+  expect(screen.queryByText("Accepted by DCC")).toBeNull();
+  expect(screen.getByRole("progressbar",{name:"Stage-weighted progress"}).getAttribute("aria-valuenow")).toBe("0");
 });

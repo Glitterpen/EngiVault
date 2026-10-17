@@ -35,9 +35,9 @@ const report={id:"report",report_number:7,period_start:"2026-10-09",period_end:"
 let role:string,reads:{table:string;filters:[string,unknown][]}[];
 function query(table:string){
   const data=table==="projects"?{code:"FEED-001",name:longName,delivery_stage:"feed"}:table==="project_report_settings"?{generation_weekday:5,enabled:true,last_generated_at:report.generated_at}:[report];
-  const result={data,error:null};
+  const result={data,error:null,count:Array.isArray(data)?data.length:1};
   const read={table,filters:[] as [string,unknown][]};reads.push(read);
-  const chain={select:()=>chain,eq:(column:string,value:unknown)=>{read.filters.push([column,value]);return chain;},order:()=>chain,single:async()=>result,maybeSingle:async()=>({...result,data:Array.isArray(data)?data[0]:data}),then:Promise.resolve(result).then.bind(Promise.resolve(result))};
+  const chain={select:()=>chain,eq:(column:string,value:unknown)=>{read.filters.push([column,value]);return chain;},in:()=>chain,range:()=>chain,order:()=>chain,single:async()=>result,maybeSingle:async()=>({...result,data:Array.isArray(data)?data[0]:data}),then:Promise.resolve(result).then.bind(Promise.resolve(result))};
   return chain;
 }
 const params=()=>Promise.resolve({organisationId:"org",projectId:"project",reportId:"report"});
@@ -91,6 +91,8 @@ describe("saved report mobile identity and accessible tables",()=>{
   });
   it("retains column selections and the exact PDF and restore destinations",async()=>{
     render(await detail(["planned","actual_completion"]));
+    expect(screen.getByText("Report column settings",{selector:"summary"}).closest("details")?.open).toBe(false);
+    fireEvent.click(screen.getByText("Report column settings",{selector:"summary"}));
     const pdf=new URL(screen.getByRole("link",{name:"Download PDF"}).getAttribute("href")!,"https://engicite.test");
     expect(pdf.pathname).toBe("/api/v1/organisations/org/projects/project/reports/report/pdf");
     expect(pdf.searchParams.getAll("columns")).toEqual(["planned","actual_completion"]);

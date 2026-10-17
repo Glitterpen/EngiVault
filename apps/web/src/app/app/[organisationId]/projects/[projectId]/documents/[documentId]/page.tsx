@@ -19,13 +19,15 @@ import {projectHomePath,workspacePersona} from "@/lib/role-experience";
 import {projectDeliveryStageLabel,projectIssueProgressCredit,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
 import {ReadUnavailable} from "@/components/read-unavailable";
 import {revisionControlDisplay} from "@/lib/revision-display-status";
+import {mdrReturnHref} from "@/lib/mdr-browse-position";
 
-export default async function DocumentPage({params}:{params:Promise<{organisationId:string;projectId:string;documentId:string}>}){
+export default async function DocumentPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string;documentId:string}>;searchParams?:Promise<{mdr?:string|string[]}>}){
   const {organisationId,projectId,documentId}=await params;
   const {supabase,access,user,preview}=await requireProject(organisationId,projectId);
   const role=String(access.role);
   const canWrite=role==="document_controller";
   const isEngineer=role==="engineer";
+  const mdrReturn=canWrite?mdrReturnHref(organisationId,projectId,(await searchParams)?.mdr):null;
   if(workspacePersona(role)==="management")redirect(projectHomePath(organisationId,projectId,role));
 
   const retryHref=`/app/${organisationId}/projects/${projectId}/documents/${documentId}`;
@@ -67,7 +69,7 @@ export default async function DocumentPage({params}:{params:Promise<{organisatio
   const schedule=schedules.get(documentId)!;
 
   return <div className="mx-auto min-w-0 max-w-6xl">
-    <Link href={projectHomePath(organisationId,projectId,role)} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>{isEngineer?"My deliverables":"Role workspace"}</Link>
+    <Link href={mdrReturn??projectHomePath(organisationId,projectId,role)} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>{mdrReturn?"Back to MDR":isEngineer?"My deliverables":"Role workspace"}</Link>
     <header className="mt-1 min-w-0"><WorkspacePageHeading title={doc.title} context={<>{doc.document_number} · {doc.discipline} · {doc.document_type}</>} help={<HelpTip label="Document and revision guidance">{isEngineer?`Submit revisions for your authorised ${doc.discipline} discipline. Document Control accepts the revision or returns it with feedback. `:"View controlled revision files and their processing status. "}{projectDeliveryStageLabel(deliveryStage)} workflow · 100% completion requires {projectTerminalIssueStatus(deliveryStage)}.</HelpTip>}/></header>
     <nav aria-label="Document sections" className="mt-2 flex min-w-0 flex-wrap gap-x-5 text-sm font-semibold text-[#526675]">{canUpload&&<a href="#submit-revision" className="inline-flex min-h-11 items-center rounded-lg">Submit revision</a>}<a href="#revision-history" className="inline-flex min-h-11 items-center rounded-lg">Revision history <span className="ml-1 font-normal">({revisions?.length??0})</span></a><a href="#document-details" className="inline-flex min-h-11 items-center rounded-lg">Document details</a>{canWrite&&<a href="#document-management" className="inline-flex min-h-11 items-center rounded-lg">Manage deliverable</a>}</nav>
     <details id="document-details" className="mt-2 min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold sm:px-5">Document details &amp; issue schedule{schedule.next_submission_date&&<span className={`ml-2 inline-block text-xs font-medium ${schedule.overdue?"text-[#a5452f]":"text-[#526675]"}`}>{schedule.overdue?"Overdue":"Next due"} · {formatDate(schedule.next_submission_date)}</span>}{schedule.deadline_kind==="cycle_not_set"&&<span className="ml-2 inline-block text-xs font-medium text-[#a5452f]">Revision cycle not set</span>}</summary><div className="grid min-w-0 gap-4 border-t border-[#e7ecef] p-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] sm:p-5"><dl className="grid min-w-0 grid-cols-2 gap-4"><Meta l="Type" v={doc.document_type}/><Meta l="Discipline" v={doc.discipline}/><Meta l="Registered status" v={doc.status}/><Meta l="Required issue" v={doc.required_issue_status||"To be confirmed"}/><Meta l="100% milestone" v={projectTerminalIssueStatus(deliveryStage)}/></dl><DocumentIssueSchedule schedule={schedule}/></div></details>

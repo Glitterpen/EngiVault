@@ -5,6 +5,8 @@ import {useId,useRef,useState} from "react";
 import {ChevronRight,Search} from "lucide-react";
 import {PageState} from "@/components/page-state";
 import type {NotificationDocumentContext} from "@/lib/notification-document-context";
+import {BrowseNavigation} from "@/components/browse-navigation";
+import {HelpTip} from "@/components/help-tip";
 
 export type NotificationInboxItem={
   id:string;
@@ -34,7 +36,24 @@ function groupByReceivedDate(items:NotificationInboxItem[]){
   return groups;
 }
 
-export function NotificationInbox({items}:{items:NotificationInboxItem[]}){
+type InboxPaging={q:string;unreadOnly:boolean;page:number;pages:number;total:number;allCount:number;unreadCount:number};
+export function NotificationInbox({items,paging}:{items:NotificationInboxItem[];paging?:InboxPaging}){
+  return paging?<PagedNotificationInbox items={items} paging={paging}/>:<LocalNotificationInbox items={items}/>;
+}
+function PagedNotificationInbox({items,paging}:{items:NotificationInboxItem[];paging:InboxPaging}){
+  const id=useId(),groups=groupByReceivedDate(items);
+  return <section className="ev-card min-w-0 overflow-hidden" aria-labelledby={`${id}-heading`}>
+    <header className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id={`${id}-heading`} className="text-base font-semibold">Your inbox</h2><p className="text-xs text-[#526675]">{paging.allCount} messages · {paging.unreadCount} unread</p></header>
+    <form data-preview-safe method="get" action="/app/notifications" aria-label="Search notification history" className="flex min-w-0 flex-wrap items-end gap-3 border-b border-[#e7ecef] p-4 sm:px-5">
+      <div className="min-w-0 flex-1 basis-52"><div className="flex items-center gap-1"><label htmlFor={`${id}-search`} className="ev-label">Search message text</label><HelpTip label="Notification search coverage">Search checks titles, message text and event names across your inbox, including older messages. Related document details are shown where available.</HelpTip></div><input id={`${id}-search`} name="q" type="search" maxLength={100} defaultValue={paging.q} className="ev-input" placeholder="Title, message or event"/></div>
+      <label className="min-w-0 basis-36"><span className="ev-label">Messages</span><select name="unread" defaultValue={paging.unreadOnly?"1":""} className="ev-input"><option value="">All messages</option><option value="1">Unread only</option></select></label>
+      <button className="ev-button-secondary">Search</button>{(paging.q||paging.unreadOnly)&&<Link href="/app/notifications" className="ev-button-secondary">Clear search</Link>}
+    </form>
+    <div className="px-4 sm:px-5"><BrowseNavigation path="/app/notifications" query={{q:paging.q,unread:paging.unreadOnly?"1":""}} {...paging} count={items.length} label="Notifications"/></div>
+    {items.length?<ul aria-label="Notifications">{groups.map(group=><li key={group.key}><h3 className="border-y border-[#e7ecef] bg-[#f6f8f9] px-4 py-2 text-xs font-semibold text-[#526675] sm:px-5">{group.label}</h3><ul aria-label={`Notifications received ${group.label}`} className="divide-y divide-[#e7ecef]">{group.items.map(item=><li key={item.id}><Link href={`/app/notifications/${item.id}`} className="flex min-h-11 min-w-0 items-start gap-3 px-4 py-4 hover:bg-[#f4f7fb] focus-visible:outline-offset-[-3px] sm:px-5"><div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-2"><h4 className={`min-w-0 text-sm leading-6 [overflow-wrap:anywhere] ${item.read_at?"font-medium text-[#405566]":"font-semibold text-[#10243e]"}`}>{item.title}</h4>{!item.read_at&&<span className="rounded-md bg-[#eef3fa] px-2 py-0.5 text-xs font-medium text-[#10243e]">Unread</span>}</div>{item.document&&<div className="mt-1 text-xs leading-5 text-[#526675] [overflow-wrap:anywhere]"><p className="font-medium">{item.document.number} · {item.document.discipline}</p><p>{item.document.title}</p></div>}<p className="mt-1 line-clamp-2 whitespace-pre-line text-sm leading-6 text-[#526675] [overflow-wrap:anywhere]">{item.body}</p><time dateTime={item.created_at} className="mt-2 block text-xs text-[#657889]">{item.receivedLabel}</time></div><ChevronRight size={17} aria-hidden="true" className="mt-1 shrink-0 text-[#718294]"/></Link></li>)}</ul></li>)}</ul>:<PageState kind="empty" headingLevel={3} title={paging.allCount?"No notifications match this search and message filter.":"You have no notifications."}/>}
+  </section>;
+}
+function LocalNotificationInbox({items}:{items:NotificationInboxItem[]}){
   const id=useId();
   const results=useRef<HTMLDivElement>(null);
   const [search,setSearch]=useState("");

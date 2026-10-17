@@ -74,6 +74,27 @@ afterEach(()=>cleanup());
 const page=()=>DocumentPage({params:Promise.resolve(params)});
 const renderPage=async()=>render(await page());
 
+it("returns DCC to the current project's MDR folder, page and search without changing document reads",async()=>{
+  role="document_controller";
+  render(await DocumentPage({params:Promise.resolve(params),searchParams:Promise.resolve({mdr:"q=load&records=removed&folder=Electrical&folderPage=2"})}));
+  expect(screen.getByRole("link",{name:"Back to MDR"}).getAttribute("href"))
+    .toBe("/app/org/projects/project/documents?q=load&records=removed&folder=Electrical&folderPage=2");
+  expect(reads.find(read=>read.table==="documents")?.filters).toEqual([["id","doc"],["organisation_id","org"],["project_id","project"]]);
+});
+
+it.each(["https://external.test/","folder=Electrical&projectId=foreign","folder=Electrical&preview=secret"])("ignores untrusted MDR return metadata %s",async mdr=>{
+  role="document_controller";
+  render(await DocumentPage({params:Promise.resolve(params),searchParams:Promise.resolve({mdr})}));
+  expect(screen.queryByRole("link",{name:"Back to MDR"})).toBeNull();
+  expect(screen.getByRole("link",{name:"Role workspace"}).getAttribute("href")).toBe("/app/org/projects/project/control");
+});
+
+it("does not replace the engineer's My deliverables route with DCC browsing metadata",async()=>{
+  render(await DocumentPage({params:Promise.resolve(params),searchParams:Promise.resolve({mdr:"folder=Electrical&folderPage=2"})}));
+  expect(screen.queryByRole("link",{name:"Back to MDR"})).toBeNull();
+  expect(screen.getByRole("link",{name:"My deliverables"}).getAttribute("href")).toBe("/app/org/projects/project/assignments");
+});
+
 describe("document route scope and role controls",()=>{
   it("requires project authority and scopes the document, project and schedule reads",async()=>{
     await renderPage();

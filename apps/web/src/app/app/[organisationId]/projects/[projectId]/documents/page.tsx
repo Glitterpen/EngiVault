@@ -9,6 +9,7 @@ import {MdrRegisterWorkspace,type MdrFilters,mdrFilterUrl} from "@/components/md
 import {loadDisciplineAssignmentScopes} from "@/lib/load-discipline-assignment-scopes";
 import {cleanMdrSearch,loadMdrDisciplineIndex} from "@/lib/mdr-register-data";
 import {projectHomePath,workspacePersona} from "@/lib/role-experience";
+import {mdrFolderPage} from "@/lib/mdr-browse-position";
 
 type Category={code:string;name:string;kind:string};
 type TeamMember={user_id:string;display_name:string;email:string;role:string;disciplines:string[]};
@@ -41,7 +42,7 @@ export default async function DocumentsPage({params,searchParams}:{params:Promis
   const disciplines=categoryRows.filter(category=>category.kind==="discipline"),types=categoryRows.filter(category=>category.kind==="document_type");
   const canRegister=can(role,"document:register")&&Boolean(registrationResult.data)&&!registrationResult.error&&!categoryResult.error&&!preview;
   return <MdrRegisterWorkspace organisationId={organisationId} projectId={projectId} backHref={role==="document_controller"?`${base}/control`:`/app/${organisationId}`} backLabel={role==="document_controller"?"Document control centre":"Back to projects"}
-    filters={filters} disciplines={indexResult.data.disciplines} initialDiscipline={initialDiscipline} total={indexResult.data.total} canManage={canManage} canSeeRemoved={can(role,"document:write")} canUseAi={can(role,"ai:use")} refreshKey={new Date().toISOString()}
+    filters={filters} disciplines={indexResult.data.disciplines} initialDiscipline={initialDiscipline} initialPage={mdrFolderPage(search.folderPage)} total={indexResult.data.total} canManage={canManage} canSeeRemoved={can(role,"document:write")} canUseAi={can(role,"ai:use")} refreshKey={new Date().toISOString()}
     registerAction={canRegister&&lifecycle==="active"?<DocumentCreateDialog organisationId={organisationId} projectId={projectId} disciplines={disciplines} documentTypes={types}/>:undefined}
     importAction={canRegister&&lifecycle==="active"?<MdrImportDialog organisationId={organisationId} projectId={projectId}/>:undefined}
     assignmentPanel={canAssign&&assignments.available&&assignments.scopes.length?<DisciplineAssignmentManager organisationId={organisationId} projectId={projectId} disciplines={assignments.scopes} readOnly={Boolean(preview)} embedded/>:undefined}

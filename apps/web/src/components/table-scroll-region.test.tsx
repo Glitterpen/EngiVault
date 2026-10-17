@@ -23,12 +23,12 @@ vi.mock("@/components/help-tip",()=>({HelpTip:()=>null}));
 vi.mock("@/components/mdr-document-actions",()=>({MdrDocumentActions:({documentNumber}:{documentNumber:string})=><button type="button">Manage {documentNumber}</button>}));
 
 type Result={data:unknown;error:null};
-type Read={table:string;filters:[string,unknown][];selection?:string;order?:[string,unknown];limit?:number;search?:string};
+type Read={table:string;filters:[string,unknown][];selection?:string;order?:[string,unknown];limit?:number;search?:string;range?:[number,number]};
 let results:Record<string,Result>,reads:Read[];
 function query(table:string){
   const read:Read={table,filters:[]};reads.push(read);
-  const promise=Promise.resolve(results[table]??{data:[],error:null});
-  const chain={select:(value:string)=>{read.selection=value;return chain;},eq:(column:string,value:unknown)=>{read.filters.push([column,value]);return chain;},order:(column:string,options?:unknown)=>{read.order=[column,options];return chain;},limit:(value:number)=>{read.limit=value;return chain;},or:(value:string)=>{read.search=value;return chain;},then:promise.then.bind(promise)};
+  const result=results[table]??{data:[],error:null};const promise=Promise.resolve({...result,count:Array.isArray(result.data)?result.data.length:1});
+  const chain={select:(value:string)=>{read.selection=value;return chain;},eq:(column:string,value:unknown)=>{read.filters.push([column,value]);return chain;},order:(column:string,options?:unknown)=>{read.order=[column,options];return chain;},range:(start:number,end:number)=>{read.range=[start,end];return chain;},limit:(value:number)=>{read.limit=value;return chain;},or:(value:string)=>{read.search=value;return chain;},then:promise.then.bind(promise)};
   return chain;
 }
 const nativeTable=<table><caption>Controlled values</caption><thead><tr><th scope="col">Document</th><th scope="col">Status</th></tr></thead><tbody><tr><th scope="row">DOC-001</th><td>IFR</td></tr></tbody></table>;
@@ -110,7 +110,7 @@ describe("audit and cross-project document table consumers",()=>{
     const {region,table}=tableRegion("Organisation audit log — scroll horizontally","Organisation audit log");expect(region.hasAttribute("data-preview-safe")).toBe(false);
     expect(within(table).getAllByRole("columnheader").map(header=>header.textContent)).toEqual(["Time","Action","Outcome","Target","Actor"]);
     expect(within(table).getAllByRole("cell").map(cell=>cell.textContent)).toEqual([expect.any(String),"revision.upload_completed","succeeded","document","engineer"]);
-    expect(reads.find(read=>read.table==="audit_events")).toMatchObject({filters:[["organisation_id","org"],["action","revision.upload_completed"]],order:["created_at",{ascending:false}],limit:200});
+    expect(reads.find(read=>read.table==="audit_events")).toMatchObject({filters:[["organisation_id","org"],["action","revision.upload_completed"]],order:["id",{ascending:false}],range:[0,24]});
     expect(screen.getByRole("textbox",{name:"Filter by exact action"})).toHaveProperty("value","revision.upload_completed");
   });
   it("does not read or render an audit table for confirmed non-administrators",async()=>{

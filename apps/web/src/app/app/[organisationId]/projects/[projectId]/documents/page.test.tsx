@@ -85,6 +85,18 @@ it("ignores a missing shortcut folder and keeps the full register collapsed",asy
   expect(loadMdrDisciplineIndex).toHaveBeenCalledExactlyOnceWith(expect.anything(),"org","project","active","");
 });
 
+it("restores a bounded folder page from return navigation without narrowing the discipline index",async()=>{
+  request.mockResolvedValueOnce(Response.json({documents:[],total:0,page:1,pageSize:25,canManage:false}));
+  render(await page({q:"load",folder:"Electrical",folderPage:"999999"}));
+  await screen.findByText("No documents remain in this discipline for this search.");
+  const query=new URL(String(request.mock.calls[0][0]),"https://engicite.test").searchParams;
+  expect(query.get("discipline")).toBe("Electrical");
+  expect(query.get("page")).toBe("2");
+  expect(query.get("q")).toBe("load");
+  expect(screen.getByRole("heading",{name:"Mechanical"}).closest("details")!.open).toBe(false);
+  expect(loadMdrDisciplineIndex).toHaveBeenCalledWith(expect.anything(),"org","project","active","load");
+});
+
 it("opens a different navigation target and returns to collapsed folders on the plain MDR URL",async()=>{
   request.mockImplementation(async()=>Response.json({documents:[],total:0,page:1,pageSize:25,canManage:false}));
   const {rerender}=render(await page({folder:"Electrical"}));
