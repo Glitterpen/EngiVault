@@ -49,7 +49,11 @@ it.each(["index","snapshot","settings"])("shows unavailable rather than a false 
 it("does not fabricate zero metrics when a historical snapshot lacks its summary",async()=>{
   rows=[{...rows[0],snapshot:{}}];render(await page());expect(screen.getAllByText("Not available")).toHaveLength(2);expect(screen.queryByText("0%")).toBeNull();
 });
-it("retains report-generation role gates and compact closed settings",async()=>{
+it("retains report-generation role gates and shows settings before the register without a disclosure",async()=>{
   role="document_controller";render(await page());expect(screen.queryByTestId("report-controls")).toBeNull();
-  cleanup();role="project_admin";render(await page());expect(screen.getByText("Report settings & generation",{selector:"summary"}).closest("details")?.open).toBe(false);
+  cleanup();role="project_admin";render(await page());
+  const controls=screen.getByTestId("report-controls");
+  expect(controls.closest("details")).toBeNull();
+  expect(screen.getByRole("region",{name:"Report generation and settings"}).contains(controls)).toBe(true);
+  expect(Boolean(controls.compareDocumentPosition(screen.getByRole("heading",{name:"Weekly report register"}))&Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 });

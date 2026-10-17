@@ -1,38 +1,61 @@
 "use client";
 
 import {HelpTip} from "@/components/help-tip";
-import {useActionState,useEffect} from "react";
+import {useActionState,useEffect,useState} from "react";
 import {useRouter} from "next/navigation";
 import {CalendarClock,FileChartColumnIncreasing,RefreshCw} from "lucide-react";
 import {generateProjectReport,saveProjectReportSchedule,type ProjectReportActionState} from "@/app/app/project-report-actions";
 import {REPORT_WEEKDAYS} from "@/lib/project-report";
 import {formatReportTimestamp} from "@/lib/report-display-date";
 import {PdfColorTemplateSelect} from "@/components/pdf-color-template-select";
+import {pdfColorTemplate} from "@/lib/pdf-color-template";
 
 type Props={organisationId:string;projectId:string;weekday:number;enabled:boolean;lastGeneratedAt:string|null;pdfColorTemplate?:unknown};
 
-export function ProjectReportControls({organisationId,projectId,weekday,enabled,lastGeneratedAt,pdfColorTemplate="neutral"}:Props){
+export function ProjectReportControls({organisationId,projectId,weekday,enabled,lastGeneratedAt,pdfColorTemplate:defaultTemplate="neutral"}:Props){
   const router=useRouter();
+  const [selectedTemplate,setSelectedTemplate]=useState(()=>pdfColorTemplate(defaultTemplate).id);
   const [scheduleState,scheduleAction,schedulePending]=useActionState<ProjectReportActionState,FormData>(saveProjectReportSchedule,undefined);
   const [generationState,generationAction,generationPending]=useActionState<ProjectReportActionState,FormData>(generateProjectReport,undefined);
+  const pending=schedulePending||generationPending;
   useEffect(()=>{if(generationState?.reportId)router.push(`/app/${organisationId}/projects/${projectId}/reports/${generationState.reportId}`)},[generationState?.reportId,organisationId,projectId,router]);
-  return <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,.7fr)]">
-    <form action={scheduleAction} aria-label="Weekly report schedule" className="ev-card min-w-0 p-4 sm:p-6">
+  return <div className="ev-card min-w-0">
+    <form action={generationAction} aria-label="Generate current project report" aria-busy={generationPending} className="grid min-w-0 gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,21rem)_auto] lg:items-center">
       <Hidden organisationId={organisationId} projectId={projectId}/>
-      <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#fff0e9] text-[#b94d20]"><CalendarClock size={19} aria-hidden="true"/></span><div className="min-w-0"><h2 className="break-words font-semibold">Weekly report schedule <HelpTip label="Weekly report schedule guidance">Choose the day EngiCite should preserve the weekly project position.</HelpTip></h2></div></div>
-      <label className="mt-5 block"><span className="ev-label">Generate every</span><select className="ev-input" name="weekday" defaultValue={String(weekday)}>{REPORT_WEEKDAYS.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
-      <div className="mt-4"><PdfColorTemplateSelect defaultValue={pdfColorTemplate} disabled={schedulePending} label="Scheduled report colour template" description="Used for new scheduled reports. Previously captured reports keep their saved template."/></div>
-      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] px-3 py-2 text-sm"><label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"><input type="checkbox" name="enabled" defaultChecked={enabled} className="size-5 shrink-0 accent-[#10243e]"/><strong className="min-w-0 break-words text-[#24384f]">Automatic weekly generation</strong></label><HelpTip label="Automatic report timing">Runs after 06:00 UTC on the selected day and notifies project management.</HelpTip></div>
-      <p className="mt-3 break-words text-xs leading-5 text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?<time dateTime={lastGeneratedAt}>{formatReportTimestamp(lastGeneratedAt)}</time>:"No report generated yet"}</p>
-      <Status state={scheduleState}/><button className="ev-button mt-5 w-full sm:w-auto" disabled={schedulePending}>{schedulePending?"Saving report settings…":"Save report settings"}</button>
+      <div className="min-w-0">
+        <h2 className="flex flex-wrap items-center gap-2 font-semibold text-[#10243e]">
+          <FileChartColumnIncreasing className="shrink-0 text-[#b94d20]" size={20} aria-hidden="true"/>
+          Generate report
+          <HelpTip label="Generate a project report">Capture the current project position using the selected colour template. Existing reporting periods keep their original template.</HelpTip>
+        </h2>
+        <p className="mt-2 break-words text-xs leading-5 text-[#617083]">Last automatic or manual capture: {lastGeneratedAt?<time dateTime={lastGeneratedAt}>{formatReportTimestamp(lastGeneratedAt)}</time>:"No report generated yet"}</p>
+      </div>
+      <PdfColorTemplateSelect value={selectedTemplate} onValueChange={setSelectedTemplate} disabled={pending} description="Regenerating an existing reporting period keeps its original template."/>
+      <button type="submit" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#b94d20] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#9e3e17] motion-reduce:transition-none disabled:opacity-50 lg:w-auto" disabled={pending}>
+        {generationPending?<><RefreshCw className="shrink-0 animate-spin motion-reduce:animate-none" size={16} aria-hidden="true"/>Building report…</>:<><FileChartColumnIncreasing className="shrink-0" size={16} aria-hidden="true"/>Generate project report</>}
+      </button>
+      {generationState?.message?<div className="min-w-0 lg:col-span-3"><Status state={generationState}/></div>:null}
     </form>
-    <form action={generationAction} aria-label="Generate current project report" className="ev-card flex min-w-0 flex-col justify-between bg-[linear-gradient(145deg,#10243e,#173a58)] p-4 text-white shadow-[0_18px_50px_rgba(16,36,62,.16)] [--focus:#ffffff] sm:p-6">
+    <form action={scheduleAction} aria-label="Weekly report schedule" aria-busy={schedulePending} className="min-w-0 rounded-b-[inherit] border-t border-[#d6e0ed] bg-[#f7f9fc] p-4 sm:p-5">
       <Hidden organisationId={organisationId} projectId={projectId}/>
-      <div><span className="grid size-11 place-items-center rounded-xl bg-white/10 text-[#ff9a6d]"><FileChartColumnIncreasing size={21} aria-hidden="true"/></span><h2 className="mt-5 break-words text-xl font-semibold">Generate the current report <HelpTip label="Generate a project report">Capture overall progress, discipline performance, weekly movement, next-week deliverables and active challenges now.</HelpTip></h2></div>
-      <div><div className="mt-5"><PdfColorTemplateSelect defaultValue={pdfColorTemplate} disabled={generationPending} label="Report colour template" description="Used for a new report. Regenerating an existing reporting period keeps its original template."/></div><Status state={generationState} inverted/><button className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#b94d20] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#9e3e17] motion-reduce:transition-none disabled:opacity-50" disabled={generationPending}>{generationPending?<><RefreshCw className="shrink-0 animate-spin motion-reduce:animate-none" size={16} aria-hidden="true"/>Building report…</>:<><FileChartColumnIncreasing className="shrink-0" size={16} aria-hidden="true"/>Generate project report</>}</button></div>
+      <input type="hidden" name="pdfColorTemplate" value={selectedTemplate}/>
+      <div className="grid min-w-0 items-end gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(9rem,12rem)_minmax(0,1fr)_auto]">
+        <h2 className="flex min-h-11 flex-wrap items-center gap-2 font-semibold text-[#10243e]">
+          <CalendarClock className="shrink-0 text-[#617083]" size={19} aria-hidden="true"/>
+          Report settings
+          <HelpTip label="Weekly report schedule guidance">Choose the weekly capture day. Save report settings to apply the colour template selected above to future scheduled reports; generating a report does not save these settings.</HelpTip>
+        </h2>
+        <label className="block min-w-0"><span className="ev-label">Generate every</span><select className="ev-input" name="weekday" defaultValue={String(weekday)} disabled={pending}>{REPORT_WEEKDAYS.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
+        <div className="flex min-h-11 min-w-0 items-center gap-1">
+          <label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"><input type="checkbox" name="enabled" defaultChecked={enabled} disabled={pending} className="size-5 shrink-0 accent-[#10243e]"/><span className="min-w-0 break-words text-sm font-semibold text-[#24384f]">Automatic weekly generation</span></label>
+          <HelpTip label="Automatic report timing">Runs after 06:00 UTC on the selected day and notifies project management.</HelpTip>
+        </div>
+        <button type="submit" className="ev-button-secondary min-h-11 w-full xl:w-auto" disabled={pending}>{schedulePending?"Saving report settings…":"Save report settings"}</button>
+      </div>
+      <Status state={scheduleState}/>
     </form>
   </div>;
 }
 
 function Hidden({organisationId,projectId}:{organisationId:string;projectId:string}){return <><input type="hidden" name="organisationId" value={organisationId}/><input type="hidden" name="projectId" value={projectId}/></>}
-function Status({state,inverted=false}:{state:ProjectReportActionState;inverted?:boolean}){return state?.message?<p className={`mt-4 rounded-xl p-3 text-xs ${inverted?"bg-white/10 text-white":"bg-[#f4f7fb] text-[#10243e]"}`} role={state.ok?"status":"alert"}>{state.message}</p>:null}
+function Status({state}:{state:ProjectReportActionState}){return state?.message?<p className="mt-3 break-words rounded-xl bg-[#eef3fa] p-3 text-xs text-[#10243e]" role={state.ok?"status":"alert"}>{state.message}</p>:null}

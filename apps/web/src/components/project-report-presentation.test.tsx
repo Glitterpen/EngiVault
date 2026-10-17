@@ -137,13 +137,32 @@ describe("legacy saved-report S-curve accessibility",()=>{
 });
 
 describe("report register and unchanged generation controls",()=>{
-  it("provides independent manual and scheduled PDF templates defaulted to the saved schedule",()=>{
+  it("exports the actual report-page markup and styles for optional responsive visual checks",async()=>{
+    const output=process.env.REPORT_CONTROLS_UI_PREVIEW_DIR;if(!output)return;
+    const {mkdir,readFile,writeFile}=await import("node:fs/promises");
+    const {createRequire}=await import("node:module");
+    const {dirname}=await import("node:path");
+    const require=createRequire(import.meta.url),pluginPath=require.resolve("@tailwindcss/postcss");
+    const postcss=require(require.resolve("postcss",{paths:[dirname(pluginPath)]}));
+    const cssPath=resolve(process.cwd(),"src/app/globals.css");
+    const compiled=await postcss([require(pluginPath)({base:process.cwd()})]).process(await readFile(cssPath,"utf8"),{from:cssPath});
+    const markup=renderToString(<main className="workspace-main px-4 py-5 sm:p-6"><p className="mb-3 text-xs text-[#617083]">Local layout preview · synthetic project data</p>{await ProjectReportsPage({params:params()})}</main>);
+    await mkdir(output,{recursive:true});
+    await writeFile(resolve(output,"index.html"),`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Project report controls — local visual check</title><style>${compiled.css}</style></head><body>${markup}</body></html>`);
+    expect(markup.match(/name="pdfColorTemplate"/g)).toHaveLength(2);
+    expect(markup.indexOf("Report generation and settings")).toBeLessThan(markup.indexOf("Weekly report register"));
+  },30000);
+  it("shares one visible PDF template between manual generation and schedule settings",()=>{
     render(<ProjectReportControls organisationId="org" projectId="project" weekday={5} enabled lastGeneratedAt={null} pdfColorTemplate="forest"/>);
-    const schedule=screen.getByRole("combobox",{name:"Scheduled report colour template"}) as HTMLSelectElement;
-    const manual=screen.getByRole("combobox",{name:"Report colour template"}) as HTMLSelectElement;
-    expect(schedule.value).toBe("forest");expect(manual.value).toBe("forest");
-    fireEvent.change(manual,{target:{value:"slate"}});
-    expect(manual.value).toBe("slate");expect(schedule.value).toBe("forest");
+    const template=screen.getByRole("combobox",{name:"PDF colour template"}) as HTMLSelectElement;
+    const schedule=screen.getByRole("form",{name:"Weekly report schedule"}) as HTMLFormElement;
+    const manual=screen.getByRole("form",{name:"Generate current project report"}) as HTMLFormElement;
+    expect(screen.getAllByRole("combobox").filter(control=>control.getAttribute("name")==="pdfColorTemplate")).toHaveLength(1);
+    expect(template.value).toBe("forest");
+    fireEvent.change(template,{target:{value:"slate"}});
+    expect(template.value).toBe("slate");
+    expect(new FormData(manual).getAll("pdfColorTemplate")).toEqual(["slate"]);
+    expect(new FormData(schedule).getAll("pdfColorTemplate")).toEqual(["slate"]);
     expect(screen.getByText(/Regenerating an existing reporting period keeps its original template/)).toBeTruthy();
   });
   it.each(["project_admin","document_controller","organisation_admin"])("preserves report access and generation affordances for %s",async nextRole=>{
@@ -152,12 +171,13 @@ describe("report register and unchanged generation controls",()=>{
     const link=screen.getByRole("link",{name:/PCR-0007/});expect(link.getAttribute("href")).toBe(`${base}/reports/report`);
     expect(link.className).toContain("grid-cols-2");expect(link.className).toContain("sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]");
     expect(within(link).getByText("50%")).toBeTruthy();expect(within(link).getByText("2")).toBeTruthy();
-    const settings=screen.queryByText("Report settings & generation",{selector:"summary"});
+    const settings=screen.queryByRole("region",{name:"Report generation and settings"});
     expect(settings!==null).toBe(nextRole==="project_admin");
     if(settings){
-      expect(settings.closest("details")?.open).toBe(false);
-      expect(Boolean(link.compareDocumentPosition(settings)&Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-      fireEvent.click(settings);
+      expect(settings.closest("details")).toBeNull();
+      expect(Boolean(settings.compareDocumentPosition(screen.getByRole("heading",{name:"Weekly report register"}))&Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+      expect(within(settings).getByRole("button",{name:"Generate project report"})).toBeTruthy();
+      expect(within(settings).getByRole("button",{name:"Save report settings"})).toBeTruthy();
     }
     expect(screen.queryByRole("form",{name:"Weekly report schedule"})!==null).toBe(nextRole==="project_admin");
     expect(screen.queryByRole("form",{name:"Generate current project report"})!==null).toBe(nextRole==="project_admin");
@@ -194,10 +214,11 @@ describe("report register and unchanged generation controls",()=>{
     expect(screen.queryByRole("button",{name:"Weekly report schedule"})).toBeNull();
     expect(screen.getByRole("combobox",{name:"Generate every"})).toHaveProperty("value","5");
     expect(screen.getByRole("checkbox",{name:"Automatic weekly generation"})).toHaveProperty("checked",true);
-    expect(Array.from(new FormData(form))).toEqual([["organisationId","org"],["projectId","project"],["weekday","5"],["pdfColorTemplate","neutral"],["enabled","on"]]);
+    expect(Array.from(new FormData(form))).toEqual([["organisationId","org"],["projectId","project"],["pdfColorTemplate","neutral"],["weekday","5"],["enabled","on"]]);
     const generate=screen.getByRole("form",{name:"Generate current project report"}) as HTMLFormElement;
     expect(Array.from(new FormData(generate))).toEqual([["organisationId","org"],["projectId","project"],["pdfColorTemplate","neutral"]]);
-    expect(generate.className).toContain("[--focus:#ffffff]");
+    expect(generate.className).toContain("grid");
+    expect(generate.className).not.toContain("bg-[linear-gradient");
     expect(screen.getByRole("button",{name:"Generate a project report"}).closest("form")).toBe(generate);
     expect(form.className).not.toContain("[--focus:#ffffff]");
     expect(screen.getByRole("button",{name:"Generate project report"}).className).toContain("bg-[#b94d20]");

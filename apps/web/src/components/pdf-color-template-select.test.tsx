@@ -1,4 +1,4 @@
-import {afterEach,describe,expect,it} from "vitest";
+import {afterEach,describe,expect,it,vi} from "vitest";
 import {cleanup,fireEvent,render,screen} from "@testing-library/react";
 import {PdfColorTemplateSelect} from "./pdf-color-template-select";
 import {renderToString} from "react-dom/server";
@@ -43,5 +43,16 @@ describe("PDF colour-template selection",()=>{
     expect(first.value).toBe("burgundy");expect(second.value).toBe("neutral");expect(second.disabled).toBe(true);
     fireEvent.change(first,{target:{value:"forest"}});
     expect(second.value).toBe("neutral");expect(first.id).not.toBe(second.id);
+  });
+  it("supports a controlled selection without changing standalone chooser behaviour",()=>{
+    const change=vi.fn();
+    const {rerender,container}=render(<form><PdfColorTemplateSelect value="forest" onValueChange={change}/></form>);
+    const select=screen.getByRole("combobox",{name:"PDF colour template"}) as HTMLSelectElement;
+    fireEvent.change(select,{target:{value:"slate"}});
+    expect(change).toHaveBeenCalledExactlyOnceWith("slate");
+    expect(select.value).toBe("forest");
+    rerender(<form><PdfColorTemplateSelect value="slate" onValueChange={change}/></form>);
+    expect(select.value).toBe("slate");
+    expect(new FormData(container.querySelector("form")!).getAll("pdfColorTemplate")).toEqual(["slate"]);
   });
 });
