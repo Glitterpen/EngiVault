@@ -195,7 +195,7 @@ def _date_value(value: object) -> str:
     raw = str(value).strip()
     for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %B %Y"):
         try:
-            return datetime.strptime(raw, pattern).date().isoformat()  # noqa: DTZ007
+            return datetime.strptime(raw, pattern).date().isoformat()
         except ValueError:
             continue
     return "INVALID_DATE"
