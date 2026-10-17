@@ -8,6 +8,25 @@ const run=(state:string,error_code:string|null=null)=>({state,attempt:1,error_co
 const response=(revisionState:string,state:string,error_code:string|null=null)=>Response.json({revisionState,run:run(state,error_code)});
 beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal("fetch",request);request.mockResolvedValue(response("quarantined","queued"));});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.useRealTimers();});
+it("describes pending file transfer without implying that the submission is in DCC review",async()=>{
+  request.mockResolvedValue(Response.json({revisionState:"pending_upload",run:null}));
+  render(<RevisionProcessingStatus endpoint="/processing" initialRevisionState="pending_upload" initialRun={null} canRetry={false}/>);
+  expect(screen.getByText("Awaiting upload")).toBeTruthy();
+  await waitFor(()=>expect(request).toHaveBeenCalled());
+  expect(screen.queryByText("pending upload")).toBeNull();
+  expect(screen.queryByText("Submitted")).toBeNull();
+  expect(screen.queryByText("Updating automatically")).toBeNull();
+  expect(screen.getByRole("button",{name:"Refresh status"})).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Retry processing"})).toBeNull();
+  for(const [,options] of request.mock.calls)expect(options.method).not.toBe("POST");
+});
+it("does not show a stale processing run as ready while file transfer remains incomplete",async()=>{
+  request.mockResolvedValue(response("pending_upload","ready"));
+  render(<RevisionProcessingStatus endpoint="/processing" initialRevisionState="pending_upload" initialRun={run("ready")} canRetry={false}/>);
+  await waitFor(()=>expect(request).toHaveBeenCalled());
+  expect(screen.getByText("Awaiting upload")).toBeTruthy();
+  expect(screen.queryByText("ready")).toBeNull();
+});
 it("refreshes server-rendered controls when security processing becomes ready",async()=>{
   request.mockResolvedValue(response("ready","ready"));
   render(<RevisionProcessingStatus endpoint="/processing" initialRevisionState="quarantined" initialRun={null} canRetry/>);

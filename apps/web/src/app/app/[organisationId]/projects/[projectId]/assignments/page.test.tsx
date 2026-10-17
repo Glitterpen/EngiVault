@@ -60,6 +60,53 @@ it("keeps delivery health and outstanding count visible while secondary summarie
   expect(screen.getByRole("link",{name:"Create request: date change or additional deliverable"}).closest("details")).toBeNull();
   expect(screen.getByRole("region",{name:"My deliverables"}).closest("details")).toBeNull();
 });
+
+it("compacts the introduction while retaining the full project identity and authorised disciplines",async()=>{
+  state.disciplines=["Electrical","Fire & Gas","Instrumentation","Telecommunications"];
+  render(await page());
+  const scope=screen.getByText("My disciplines").closest("details")!;
+  expect(scope.open).toBe(false);
+  expect(scope.querySelector("summary")?.textContent).toContain("(4)");
+  fireEvent.click(scope.querySelector("summary")!);
+  for(const discipline of state.disciplines)expect(within(scope).getByText(discipline)).toBeTruthy();
+  expect(within(scope).getByText("Test project")).toBeTruthy();
+  expect(screen.getByRole("heading",{name:"My progress"})).toBeTruthy();
+});
+
+it("labels the MDR expected baseline without changing accepted progress or the baseline values",async()=>{
+  state.hasDocument=true;state.hasImpact=true;
+  render(await page());
+  const impact=screen.getByText("My project impact").closest("details")!;
+  fireEvent.click(impact.querySelector("summary")!);
+  expect(within(impact).getByText("MDR due-date baseline")).toBeTruthy();
+  expect(within(impact).getByText("MDR expected 25%")).toBeTruthy();
+  expect(within(impact).getByText("Overall project · DCC accepted")).toBeTruthy();
+  expect(within(impact).getByRole("progressbar",{name:"Overall project actual progress"}).getAttribute("aria-valuenow")).toBe("25");
+});
+
+it("pages large groups independently while search and status counts cover the whole assigned scope",async()=>{
+  state.documents=Array.from({length:30},(_,index)=>makeDocument(`d${String(index).padStart(2,"0")}`));
+  state.assignedIds=state.documents.map(document=>String(document.id));
+  state.revisions=state.assignedIds.map(document_id=>({document_id,issue_status:"IFA",revision_code:"A01",state:"ready",control_status:"submitted"}));
+  const {rerender}=render(await page());
+  let submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  fireEvent.click(submissions.querySelector("summary")!);
+  fireEvent.click(within(submissions).getByRole("button",{name:/Next deliverables/}));
+  expect(within(submissions).getByText("Deliverable d08")).toBeTruthy();
+  expect(within(submissions).queryByText("Deliverable d00")).toBeNull();
+  expect(screen.getByText("30 of 30 deliverables")).toBeTruthy();
+  expect(within(screen.getByRole("navigation",{name:"Deliverable status"})).getByRole("link",{name:/In DCC review.*30/})).toBeTruthy();
+  rerender(await page("review","Deliverable d29"));
+  submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  expect(submissions.querySelector("details")?.hasAttribute("open")).toBe(false);
+  expect(within(submissions).getByText("Deliverable d29")).toBeTruthy();
+  expect(within(submissions).queryByRole("button",{name:/Next deliverables/})).toBeNull();
+  expect(screen.getByText("1 of 30 deliverables")).toBeTruthy();
+  rerender(await page("review"));
+  submissions=screen.getByRole("region",{name:"Submissions by issue purpose"});
+  fireEvent.click(submissions.querySelector("summary")!);
+  expect(within(submissions).getByRole("status").textContent).toBe("Showing 1–8 of 30");
+});
 it("groups by the latest completed upload, retains revision codes and ignores pending uploads",async()=>{
   state.hasDocument=true;
   state.revisions=[

@@ -6,6 +6,7 @@ import { clearNotification } from "@/app/app/workflow-actions";
 import { NotificationReadReceipt } from "@/components/notification-read-receipt";
 import { requireNotificationUser } from "@/lib/auth";
 import { notificationDestination } from "@/lib/notification-links";
+import { loadNotificationDocumentContext } from "@/lib/notification-document-context";
 import {HelpTip} from "@/components/help-tip";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 
@@ -57,6 +58,12 @@ export default async function NotificationPreviewPage({
     if (!access) destination = null;
   }
 
+  // Enrich only the validated, accessible destination, using the same member
+  // client as the message. Optional document context must never widen access.
+  const documentContext = destination
+    ? (await loadNotificationDocumentContext(supabase, [{ id: notification.id, href: destination }])).get(notification.id)
+    : undefined;
+
   return (
     <div className="mx-auto min-w-0 max-w-3xl space-y-5">
       {!preview&&<NotificationReadReceipt notificationId={notification.id} unread={!notification.read_at} />}
@@ -66,6 +73,16 @@ export default async function NotificationPreviewPage({
       <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]"><WorkspacePageHeading title={notification.title} context={<><time dateTime={notification.created_at}>Received {new Date(notification.created_at).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})} UTC</time> · {notification.read_at?"Read":"Unread"}</>} help={<HelpTip label="Notification read status">{preview?"Read-only preview: this message remains unchanged. Opening it does not mark it as read for the team member.":"Opening this message marks it as read automatically. The unread count decreases by one and disappears when no unread messages remain."}</HelpTip>}/></div>
       <article className="ev-card min-w-0 overflow-hidden" aria-label="Notification message">
         <div className="px-4 py-5 sm:px-6 sm:py-6">
+          {documentContext && (
+            <section aria-label="Related document" className="mb-5 min-w-0 rounded-xl border border-[#dfe6ee] bg-[#f7f9fc] p-4">
+              <p className="text-xs font-medium text-[#617083]">Related document</p>
+              <p className="mt-1 text-xs leading-6 text-[#35485d] [overflow-wrap:anywhere]">
+                <span className="font-mono font-semibold">{documentContext.number}</span>
+                {documentContext.discipline && <span> · {documentContext.discipline}</span>}
+              </p>
+              <h2 className="mt-1 text-sm font-semibold leading-6 text-[#10243e] [overflow-wrap:anywhere]">{documentContext.title}</h2>
+            </section>
+          )}
           <p className="whitespace-pre-wrap text-sm leading-7 text-[#35485d] [overflow-wrap:anywhere] sm:text-base">{notification.body}</p>
 
           {query.error === "clear" && (

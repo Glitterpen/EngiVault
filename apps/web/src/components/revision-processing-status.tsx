@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { customerErrorMessage, processingFailureMessage } from "@/lib/customer-messages";
 import {StatusBadge} from "@/components/status-badge";
+import {revisionProcessingLabel} from "@/lib/revision-display-status";
 
 type Run={state:string;attempt:number;error_code:string|null;metrics:Record<string,unknown>|null;updated_at:string};
 type Status={revisionState:string;run:Run|null};
@@ -56,7 +57,7 @@ export function RevisionProcessingStatus({endpoint,initialRevisionState,initialR
     finally{setBusy(false)}
   }
   return <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-    <StatusBadge tone="neutral" className="capitalize">{(status.run?.state??status.revisionState).replaceAll("_"," ")}</StatusBadge>
+    <StatusBadge tone="neutral" className="capitalize">{revisionProcessingLabel(status.revisionState,status.run?.state)}</StatusBadge>
     {active&&<span className="inline-flex items-center gap-1.5 text-sm text-[#526675]"><RefreshCw size={14} aria-hidden="true" className="shrink-0 animate-spin motion-reduce:animate-none"/> Updating automatically</span>}
     <button type="button" onClick={()=>{void load();router.refresh()}} className="ev-button-secondary min-h-11 w-full px-3 py-2 text-sm sm:w-auto">Refresh status</button>
     {canRetry&&["failed","dead_letter"].includes(status.run?.state??"")&&<button type="button" onClick={retry} disabled={busy} className="ev-button-secondary min-h-11 w-full px-3 py-2 text-sm disabled:opacity-50 sm:w-auto">{busy?"Queueing…":"Retry processing"}</button>}

@@ -143,6 +143,30 @@ describe("document route scope and role controls",()=>{
 });
 
 describe("incomplete upload ownership and recovery",()=>{
+  it("labels an incomplete registration without implying it has entered DCC review",async()=>{
+    revisions=[revision({state:"pending_upload",control_status:"submitted"})];
+    await renderPage();
+    expect(screen.getByText("Upload incomplete")).toBeTruthy();
+    expect(screen.getByText("Not yet in DCC review. Complete the upload before the submission can proceed.")).toBeTruthy();
+    expect(screen.queryByText("submitted",{exact:true})).toBeNull();
+    expect(screen.getByTestId("revision-processing")).toHaveProperty("textContent","pending_upload");
+    expect(revisions[0]).toMatchObject({state:"pending_upload",control_status:"submitted"});
+    expect(screen.getByTestId("incomplete-recovery")).toBeTruthy();
+  });
+  it("keeps the incomplete-upload explanation in read-only engineer preview without offering recovery",async()=>{
+    preview={id:"audited-preview"};revisions=[revision({state:"pending_upload",control_status:"submitted"})];
+    await renderPage();
+    expect(screen.getByText("Upload incomplete")).toBeTruthy();
+    expect(screen.getByText(/Not yet in DCC review/)).toBeTruthy();
+    expect(screen.queryByTestId("incomplete-recovery")).toBeNull();
+  });
+  it.each(["submitted","accepted","returned"])("retains the %s decision label once upload has completed",async control_status=>{
+    revisions=[revision({state:"ready",control_status})];
+    await renderPage();
+    expect(screen.getByText(control_status,{exact:true})).toBeTruthy();
+    expect(screen.queryByText("Upload incomplete")).toBeNull();
+    expect(screen.queryByText(/Not yet in DCC review/)).toBeNull();
+  });
   it("keeps the original engineer's pending recovery visible before the normal uploader",async()=>{
     revisions=[revision({state:"pending_upload",control_status:"submitted"})];
     await renderPage();
