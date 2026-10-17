@@ -21,6 +21,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: node --test ../../scripts/migration-safety.test.mjs
       - run: node ../../scripts/check-non-destructive-migrations.mjs
       - run: node ../../scripts/check-no-tracked-secrets.mjs
       - run: pnpm test

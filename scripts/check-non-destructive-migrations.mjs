@@ -1,34 +1,22 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inspectMigration } from "./migration-safety.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDirectory = join(repositoryRoot, "supabase", "migrations");
-
-const forbidden = [
-  ["drops a table", /\bdrop\s+table\b/i],
-  ["truncates data", /^\s*truncate\s+(?:table\s+)?/im],
-  ["drops a column", /\balter\s+table\b[^;]*\bdrop\s+column\b/i],
-  [
-    "deletes durable tenant records",
-    /\bdelete\s+from\s+(?:public\.)?(?:organisations|projects|documents|document_revisions|audit_events)\b/i,
-  ],
-  ["deletes Storage objects", /\bdelete\s+from\s+storage\.objects\b/i],
-  ["deletes a Storage bucket", /\bdelete\s+from\s+storage\.buckets\b/i],
-  ["rewrites a document Storage key", /\bupdate\s+(?:public\.)?document_revisions\b[^;]*\bset\s+[^;]*\bstorage_key\s*=/i],
-  ["renames a Storage object", /\bupdate\s+storage\.objects\b[^;]*\bset\s+[^;]*\bname\s*=/i],
-];
 
 const migrationFiles = (await readdir(migrationsDirectory))
   .filter((file) => file.endsWith(".sql"))
   .sort();
 const violations = [];
+const reviewedDefinitions = [];
 
 for (const file of migrationFiles) {
   const sql = await readFile(join(migrationsDirectory, file), "utf8");
-  for (const [description, pattern] of forbidden) {
-    if (pattern.test(sql)) violations.push(`${file}: ${description}`);
-  }
+  const result = inspectMigration(file, sql);
+  violations.push(...result.violations.map((description) => `${file}: ${description}`));
+  reviewedDefinitions.push(...result.reviewedDefinitions.map((reason) => `${file}: ${reason}`));
 }
 
 if (violations.length) {
@@ -39,5 +27,6 @@ if (violations.length) {
   );
   process.exitCode = 1;
 } else {
-  console.log(`Checked ${migrationFiles.length} migrations: no destructive customer-data operation found.`);
+  console.log(`Checked ${migrationFiles.length} migrations: no unapproved destructive SQL pattern found.`);
+  for (const definition of reviewedDefinitions) console.log(`Reviewed definition: ${definition}.`);
 }
