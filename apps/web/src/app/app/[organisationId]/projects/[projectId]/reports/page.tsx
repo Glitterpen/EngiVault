@@ -12,7 +12,7 @@ import {BrowseNavigation} from "@/components/browse-navigation";
 import {ReadUnavailable} from "@/components/read-unavailable";
 import {browseHref,browsePage,browseSearch,readBrowseIndex,sliceBrowsePage,type BrowseQuery} from "@/lib/read-only-browse";
 
-type Setting={generation_weekday:number;enabled:boolean;last_generated_at:string|null};
+type Setting={generation_weekday:number;enabled:boolean;last_generated_at:string|null;pdf_color_template?:unknown};
 type Report={id:string;report_number:number;period_start:string;period_end:string;generation_source:string;generated_at:string;snapshot:unknown};
 
 export default async function ProjectReportsPage({params,searchParams}:{params:Promise<{organisationId:string;projectId:string}>;searchParams?:Promise<BrowseQuery>}){
@@ -25,7 +25,7 @@ export default async function ProjectReportsPage({params,searchParams}:{params:P
   try{
   [projectResult,settingResult,index]=await Promise.all([
     supabase.from("projects").select("code,name,delivery_stage").eq("organisation_id",organisationId).eq("id",projectId).single(),
-    supabase.from("project_report_settings").select("generation_weekday,enabled,last_generated_at").eq("organisation_id",organisationId).eq("project_id",projectId).maybeSingle(),
+    supabase.from("project_report_settings").select("generation_weekday,enabled,last_generated_at,pdf_color_template").eq("organisation_id",organisationId).eq("project_id",projectId).maybeSingle(),
     readBrowseIndex<Omit<Report,"snapshot">>(async(start,end)=>{
       const result=await supabase.from("project_weekly_reports").select("id,report_number,period_start,period_end,generation_source,generated_at",{count:"exact"})
         .eq("organisation_id",organisationId).eq("project_id",projectId).order("period_end",{ascending:false}).order("id",{ascending:false}).range(start,end);
@@ -60,7 +60,7 @@ export default async function ProjectReportsPage({params,searchParams}:{params:P
         </Link>;
       }):<div className="ev-card p-10 text-center"><FileText className="mx-auto text-[#b8c3cf]" size={30} aria-hidden="true"/><h3 className="mt-4 font-semibold">{q?"No reports match this search":"No project report yet"}</h3><p className="mt-2 text-sm text-[#617083]">{q?"Search by report number or reporting date, or clear the search to browse the register.":"Generate the first report to establish the project baseline."}</p></div>}</div>
     </section>
-    {manageable?<details className="mt-6 min-w-0 rounded-xl border border-[#d6e0ed] bg-white"><summary className="min-h-11 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold text-[#10243e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10243e]">Report settings &amp; generation</summary><div className="border-t border-[#d6e0ed] p-3 sm:p-4"><ProjectReportControls organisationId={organisationId} projectId={projectId} weekday={schedule.generation_weekday} enabled={schedule.enabled} lastGeneratedAt={schedule.last_generated_at??index[0]?.generated_at??null}/></div></details>:<section className="ev-card mt-6 p-5 text-sm text-[#617083]">Reports are read-only for your role. Project administrators control the weekly schedule and report generation.</section>}
+    {manageable?<details className="mt-6 min-w-0 rounded-xl border border-[#d6e0ed] bg-white"><summary className="min-h-11 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold text-[#10243e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10243e]">Report settings &amp; generation</summary><div className="border-t border-[#d6e0ed] p-3 sm:p-4"><ProjectReportControls organisationId={organisationId} projectId={projectId} weekday={schedule.generation_weekday} enabled={schedule.enabled} lastGeneratedAt={schedule.last_generated_at??index[0]?.generated_at??null} pdfColorTemplate={schedule.pdf_color_template}/></div></details>:<section className="ev-card mt-6 p-5 text-sm text-[#617083]">Reports are read-only for your role. Project administrators control the weekly schedule and report generation.</section>}
   </div>;
 }
 

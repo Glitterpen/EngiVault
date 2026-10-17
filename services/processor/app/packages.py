@@ -75,6 +75,10 @@ def build_package(
                         "document_type", "revision_code", "issue_status", "inclusion_state",
                     )}
                 )
+                if is_transmittal and type(manifest.get("pdf_layout_version")) is int and manifest["pdf_layout_version"] == 2:
+                    # Only frozen item metadata is used: never fetch today's
+                    # document title while generating a historical package.
+                    manifest_rows[-1]["document_title"] = item.get("document_title")
                 if item["inclusion_state"] != "included":
                     continue
                 revision = revisions.get(str(item["revision_id"]))

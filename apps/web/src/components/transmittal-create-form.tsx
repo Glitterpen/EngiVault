@@ -1,6 +1,7 @@
 "use client";
 
 import {HelpTip} from "@/components/help-tip";
+import {PdfColorTemplateSelect} from "@/components/pdf-color-template-select";
 import {TRANSMITTAL_DAILY_NOTICE} from "@/lib/submission-override";
 import { useActionState, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
@@ -149,6 +150,7 @@ export function TransmittalCreateForm({
             </div>
           </div>
         </div>
+        <div className="mt-4 max-w-xl"><PdfColorTemplateSelect disabled={readOnly || pending} description="Frozen into this new transmittal. Previously issued PDFs and packages are not changed."/></div>
         <details className="mt-3 border-t border-[#d6e0ed]" onInvalidCapture={(event) => { event.currentTarget.open = true; }}>
           <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-[#526675]">Recipient details & cover message <span className="font-normal">(optional)</span></summary>
           <div className="grid min-w-0 gap-4 pb-1 sm:grid-cols-2">

@@ -126,3 +126,40 @@ def test_transmittal_pdf_identifies_attestation_and_client_acknowledgement():
     assert b"SYSTEM-ISSUED ATTESTATION" in pdf
     assert b"ENGICITE SYSTEM-ISSUED ATTESTATION" not in pdf
     assert b"CLIENT ACKNOWLEDGEMENT" in pdf
+
+
+def test_v2_transmittal_passes_only_frozen_item_titles_to_pdf(monkeypatch):
+    gateway=FakeGateway()
+    original=gateway.package_data
+    def transmittal_data(package_id):
+        package,items,revisions=original(package_id)
+        package["manifest"]={"kind":"document_transmittal","pdf_layout_version":2}
+        items[0]["document_title"]="Frozen instrumentation design title"
+        return package,items,revisions
+    gateway.package_data=transmittal_data
+    captured=[]
+    def render(package,documents,**kwargs):
+        captured.extend(documents)
+        return b"%PDF-1.4\nsynthetic"
+    monkeypatch.setattr("app.packages.build_transmittal_pdf",render)
+    build_package(gateway,"transmittal-id")
+    assert captured[0]["document_title"]=="Frozen instrumentation design title"
+    assert captured[1]["document_title"] is None
+
+
+def test_legacy_package_manifest_rows_do_not_gain_new_title_fields(monkeypatch):
+    gateway=FakeGateway()
+    original=gateway.package_data
+    def transmittal_data(package_id):
+        package,items,revisions=original(package_id)
+        package["manifest"]={"kind":"document_transmittal"}
+        items[0]["document_title"]="Do not change old manifest rows"
+        return package,items,revisions
+    gateway.package_data=transmittal_data
+    captured=[]
+    def render(package,documents,**kwargs):
+        captured.extend(documents)
+        return b"%PDF-1.4\nsynthetic"
+    monkeypatch.setattr("app.packages.build_transmittal_pdf",render)
+    build_package(gateway,"transmittal-id")
+    assert all("document_title" not in row for row in captured)

@@ -12,6 +12,17 @@ afterEach(() => {cleanup();vi.clearAllMocks();vi.restoreAllMocks();vi.unstubAllG
 const row = (id: string) => ({id, documentId:`doc-${id}`, documentNumber:`DOC-${id}`, title:`Deliverable ${id}`, discipline:"Process", documentType:"Report", revisionCode:"A01", issueStatus:"Issued for Approval"});
 const issue = (id: string, packageState="ready"): TransmittalHistoryItem => ({...row(id), revisionId:id, packageId:`pack-${id}`, packageState, transmittalNumber:`TR-${id}`, createdAt:"2026-09-12T12:00:00Z"});
 const props = {organisationId:"org", projectId:"project", defaultNumber:"TR-NEW", clientName:"Client", preparing:[], issuedRevisionNumbers:{}, revisions:[row("1"),row("2"),row("3")], history:[issue("1"),issue("2","failed")]};
+it("offers an accessible neutral-default PDF template without changing revision selections",()=>{
+  const {container}=render(<TransmittalCreateForm {...props}/>);
+  const select=screen.getByRole("combobox",{name:"PDF colour template"}) as HTMLSelectElement;
+  expect(select.value).toBe("neutral");fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.change(select,{target:{value:"burgundy"}});
+  const form=container.querySelector("form")!;expect(new FormData(form).get("pdfColorTemplate")).toBe("burgundy");expect(new FormData(form).getAll("revisionIds")).toEqual(["3"]);
+});
+it("disables colour-template changes in a read-only transmittal preview",()=>{
+  render(<TransmittalCreateForm {...props} readOnly/>);
+  expect((screen.getByRole("combobox",{name:"PDF colour template"}) as HTMLSelectElement).disabled).toBe(true);
+});
 it("only newly approved unissued revisions have checkboxes and bulk selection", () => {
   const {container} = render(<TransmittalCreateForm {...props} />);
   expect(screen.getAllByRole("checkbox")).toHaveLength(1);

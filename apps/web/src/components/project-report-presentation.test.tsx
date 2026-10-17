@@ -137,6 +137,15 @@ describe("legacy saved-report S-curve accessibility",()=>{
 });
 
 describe("report register and unchanged generation controls",()=>{
+  it("provides independent manual and scheduled PDF templates defaulted to the saved schedule",()=>{
+    render(<ProjectReportControls organisationId="org" projectId="project" weekday={5} enabled lastGeneratedAt={null} pdfColorTemplate="forest"/>);
+    const schedule=screen.getByRole("combobox",{name:"Scheduled report colour template"}) as HTMLSelectElement;
+    const manual=screen.getByRole("combobox",{name:"Report colour template"}) as HTMLSelectElement;
+    expect(schedule.value).toBe("forest");expect(manual.value).toBe("forest");
+    fireEvent.change(manual,{target:{value:"slate"}});
+    expect(manual.value).toBe("slate");expect(schedule.value).toBe("forest");
+    expect(screen.getByText(/Regenerating an existing reporting period keeps its original template/)).toBeTruthy();
+  });
   it.each(["project_admin","document_controller","organisation_admin"])("preserves report access and generation affordances for %s",async nextRole=>{
     role=nextRole;render(await ProjectReportsPage({params:params()}));
     expect(screen.getByRole("heading",{name:"Project reports",level:1})).toBeTruthy();
@@ -185,9 +194,9 @@ describe("report register and unchanged generation controls",()=>{
     expect(screen.queryByRole("button",{name:"Weekly report schedule"})).toBeNull();
     expect(screen.getByRole("combobox",{name:"Generate every"})).toHaveProperty("value","5");
     expect(screen.getByRole("checkbox",{name:"Automatic weekly generation"})).toHaveProperty("checked",true);
-    expect(Array.from(new FormData(form))).toEqual([["organisationId","org"],["projectId","project"],["weekday","5"],["enabled","on"]]);
+    expect(Array.from(new FormData(form))).toEqual([["organisationId","org"],["projectId","project"],["weekday","5"],["pdfColorTemplate","neutral"],["enabled","on"]]);
     const generate=screen.getByRole("form",{name:"Generate current project report"}) as HTMLFormElement;
-    expect(Array.from(new FormData(generate))).toEqual([["organisationId","org"],["projectId","project"]]);
+    expect(Array.from(new FormData(generate))).toEqual([["organisationId","org"],["projectId","project"],["pdfColorTemplate","neutral"]]);
     expect(generate.className).toContain("[--focus:#ffffff]");
     expect(screen.getByRole("button",{name:"Generate a project report"}).closest("form")).toBe(generate);
     expect(form.className).not.toContain("[--focus:#ffffff]");

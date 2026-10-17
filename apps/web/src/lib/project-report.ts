@@ -110,6 +110,10 @@ const sCurveSchema=z.object({
 });
 
 export const projectReportSnapshotSchema=z.object({
+  // Only numeric 2 selects the new renderer. Preserve unknown historical
+  // metadata too; an incidental marker must not make an old report unreadable.
+  pdf_layout_version:z.unknown().optional(),
+  pdf_color_template:z.unknown().optional(),
   identity:z.object({
     organisation_name:z.string(),
     project_code:z.string(),
