@@ -13,12 +13,13 @@ vi.mock("next/navigation",()=>({redirect:vi.fn((href:string)=>{throw new Error(`
 const organisationId="a0000000-0000-4000-8000-000000000001";
 const projectId="b0000000-0000-4000-8000-000000000001";
 const base=`/app/${organisationId}/projects/${projectId}`;
-type QueryResult={data:unknown;error:unknown};
+type QueryResult={data:unknown;error:unknown;count?:number|null};
 let results:Record<string,QueryResult>;
 let role:string;
 let preview:unknown;
 const from=vi.fn();
 const rpc=vi.fn();
+let requestQuery:ReturnType<typeof query>;
 
 function query(result:QueryResult){
   const builder={
@@ -26,6 +27,7 @@ function query(result:QueryResult){
     eq:vi.fn(()=>builder),
     neq:vi.fn(()=>builder),
     order:vi.fn(()=>builder),
+    limit:vi.fn(()=>builder),
     single:vi.fn(async()=>result),
     then:<TResult1=QueryResult,TResult2=never>(
       fulfilled?:((value:QueryResult)=>TResult1|PromiseLike<TResult1>)|null,
@@ -61,8 +63,13 @@ beforeEach(()=>{
       {id:"new",document_number:"MEC-002",discipline:"Mechanical",planned_submission_date:null,document_revisions:[]},
     ],error:null},
     project_issues:{data:[{id:"issue",severity:"medium",status:"open"}],error:null},
+    deliverable_requests:{data:null,count:8,error:null},
   };
-  from.mockImplementation((table:string)=>query(results[table]));
+  from.mockImplementation((table:string)=>{
+    const builder=query(results[table]);
+    if(table==="deliverable_requests")requestQuery=builder;
+    return builder;
+  });
   rpc.mockResolvedValue({data:[{role:"engineer"},{role:"document_controller"}],error:null});
   vi.mocked(requireProject).mockImplementation(async()=>({supabase:{from,rpc},access:{role},preview} as never));
   vi.mocked(loadDocumentSchedules).mockResolvedValue(new Map([
@@ -98,6 +105,17 @@ it("uses labelled summary values and excludes incomplete uploads from the review
   expect(summaryValue("Not submitted")).toBe("1");
   expect(summaryValue("Overdue")).toBe("1");
   expect(loadDocumentSchedules).toHaveBeenCalledWith(expect.anything(),organisationId,projectId,["mechanical","electrical","new"]);
+  expect(screen.getByRole("link",{name:/^Review submissions 1 awaiting review/})).toBeTruthy();
+});
+
+it("counts only scoped requests awaiting DCC acceptance without loading or changing request rows",async()=>{
+  render(await dashboard());
+  expect(screen.getByRole("link",{name:/^Deliverable requests 8 awaiting DCC acceptance/})).toBeTruthy();
+  expect(requestQuery.select).toHaveBeenCalledWith("id",{count:"exact",head:true});
+  expect(requestQuery.eq.mock.calls).toEqual([["organisation_id",organisationId],["project_id",projectId],["status","pending_dcc"]]);
+  expect(requestQuery.limit).toHaveBeenCalledWith(1);
+  expect(rpc).toHaveBeenCalledTimes(1);
+  expect(rpc).toHaveBeenCalledWith("get_project_team",{target_organisation:organisationId,target_project:projectId});
 });
 
 it("keeps supplementary information in collapsed, keyboard-operable native disclosures",async()=>{
@@ -132,6 +150,38 @@ it("omits issue mutation controls during an audited read-only preview",async()=>
   expect(screen.queryByRole("button",{name:"Report issue",hidden:true})).toBeNull();
   expect(disclosure("Project issues").textContent).toMatch(/read.only/i);
   expect(screen.getByRole("link",{name:"Open MDR"})).toBeTruthy();
+  expect(screen.getByRole("link",{name:/^Review submissions 1 awaiting review/})).toBeTruthy();
+  expect(screen.getByRole("link",{name:/^Deliverable requests 8 awaiting DCC acceptance/})).toBeTruthy();
+  expect(requestQuery.select).toHaveBeenCalledWith("id",{count:"exact",head:true});
+});
+
+it.each([null,undefined,-1,1.5,Number.NaN])("keeps the work queue usable without inventing a zero when the request count is %s",async(count:number|null|undefined)=>{
+  results.deliverable_requests={data:null,error:null,count};
+  render(await dashboard());
+  expect(screen.getByRole("link",{name:/^Deliverable requests Count unavailable/})).toBeTruthy();
+  expect(screen.queryByText("0 awaiting DCC acceptance")).toBeNull();
+  expect(summaryValue("MDR deliverables")).toBe("3");
+});
+
+it("handles unavailable delegated request counts without affecting the preview or exposing backend details",async()=>{
+  preview={targetUserId:"reviewed-member"};
+  results.deliverable_requests={data:null,count:0,error:{message:"private database failure"}};
+  render(await dashboard());
+  expect(screen.getByRole("link",{name:/^Deliverable requests Count unavailable/})).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Report issue",hidden:true})).toBeNull();
+  expect(summaryValue("Awaiting review")).toBe("1");
+  expect(document.body.textContent).not.toContain("private database failure");
+});
+
+it("keeps register metrics visible when a request-count read unexpectedly rejects",async()=>{
+  from.mockImplementation((table:string)=>{
+    if(table==="deliverable_requests")throw new Error("private transport failure");
+    return query(results[table]);
+  });
+  render(await dashboard());
+  expect(screen.getByRole("link",{name:/^Deliverable requests Count unavailable/})).toBeTruthy();
+  expect(summaryValue("MDR deliverables")).toBe("3");
+  expect(document.body.textContent).not.toContain("private transport failure");
 });
 
 it.each([
@@ -179,6 +229,7 @@ it("keeps loaded register metrics visible when issue and team information are un
 it("shows genuine zero values when the MDR is successfully loaded and empty",async()=>{
   results.documents={data:[],error:null};
   results.project_issues={data:[],error:null};
+  results.deliverable_requests={data:null,count:0,error:null};
   rpc.mockResolvedValue({data:[],error:null});
   vi.mocked(loadDocumentSchedules).mockResolvedValue(new Map());
   render(await dashboard());
@@ -186,5 +237,7 @@ it("shows genuine zero values when the MDR is successfully loaded and empty",asy
     expect(summaryValue(label)).toBe("0");
   }
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("link",{name:/^Review submissions 0 awaiting review/})).toBeTruthy();
+  expect(screen.getByRole("link",{name:/^Deliverable requests 0 awaiting DCC acceptance/})).toBeTruthy();
   expect(disclosure("MDR by discipline").textContent).toMatch(/empty|no.*deliverables|register.*first/i);
 });

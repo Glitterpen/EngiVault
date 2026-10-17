@@ -4,6 +4,7 @@ import {ArrowLeft,Download,MessageSquare,Search} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import {MdrDisciplineFolders} from "@/components/mdr-discipline-folders";
 import {MdrAssignmentDialog} from "@/components/mdr-assignment-dialog";
+import {MdrActionToolbar} from "@/components/mdr-action-toolbar";
 import type {MdrFilters,MdrDisciplineSummary} from "@/lib/mdr-register-types";
 export type {MdrFilters,MdrDocument} from "@/lib/mdr-register-types";
 
@@ -21,19 +22,19 @@ export function MdrRegisterWorkspace({organisationId,projectId,backHref,backLabe
   const base=`/app/${organisationId}/projects/${projectId}`,archived=filters.records==="removed";
   const tab="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-[#617083] hover:bg-[#f4f7fb]";
   const active="bg-[#eef3fa] font-semibold text-[#10243e]";
+  const download=<a href={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/export${archived?"?records=removed":""}`} className="ev-button-secondary"><Download size={16} aria-hidden="true"/>Download MDR</a>;
   return <div className="mx-auto min-w-0 max-w-[1400px] space-y-4">
     <header>
       <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>{backLabel}</Link>
       <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-3">
         <h1 className="flex min-w-0 flex-wrap items-center gap-x-2 break-words text-2xl font-semibold leading-tight tracking-tight text-[#10243e] sm:text-[1.75rem]">{archived?"Removed deliverables":"Master document register"}<HelpTip label="Master document register guidance">All disciplines with MDR documents appear as folders, collapsed by default. A discipline shortcut opens its folder without hiding the others. Open a folder to browse its documents, or search by document number, title, discipline or type. Each folder has its own pages. Due dates stay visible; the details icon holds schedule history and other metadata. Removed records retain revision and audit history.</HelpTip></h1>
       </div>
-      <nav aria-label="MDR actions" className="mt-3 flex flex-wrap gap-2">
-        {assignmentPanel&&<MdrAssignmentDialog>{assignmentPanel}</MdrAssignmentDialog>}
-        <a href={`/api/v1/organisations/${organisationId}/projects/${projectId}/documents/export${archived?"?records=removed":""}`} className="ev-button-secondary"><Download size={16} aria-hidden="true"/>Download MDR</a>
+      <MdrActionToolbar primary={assignmentPanel?<MdrAssignmentDialog>{assignmentPanel}</MdrAssignmentDialog>:download}>
+        {assignmentPanel?download:null}
         <Link href={`${base}/search`} className="ev-button-secondary"><Search size={16} aria-hidden="true"/>Engineering Search</Link>
         {canUseAi&&<Link href={`${base}/chat`} className="ev-button-secondary"><MessageSquare size={16} aria-hidden="true"/>Ask EngiCite</Link>}
         {registerAction}{importAction}
-      </nav>
+      </MdrActionToolbar>
     </header>
     {notice}
     {assignmentNotice}

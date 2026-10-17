@@ -11,6 +11,22 @@ beforeEach(()=>{vi.stubGlobal("fetch",vi.fn().mockResolvedValue(response({mode:"
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
 describe("Engineering Search accessibility and reflow",()=>{
+  it.each(["hybrid_search","full_text"])("shows relevance ranks instead of treating %s scores as confidence percentages",async mode=>{
+    const supplied=[{...evidence,score:2.84},{...evidence,chunk_id:"chunk-2",document_number:"DOC-2",score:0.9},{...evidence,chunk_id:"chunk-3",document_number:"DOC-3",score:-0.1}];
+    vi.mocked(fetch).mockResolvedValue(response({mode,results:supplied}));
+    render(<ProjectSearch endpoint={endpoint} basePath={basePath} readOnly={mode==="full_text"}/>);
+    enterSearch();fireEvent.submit(searchForm());
+    await screen.findByLabelText("Search relevance rank 1");
+    const cards=within(screen.getByRole("region",{name:"Search results"})).getAllByRole("article");
+    expect(cards).toHaveLength(3);
+    cards.forEach((card,index)=>{
+      expect(within(card).getByLabelText(`Search relevance rank ${index+1}`).textContent).toBe(`Relevance #${index+1}`);
+      expect(card.textContent).toContain(supplied[index].document_number);
+      expect(card.textContent).not.toMatch(/%\s*match/);
+    });
+    expect(screen.queryByText(/284%|90%|NaN|Infinity/)).toBeNull();
+  });
+
   it("keeps every field visibly labelled and avoids the cramped four-column tablet layout",()=>{
     render(<ProjectSearch endpoint={endpoint} basePath={basePath}/>);
     const query=screen.getByRole("searchbox",{name:"Search project evidence"}) as HTMLInputElement;

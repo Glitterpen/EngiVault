@@ -14,11 +14,23 @@ export default async function DocumentControlDashboard({params}:{params:Promise<
   const role=String(access.role);
   if(role!=="document_controller")redirect(projectHomePath(organisationId,projectId,role));
   const base=`/app/${organisationId}/projects/${projectId}`;
-  const [projectResult,documentResult,issueResult,teamResult]=await Promise.all([
+  const pendingRequestCount=(async()=>{
+    try{
+      // Count only the DCC's current decision stage, not requests still with the PM.
+      // The delegated member-preview client supports the same scoped read/count.
+      const {count,error}=await supabase.from("deliverable_requests").select("id",{count:"exact",head:true})
+        .eq("organisation_id",organisationId).eq("project_id",projectId).eq("status","pending_dcc").limit(1);
+      return !error&&typeof count==="number"&&Number.isSafeInteger(count)&&count>=0?count:null;
+    }catch{
+      return null;
+    }
+  })();
+  const [projectResult,documentResult,issueResult,teamResult,pendingRequests]=await Promise.all([
     supabase.from("projects").select("code,name,project_introduction,key_objectives,planned_end_date").eq("organisation_id",organisationId).eq("id",projectId).single(),
     supabase.from("documents").select("id,document_number,discipline,planned_submission_date,document_revisions(state,control_status)").eq("organisation_id",organisationId).eq("project_id",projectId).eq("lifecycle_status","active").order("discipline").order("document_number"),
     supabase.from("project_issues").select("id,severity,status").eq("organisation_id",organisationId).eq("project_id",projectId).neq("status","resolved"),
     supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),
+    pendingRequestCount,
   ]);
   if(projectResult.error||!projectResult.data||documentResult.error)return <DashboardUnavailable base={base}/>;
   const docs=(documentResult.data??[]) as DocumentRow[];
@@ -37,7 +49,7 @@ export default async function DocumentControlDashboard({params}:{params:Promise<
     if(!document.document_revisions.some(revision=>revision.state!=="pending_upload"))unsubmitted++;
   }
   const summary={
-    deliverables:docs.length,awaitingReview,unsubmitted,
+    deliverables:docs.length,awaitingReview,pendingRequests,unsubmitted,
     overdue:[...schedules.values()].filter(schedule=>schedule.overdue).length,
     engineers:teamResult.error?null:((teamResult.data??[]) as {role:string}[]).filter(member=>member.role==="engineer").length,
     issues:issueResult.error?null:issueResult.data?.length??0,

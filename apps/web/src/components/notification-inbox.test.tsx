@@ -10,6 +10,10 @@ const items:NotificationInboxItem[]=[
   {id:"middle",kind:"review",title:"Revision accepted",body:"Process design accepted by Document Control",read_at:"2026-10-16T09:00:00Z",created_at:"2026-10-16T08:00:00Z",receivedLabel:"16 Oct 2026, 08:00 UTC",document:null},
   {id:"oldest",kind:"team",title:"Project team updated",body:"Mechanical team appointment",read_at:null,created_at:"2026-10-15T08:00:00Z",receivedLabel:"15 Oct 2026, 08:00 UTC",document:null},
 ];
+const manyItems:NotificationInboxItem[]=Array.from({length:25},(_,index)=>({
+  ...items[0],id:`message-${index}`,title:`Message ${String(index).padStart(2,"0")}`,read_at:index%2?items[1].read_at:null,
+  created_at:new Date(Date.UTC(2026,9,17,12)-index*60*60*1000).toISOString(),
+}));
 
 describe("clean notification inbox",()=>{
   it("keeps the supplied newest-first order and safe internal message destinations",()=>{
@@ -49,5 +53,61 @@ describe("clean notification inbox",()=>{
     render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"engineer",displayName:"Engineer",disciplines:["Electrical"],expiresAt:"2099-01-01"}}><NotificationInbox items={items}/></AdminPreviewBoundary>);
     expect((screen.getByRole("searchbox") as HTMLInputElement).disabled).toBe(false);const unread=screen.getByRole("button",{name:"Unread 2"});expect((unread as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(unread);expect(within(screen.getByRole("region",{name:"Your inbox"})).getByRole("status").textContent).toBe("2 of 3 loaded messages");expect(within(screen.getByRole("region",{name:"Your inbox"})).queryByRole("form")).toBeNull();
+  });
+  it("limits each page to ten messages while preserving every supplied message and destination",()=>{
+    render(<NotificationInbox items={manyItems}/>);
+    const destinations=()=>within(screen.getByRole("list",{name:"Notifications"})).getAllByRole("link").map(link=>link.getAttribute("href"));
+    expect(destinations()).toEqual(manyItems.slice(0,10).map(item=>`/app/notifications/${item.id}`));
+    expect((screen.getByRole("button",{name:"Previous"}) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toBe("Showing 1–10 of 25 matching messages · 25 loaded");
+    fireEvent.click(screen.getByRole("button",{name:"Next"}));
+    expect(destinations()).toEqual(manyItems.slice(10,20).map(item=>`/app/notifications/${item.id}`));
+    expect(screen.getByText("Page 2 of 3")).toBeTruthy();expect(document.activeElement).toBe(screen.getByRole("region",{name:"Notification results"}));
+    expect(screen.getByRole("status").getAttribute("aria-live")).toBe("polite");expect(screen.getByRole("status").getAttribute("aria-atomic")).toBe("true");
+    expect(screen.getByRole("status").textContent).toBe("Showing 11–20 of 25 matching messages · 25 loaded");
+    fireEvent.click(screen.getByRole("button",{name:"Next"}));
+    expect(destinations()).toEqual(manyItems.slice(20).map(item=>`/app/notifications/${item.id}`));
+    expect(screen.getByText("Page 3 of 3")).toBeTruthy();expect((screen.getByRole("button",{name:"Next"}) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toBe("Showing 21–25 of 25 matching messages · 25 loaded");
+    fireEvent.click(screen.getByRole("button",{name:"Previous"}));expect(screen.getByText("Page 2 of 3")).toBeTruthy();
+  });
+  it("searches all loaded messages, not only the current page, and resets the page for search and unread changes",()=>{
+    render(<NotificationInbox items={manyItems}/>);fireEvent.click(screen.getByRole("button",{name:"Next"}));
+    fireEvent.change(screen.getByRole("searchbox"),{target:{value:"Message 24"}});
+    expect(screen.getByRole("link",{name:/Message 24/})).toBeTruthy();expect(screen.queryByRole("navigation",{name:"Notification pages"})).toBeNull();
+    fireEvent.change(screen.getByRole("searchbox"),{target:{value:""}});expect(screen.getByText("Page 1 of 3")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button",{name:"Next"}));fireEvent.click(screen.getByRole("button",{name:"Unread 13"}));
+    expect(screen.getByText("Page 1 of 2")).toBeTruthy();
+    const visible=within(screen.getByRole("list",{name:"Notifications"})).getAllByRole("link");
+    expect(visible.map(link=>link.getAttribute("href"))).toEqual(manyItems.filter(item=>!item.read_at).slice(0,10).map(item=>`/app/notifications/${item.id}`));
+    fireEvent.click(screen.getByRole("button",{name:"Next"}));fireEvent.click(screen.getByRole("button",{name:"All 25"}));expect(screen.getByText("Page 1 of 3")).toBeTruthy();
+  });
+  it("groups messages by received date in UTC without changing their supplied order",()=>{
+    render(<NotificationInbox items={[
+      {...items[0],created_at:"2026-10-17T00:45:00Z"},
+      {...items[1],created_at:"2026-10-16T23:30:00-01:00"},
+      {...items[2],created_at:"2026-10-16T23:00:00Z"},
+    ]}/>);
+    expect(screen.getByRole("heading",{name:"17 Oct 2026 (UTC)"})).toBeTruthy();expect(screen.getByRole("heading",{name:"16 Oct 2026 (UTC)"})).toBeTruthy();
+    expect(within(screen.getByRole("list",{name:"Notifications received 17 Oct 2026 (UTC)"})).getAllByRole("link").map(link=>link.getAttribute("href"))).toEqual(["/app/notifications/newest","/app/notifications/middle"]);
+    expect(screen.getByRole("heading",{name:"Revision submitted"}).tagName).toBe("H4");
+  });
+  it("clamps the current page when a read-only data refresh leaves fewer matching messages",()=>{
+    const {rerender}=render(<NotificationInbox items={manyItems}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Next"}));fireEvent.click(screen.getByRole("button",{name:"Next"}));
+    rerender(<NotificationInbox items={manyItems.slice(0,12)}/>);
+    expect(screen.getByText("Page 2 of 2")).toBeTruthy();expect(screen.getByRole("status").textContent).toBe("Showing 11–12 of 12 matching messages · 12 loaded");
+    expect(within(screen.getByRole("list",{name:"Notifications"})).getAllByRole("link")).toHaveLength(2);
+    rerender(<NotificationInbox items={[]}/>);expect(screen.getByText("You have no notifications.")).toBeTruthy();expect(screen.queryByRole("navigation",{name:"Notification pages"})).toBeNull();
+  });
+  it("keeps date groups and pagination available inside the audited read-only boundary",()=>{
+    render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"document_controller",displayName:"DCC",disciplines:[],expiresAt:"2099-01-01"}}><NotificationInbox items={manyItems}/></AdminPreviewBoundary>);
+    const inbox=within(screen.getByRole("region",{name:"Your inbox"}));const next=inbox.getByRole("button",{name:"Next"});
+    expect((next as HTMLButtonElement).disabled).toBe(false);expect(next.closest("[data-preview-safe]")).toBeTruthy();
+    expect(next.getAttribute("aria-controls")).toBe(inbox.getByRole("region",{name:"Notification results"}).id);expect(next.classList.contains("min-h-11")).toBe(true);
+    fireEvent.click(next);expect(inbox.getByText("Page 2 of 3")).toBeTruthy();expect(inbox.getByRole("status").textContent).toContain("11–20");expect(inbox.queryByRole("form")).toBeNull();
+  });
+  it("does not fail the entire inbox when a notification has an unavailable date",()=>{
+    render(<NotificationInbox items={[{...items[0],created_at:""}]}/>);expect(screen.getByRole("heading",{name:"Date unavailable"})).toBeTruthy();expect(screen.getByRole("link",{name:/Revision submitted/})).toBeTruthy();
   });
 });

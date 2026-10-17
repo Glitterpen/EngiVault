@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, ChevronDown, Download, FileText } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireProject } from "@/lib/auth";
 import { WorkPackageGenerate } from "@/components/work-package-generate";
 import { WorkspacePageHeading } from "@/components/workspace-page-heading";
 import {ReadUnavailable} from "@/components/read-unavailable";
+import {WorkPackageDocuments, type WorkPackageDocument} from "@/components/work-package-documents";
 
 type PackageManifest = {
   kind?: string;
@@ -74,7 +75,7 @@ export default async function PackagePage({
         ) : null}</div>}</div>
 
       <dl aria-label="Package summary" className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-[#d6e0ed] bg-white px-4 py-4 lg:grid-cols-4 sm:px-5">
-        <Detail label="Status" value={pack.state.replaceAll("_", " ")} />
+        <Detail label="Status" value={packageStateLabel(pack.state, isTransmittal)} />
         <Detail label="Included" value={String(Number(manifest.included ?? 0))} />
         <Detail label="Exceptions" value={String(Number(manifest.exceptions ?? 0))} />
         <Detail label={isTransmittal ? "Recipient" : "Destination"} value={isTransmittal ? manifest.recipient?.company ?? "Client" : pack.destination.replaceAll("_", " ")} />
@@ -108,30 +109,18 @@ export default async function PackagePage({
         </section>
       </>}
 
-      <section aria-labelledby="package-documents-heading" className="ev-card mt-4 min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dce5ef] px-4 py-4 sm:px-5">
-          <h2 id="package-documents-heading" className="text-base font-semibold text-[#10243e]">Package documents</h2>
-          <span className="text-xs text-[#526675]">{items?.length ?? 0} document{items?.length === 1 ? "" : "s"}</span>
-        </div>
-        {items?.length ? <ul className="divide-y divide-[#dce5ef]">
-          {items.map((item) => (
-            <li key={item.id} className="min-w-0 px-4 py-4 sm:px-5">
-              <article className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,0.6fr)] lg:items-start">
-                <h3 className="flex min-w-0 items-start gap-2 text-sm font-semibold leading-6 text-[#10243e]"><FileText size={16} className="mt-1 shrink-0 text-[#617083]" aria-hidden="true" /><span className="min-w-0 break-all">{item.document_number}</span></h3>
-                <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 xl:grid-cols-4">
-                  <Detail label="Discipline" value={item.discipline} />
-                  <Detail label="Type" value={item.document_type} />
-                  <Detail label="Revision" value={item.revision_code ?? "—"} />
-                  <Detail label="Issue status" value={item.issue_status ?? "—"} />
-                </dl>
-                <dl className="min-w-0"><dt className="mb-1 text-xs text-[#526675]">Readiness</dt><dd className={`inline-flex max-w-full rounded-md px-2 py-1 text-xs font-semibold leading-5 ${item.inclusion_state === "included" ? "bg-[#eef3fa] text-[#10243e]" : "bg-[#fff2ed] text-[#93402d]"}`}><span className="min-w-0 break-words">{item.inclusion_state.replaceAll("_", " ")}</span></dd></dl>
-              </article>
-            </li>
-          ))}
-        </ul> : <p className="px-4 py-8 text-sm text-[#526675] sm:px-5">No documents are recorded in this package.</p>}
-      </section>
+      <WorkPackageDocuments items={(items ?? []).map((item: WorkPackageDocument) => ({id: item.id, document_number: item.document_number, discipline: item.discipline, document_type: item.document_type, revision_code: item.revision_code, issue_status: item.issue_status, inclusion_state: item.inclusion_state}))} />
     </div>
   );
+}
+
+function packageStateLabel(state: string, transmittal: boolean) {
+  if (state === "ready") return transmittal ? "Transmittal generated" : "Ready to download";
+  if (state === "frozen") return "Frozen · awaiting ZIP";
+  if (state === "generating") return "Preparing ZIP";
+  if (state === "failed") return "Generation failed";
+  const label = state.replaceAll("_", " ");
+  return label ? label[0].toUpperCase() + label.slice(1) : "Status unavailable";
 }
 
 function Detail({ label, value, secondary, className = "" }: { label: string; value: string; secondary?: string; className?: string }) {

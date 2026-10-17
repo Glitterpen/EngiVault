@@ -9,7 +9,7 @@ type WorkspaceProps={
   organisationId:string;
   projectId:string;
   project:DccProject;
-  summary:{deliverables:number;awaitingReview:number;unsubmitted:number;overdue:number;engineers:number|null;issues:number|null};
+  summary:{deliverables:number;awaitingReview:number;pendingRequests:number|null;unsubmitted:number;overdue:number;engineers:number|null;issues:number|null};
   disciplines:{name:string;count:number}[];
   preview:boolean;
   issueForm?:ReactNode;
@@ -19,8 +19,8 @@ type WorkspaceProps={
 export function DccControlWorkspace({organisationId,projectId,project,summary,disciplines,preview,issueForm}:WorkspaceProps){
   const base=`/app/${organisationId}/projects/${projectId}`;
   const tasks=[
-    {title:"Review submissions",description:"Check files and confirm conformance.",href:`${base}/reviews`,icon:ClipboardCheck},
-    {title:"Deliverable requests",description:"Review date changes and additional deliverables.",href:`${base}/requests`,icon:CalendarClock},
+    {title:"Review submissions",description:"Check files and confirm conformance.",href:`${base}/reviews`,icon:ClipboardCheck,count:summary.awaitingReview,countLabel:"awaiting review"},
+    {title:"Deliverable requests",description:"Review date changes and additional deliverables.",href:`${base}/requests`,icon:CalendarClock,count:summary.pendingRequests,countLabel:"awaiting DCC acceptance"},
     {title:"Create transmittal",description:"Select approved revisions for the next issue.",href:`${base}/work-packages/transmittals/new`,icon:Send},
     {title:"Work packages",description:"Prepare handover packages and view past transmittals.",href:`${base}/work-packages`,icon:PackageOpen},
   ];
@@ -38,10 +38,10 @@ export function DccControlWorkspace({organisationId,projectId,project,summary,di
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <section aria-labelledby="dcc-work-heading" className="ev-card min-w-0 overflow-hidden">
         <div className="border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id="dcc-work-heading" className="font-semibold">Work queue</h2></div>
-        <ul className="divide-y divide-[#e7ecef]">{tasks.map(({title,description,href,icon:Icon})=><li key={href}>
+        <ul className="divide-y divide-[#e7ecef]">{tasks.map(({title,description,href,icon:Icon,count,countLabel})=><li key={href}>
           <Link href={href} className="group flex min-h-11 min-w-0 items-center gap-3 px-4 py-4 transition hover:bg-[#f4f7fb] focus-visible:outline-offset-[-3px] sm:px-5">
             <Icon size={19} aria-hidden="true" className="shrink-0 text-[#526675]"/>
-            <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-semibold text-[#14263d]">{title}</h3><p className="mt-1 break-words text-xs leading-5 text-[#617083]">{description}</p></div>
+            <div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><h3 className="break-words text-sm font-semibold text-[#14263d]">{title}</h3>{countLabel?<span className={`rounded-md px-2 py-1 text-xs font-medium tabular-nums ${count!==null&&count!==undefined&&count>0?"bg-[#fff0e8] text-[#993d21]":"bg-[#eef3fa] text-[#526675]"}`}>{count===null?"Count unavailable":`${count} ${countLabel}`}</span>:null}</div><p className="mt-1 break-words text-xs leading-5 text-[#617083]">{description}</p></div>
             <ArrowRight size={17} aria-hidden="true" className="shrink-0 text-[#617083]"/>
           </Link>
         </li>)}</ul>

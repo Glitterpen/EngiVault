@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
-import {cleanup,render,screen,within} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import PackagePage from "./page";
 import {requireProject} from "@/lib/auth";
 import {WorkPackageGenerate} from "@/components/work-package-generate";
@@ -71,16 +71,19 @@ describe("responsive package contents and issue details",()=>{
   it("keeps every frozen item and readiness exception in a labelled document list",async()=>{
     const {container}=await renderPage();
     const documents=screen.getByRole("region",{name:"Package documents"});
+    fireEvent.click(within(documents).getByText("Process").closest("summary")!);
+    fireEvent.click(within(documents).getByText("Electrical").closest("summary")!);
     expect(within(documents).getAllByRole("listitem")).toHaveLength(2);
     expect(within(documents).getByRole("heading",{name:"ENG-PROC-001"})).toBeTruthy();
     expect(within(documents).getByText("Issued for Review (IFR)")).toBeTruthy();
-    expect(within(documents).getByText("missing revision")).toBeTruthy();
-    expect(within(documents).getByText("included")).toBeTruthy();
+    expect(within(documents).getByText("Revision unavailable")).toBeTruthy();
+    expect(within(documents).getByText("Included in package")).toBeTruthy();
     expect(container.querySelector('[class*="min-w-[850px]"]')).toBeNull();
     const summary=screen.getByLabelText("Package summary");
     expect(within(summary).getByText("Included").nextElementSibling?.textContent).toBe("2");
     expect(within(summary).getByText("Exceptions").nextElementSibling?.textContent).toBe("1");
     expect(within(summary).getByText("Destination").nextElementSibling?.textContent).toBe("client review");
+    expect(within(summary).getByText("Status").nextElementSibling?.textContent).toBe("Ready to download");
   });
   it("shows a clear empty package without inventing any included documents",async()=>{
     items=[];pack!.manifest=null;await renderPage();
@@ -97,6 +100,7 @@ describe("responsive package contents and issue details",()=>{
     const seal=screen.getByRole("region",{name:"Seal qualification"});
     expect(seal.closest("details")).toBeNull();
     expect(seal.textContent).toContain("This is not a qualified electronic signature or seal.");
+    expect(within(screen.getByLabelText("Package summary")).getByText("Status").nextElementSibling?.textContent).toBe("Transmittal generated");
   });
   it("only asserts qualified status for a provider-verified qualified seal",async()=>{
     transmittal({electronic_seal:{status:"qualified_electronic_seal",qualification:"provider_verified"}});await renderPage();
