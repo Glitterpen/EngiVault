@@ -51,3 +51,15 @@ it("keeps paging independent across issue groups and small groups free of paging
   expect(within(groups[1]).getByRole("heading", {name: "Deliverable 1"})).toBeTruthy();
   expect(within(groups[1]).queryByRole("navigation")).toBeNull();
 });
+
+it("distinguishes repeated issue-purpose pagination by discipline scope without changing the visible issue labels", () => {
+  const {container} = render(<><EngineerSubmissionGroup label="IFR" scopeLabel="Electrical">{cards(12)}</EngineerSubmissionGroup><EngineerSubmissionGroup label="IFR" scopeLabel="Instrumentation">{cards(12)}</EngineerSubmissionGroup></>);
+  const groups = container.querySelectorAll("details");
+  for (const group of groups) fireEvent.click(group.querySelector("summary")!);
+  expect(screen.getByRole("navigation", {name: "Electrical — IFR deliverable pages"})).toBeTruthy();
+  expect(screen.getByRole("navigation", {name: "Instrumentation — IFR deliverable pages"})).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", {name: "Next deliverables in Electrical — IFR"}));
+  expect(within(groups[0]).getByRole("status").textContent).toBe("Showing 9–12 of 12");
+  expect(within(groups[1]).getByRole("status").textContent).toBe("Showing 1–8 of 12");
+  expect(groups[0].querySelector("summary")?.textContent).toBe("IFR 12 deliverables");
+});
