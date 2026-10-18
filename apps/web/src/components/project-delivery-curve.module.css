@@ -11,8 +11,47 @@
   width: 100%;
   pointer-events: none;
 }
-.reveal {
-  animation: delivery-curve-reveal 1.05s cubic-bezier(.22,.61,.36,1) both;
+.progressMotion {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.traveller,
+.currentMarker {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent), 0 0 16px color-mix(in srgb, currentColor 30%, transparent);
+}
+.traveller {
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  offset-anchor: 50% 50%;
+  offset-rotate: 0deg;
+  animation: delivery-curve-travel 20s linear infinite;
+}
+.currentMarker {
+  transform: translate(-50%, -50%);
+}
+.currentMarker::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  animation: delivery-curve-glow 3s ease-in-out infinite;
+}
+/* Inspection pauses decorative motion without adding animation settings. */
+.plot:hover .traveller,
+.plot:hover .currentMarker::before,
+:global(section:focus-within) .traveller,
+:global(section:focus-within) .currentMarker::before {
+  animation-play-state: paused;
 }
 .acceptedKey,
 .plannedKey,
@@ -37,10 +76,21 @@
   border-radius: 4px;
 }
 .range:disabled { cursor: default; opacity: .55; }
-@keyframes delivery-curve-reveal {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0 0 0 0); }
+@keyframes delivery-curve-travel {
+  0% { offset-distance: 0%; opacity: 0; }
+  5% { offset-distance: 0%; opacity: 1; }
+  80% { offset-distance: 100%; opacity: 1; }
+  90%, 100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes delivery-curve-glow {
+  0%, 100% { transform: scale(.8); opacity: .2; }
+  50% { transform: scale(1.35); opacity: .6; }
+}
+@supports not (offset-path: path("M 0 0 L 1 1")) {
+  .traveller { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .reveal { animation: none !important; clip-path: none !important; }
+  .traveller { display: none; animation: none; }
+  .currentMarker { box-shadow: none; }
+  .currentMarker::before { display: none; animation: none; }
 }

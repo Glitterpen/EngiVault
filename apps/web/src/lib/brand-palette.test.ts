@@ -30,10 +30,13 @@ function contrast(foreground:string,background:string):number{
 }
 
 describe("logo-aligned application palette",()=>{
-  it("does not reintroduce green or teal accents in page, component, chart, email or report source",()=>{
+  it("does not reintroduce green or teal accents outside the requested S-curve plan-achieved status",()=>{
     const violations:string[]=[];
     for(const file of sourceFiles(sourceRoot)){
-      const source=readFileSync(file,"utf8"),name=relative(sourceRoot,file);
+      const name=relative(sourceRoot,file);
+      let source=readFileSync(file,"utf8");
+      // Explicit user-requested traffic-light comparison, not a general brand accent.
+      if(name.replaceAll("\\","/")==="components/project-delivery-curve.tsx")source=source.replace('const acceptedColor=progressStatus==="behind"?"#b91c1c":progressStatus==="achieved"?"#15803d":"#10243e";','');
       for(const match of source.matchAll(/#([a-f\d]{6}|[a-f\d]{3})(?![a-f\d])/gi))if(isGreen(channels(match[1])))violations.push(`${name}: ${match[0]}`);
       for(const match of source.matchAll(/rgba?\((\d*\.?\d+(?:\s*\/\s*255)?)[,\s]+(\d*\.?\d+(?:\s*\/\s*255)?)[,\s]+(\d*\.?\d+(?:\s*\/\s*255)?)/gi)){
         const rgb=match.slice(1).map(value=>value.includes("/")?parseFloat(value):parseFloat(value)*(file.endsWith(".css")?1:255));
@@ -60,19 +63,23 @@ describe("logo-aligned application palette",()=>{
   });
 
   it("keeps delivery series distinct and visible against the chart background",()=>{
-    const series=["#647386","#b94d20","#10243e"];
-    expect(new Set(series).size).toBe(3);
+    const series=["#647386","#b94d20","#10243e","#b91c1c","#15803d"];
+    expect(new Set(series).size).toBe(5);
     for(const colour of series)expect(contrast(colour,"#f7f9fc")).toBeGreaterThanOrEqual(3);
     const component=readFileSync(join(sourceRoot,"components/project-delivery-curve.tsx"),"utf8");
     const styles=readFileSync(join(sourceRoot,"components/project-delivery-curve.module.css"),"utf8");
-    for(const [name,colour] of [["planned","#647386"],["submitted","#b94d20"],["accepted","#10243e"]]){
+    for(const [name,colour] of [["planned","#647386"],["submitted","#b94d20"]]){
       expect(component).toMatch(new RegExp(`data-curve-series="${name}"[^>]*stroke="${colour}"`));
       expect(styles).toMatch(new RegExp(`\\.${name}Key \\{ border-top: [^;]+${colour}; \\}`));
     }
+    expect(component).toContain('const acceptedColor=progressStatus==="behind"?"#b91c1c":progressStatus==="achieved"?"#15803d":"#10243e";');
+    expect(component).toMatch(/data-curve-series="accepted"[^>]*stroke=\{acceptedColor\}/);
+    expect(component).toContain('borderTopColor:acceptedColor');
+    for(const colour of ["#b91c1c","#15803d"])expect(contrast(colour,"#ffffff")).toBeGreaterThanOrEqual(4.5);
     expect(component).toContain('strokeDasharray="10 4"');
     expect(component).toContain('strokeDasharray="6 6"');
     expect(component).toContain("Slate dashed estimated plan");
-    expect(component).toContain("Orange dashed overall submitted progress and navy solid DCC-accepted progress");
+    expect(component).toContain("Orange dashed overall submitted progress and solid DCC-accepted progress");
   });
 
   it("keeps discipline folder accents within the navy, orange and slate families",()=>{

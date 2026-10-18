@@ -1,20 +1,17 @@
 "use client";
 
-import {useCallback,useEffect,useId,useMemo,useRef,useState,useSyncExternalStore,type PointerEvent} from "react";
-import {ArrowLeft,ArrowRight,RotateCcw} from "lucide-react";
+import {useEffect,useId,useMemo,useRef,useState,type PointerEvent} from "react";
+import {ArrowLeft,ArrowRight} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import type {DeliveryCurveModel,DeliveryCurvePoint} from "@/lib/project-delivery-curve";
 import styles from "./project-delivery-curve.module.css";
 
 const LEFT=44,RIGHT=18,TOP=20,BOTTOM=34;
-const MOTION_QUERY="(prefers-reduced-motion: reduce)";
 const percent=(value:number)=>`${Number.isInteger(value)?value:value.toFixed(1)}%`;
 const percentage=(value:number|null)=>value!==null&&Number.isFinite(value)&&value>=0&&value<=100?value:null;
 const dayTime=(date:string)=>Date.parse(`${date}T00:00:00Z`);
 function validDate(date:string){const time=dayTime(date);return /^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===date;}
 function dateLabel(date:string,short=false){return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:short?"2-digit":"numeric",timeZone:"UTC"});}
-function motionSnapshot(){return typeof window==="undefined"||typeof window.matchMedia!=="function"||window.matchMedia(MOTION_QUERY).matches;}
-const serverMotionSnapshot=()=>true;
 const sourceLabel=(source:DeliveryCurvePoint["submittedSource"])=>source==="live"?"Live MDR":source==="report"?"Saved report":"—";
 
 /** Timeline-only estimates and observed progress; no fetching or project date changes. */
@@ -36,14 +33,7 @@ export function ProjectDeliveryCurve({curve}:{curve:DeliveryCurveModel}){
 
 function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
   const id=useId(),container=useRef<HTMLDivElement>(null);
-  const [width,setWidth]=useState(640),[selectedDate,setSelectedDate]=useState<string|null>(null),[replay,setReplay]=useState(0),[animationFinished,setAnimationFinished]=useState(false);
-  const subscribeMotion=useCallback((notify:()=>void)=>{
-    if(typeof window.matchMedia!=="function")return ()=>{};
-    const media=window.matchMedia(MOTION_QUERY);
-    const changed=()=>{setAnimationFinished(true);notify();};
-    media.addEventListener("change",changed);return ()=>media.removeEventListener("change",changed);
-  },[]);
-  const reducedMotion=useSyncExternalStore(subscribeMotion,motionSnapshot,serverMotionSnapshot);
+  const [width,setWidth]=useState(640),[selectedDate,setSelectedDate]=useState<string|null>(null);
   const asOfDate=curve.asOf.slice(0,10);
   const points=useMemo(()=>curve.points.filter(point=>validDate(point.date)).map(point=>({
     ...point,
@@ -71,7 +61,12 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
   const planned=points.filter(point=>point.planned!==null),submitted=points.filter(point=>point.submitted!==null),accepted=points.filter(point=>point.accepted!==null);
   const sameDayPlan=curve.timeline.plannedStart===curve.timeline.plannedEnd;
   const plannedPath=sameDayPlan?milestonePath(planned,x,y):linePath(planned,"planned",x,y),submittedPath=linePath(submitted,"submitted",x,y),acceptedPath=linePath(accepted,"accepted",x,y);
-  const hasLine=planned.length>1||submitted.length>1||accepted.length>1,animate=hasLine&&!animationFinished&&!reducedMotion;
+  // Decorative motion follows only real accepted observations, ending at today's live snapshot.
+  const currentAccepted=accepted.findLast(point=>point.date===asOfDate&&point.acceptedSource==="live");
+  const planToday=curve.timeline.status==="configured"?percentage(curve.estimatedPlan.today):null;
+  const progressStatus=currentAccepted&&planToday!==null?(currentAccepted.accepted!<planToday?"behind":"achieved"):"unavailable";
+  const acceptedColor=progressStatus==="behind"?"#b91c1c":progressStatus==="achieved"?"#15803d":"#10243e";
+  const progressStatusLabel=progressStatus==="behind"?"Below plan":progressStatus==="achieved"?"Plan achieved":"Plan comparison unavailable";
   // Axis ticks use equal elapsed UTC time, never clustered observation indices.
   const tickCount=span?Math.min(width<600?3:5,Math.floor(span/86_400_000)+1):1;
   const ticks=Array.from({length:tickCount},(_,tick)=>first+span*tick/Math.max(1,tickCount-1));
@@ -90,13 +85,11 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
   const weeklyRate=curve.timeline.status==="configured"?curve.estimatedPlan.weeklyRate:null;
   return <div className="min-w-0 px-4 pb-4 sm:px-5 sm:pb-5">
     <div className="mt-2 flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#526675]"><span className="inline-flex items-center gap-2"><span className={styles.plannedKey} aria-hidden="true"/>Estimated plan</span><span className="inline-flex items-center gap-2"><span className={styles.submittedKey} aria-hidden="true"/>Overall submitted</span><span className="inline-flex items-center gap-2"><span className={styles.acceptedKey} aria-hidden="true"/>DCC accepted</span></div>
-      {hasLine&&<button type="button" data-preview-safe className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-[#10243e] disabled:text-[#526675] disabled:opacity-60" disabled={reducedMotion} aria-describedby={reducedMotion?`${id}-motion`:undefined} onClick={()=>{if(!motionSnapshot()){setAnimationFinished(false);setReplay(current=>current+1);}}}><RotateCcw size={14} aria-hidden="true"/>Replay animation</button>}
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#526675]"><span className="inline-flex items-center gap-2"><span className={styles.plannedKey} aria-hidden="true"/>Estimated plan</span><span className="inline-flex items-center gap-2"><span className={styles.submittedKey} aria-hidden="true"/>Overall submitted</span><span className="inline-flex flex-wrap items-center gap-2"><span className={styles.acceptedKey} style={{borderTopColor:acceptedColor}} aria-hidden="true"/><span>DCC accepted</span><span className="font-medium" style={{color:acceptedColor}}>· {progressStatusLabel}</span></span></div>
     </div>
     {weeklyRate!==null&&<p className="text-xs leading-5 text-[#526675]">Linear estimate · approximately {numberLabel(weeklyRate)}% per week</p>}
-    {reducedMotion&&hasLine&&<p id={`${id}-motion`} className="sr-only">Animation is off because reduced motion is requested or motion preferences are unavailable.</p>}
     <figure className="min-w-0">
-      <p id={`${id}-description`} className="sr-only">Slate dashed estimated plan assumes equal calendar-day progress from the Project Manager’s planned start at 0% to planned completion at 100%; it is not an approved MDR baseline. Orange dashed overall submitted progress and navy solid DCC-accepted progress connect their own recorded observations only. Missing observations are not zero; actual lines never forecast future progress. The Today marker identifies the current snapshot date. Exact estimates, actual values and independent actual sources are available using Explore curve dates or View curve data.</p>
+      <p id={`${id}-description`} className="sr-only">Slate dashed estimated plan assumes equal calendar-day progress from the Project Manager’s planned start at 0% to planned completion at 100%; it is not an approved MDR baseline. Orange dashed overall submitted progress and solid DCC-accepted progress connect their own recorded observations only. DCC accepted is red below today’s plan, green when achieved, or navy when comparison is unavailable. The larger endpoint marks current accepted progress; decorative motion does not change values. Missing observations are not zero; actual lines never forecast future progress. The Today marker identifies the current snapshot date. Exact estimates, actual values and independent actual sources are available using Explore curve dates or View curve data.</p>
       <div ref={container} role="img" aria-label="Estimated plan, submitted and DCC-accepted progress S-curve" aria-describedby={`${id}-description`} className={styles.plot} style={{height}} onPointerDown={selectAtPointer}>
         <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
           <rect x={LEFT} y={TOP} width={plotWidth} height={plotHeight} rx={8} fill="#f7f9fc"/>
@@ -107,24 +100,28 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
           <text data-today-label x={x(asOfDate)} y={12} textAnchor={x(asOfDate)<LEFT+30?"start":x(asOfDate)>width-RIGHT-30?"end":"middle"} fill="#b94d20" fontSize={11} fontWeight={600}>Today</text>
           {ticks.map((time,tick)=><text data-axis-date key={time} x={span?LEFT+(time-first)/span*plotWidth:LEFT+plotWidth/2} y={height-10} textAnchor={ticks.length===1?"middle":tick===0?"start":tick===ticks.length-1?"end":"middle"} fill="#526675" fontSize={11}>{dateLabel(new Date(time).toISOString().slice(0,10),true)}</text>)}
         </svg>
-        <div key={replay} data-curve-traces data-animating={animate} className={`${styles.traceLayer} ${animate?styles.reveal:""}`} onAnimationEnd={()=>setAnimationFinished(true)}>
+        <div data-curve-traces data-progress-status={progressStatus} className={styles.traceLayer}>
           <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
-            <defs><linearGradient id={`${id}-fill`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#10243e" stopOpacity=".12"/><stop offset="100%" stopColor="#10243e" stopOpacity=".01"/></linearGradient></defs>
+            <defs><linearGradient id={`${id}-fill`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={acceptedColor} stopOpacity=".12"/><stop offset="100%" stopColor={acceptedColor} stopOpacity=".01"/></linearGradient></defs>
             {accepted.length>1&&<path d={`${acceptedPath} L ${x(accepted.at(-1)!.date)} ${y(0)} L ${x(accepted[0].date)} ${y(0)} Z`} fill={`url(#${id}-fill)`}/>}
             {planned.length>1&&<path data-curve-series="planned" d={plannedPath} fill="none" stroke="#647386" strokeWidth={2.2} strokeDasharray="10 4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>}
             {planned.filter(point=>planned.length<60||point.date===asOfDate||point.date===curve.timeline.plannedStart||point.date===plannedEnd).map(point=><circle key={point.date} data-curve-series="planned-point" cx={x(point.date)} cy={y(point.planned!)} r={2.5} fill="white" stroke="#647386" strokeWidth={1.5}/>)}
             {submitted.length>1&&<path data-curve-series="submitted" d={submittedPath} fill="none" stroke="#b94d20" strokeWidth={2.2} strokeDasharray="6 6" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>}
-            {accepted.length>1&&<path data-curve-series="accepted" d={acceptedPath} fill="none" stroke="#10243e" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>}
+            {accepted.length>1&&<path data-curve-series="accepted" d={acceptedPath} fill="none" stroke={acceptedColor} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>}
             {submitted.filter(point=>submitted.length<12||point.submittedSource==="live").map(point=><circle key={point.date} data-curve-series="submitted-point" data-source={point.submittedSource} cx={x(point.date)} cy={y(point.submitted!)} r={point.submittedSource==="live"?5:3} fill="white" stroke="#b94d20" strokeWidth={2}/>)}
-            {accepted.filter(point=>accepted.length<12||point.acceptedSource==="live").map(point=><circle key={point.date} data-curve-series="accepted-point" data-source={point.acceptedSource} cx={x(point.date)} cy={y(point.accepted!)} r={point.acceptedSource==="live"?5:3} fill={point.acceptedSource==="live"?"#10243e":"white"} stroke="#10243e" strokeWidth={2}/>)}
+            {accepted.filter(point=>accepted.length<12||point.acceptedSource==="live").map(point=><circle key={point.date} data-curve-series="accepted-point" data-source={point.acceptedSource} cx={x(point.date)} cy={y(point.accepted!)} r={point.acceptedSource==="live"?5:3} fill={point.acceptedSource==="live"?acceptedColor:"white"} stroke={acceptedColor} strokeWidth={2}/>)}
           </svg>
         </div>
         <svg className={styles.cursorLayer} width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
           <line x1={x(selected.date)} x2={x(selected.date)} y1={TOP} y2={TOP+plotHeight} stroke="#526675" strokeOpacity=".4" strokeDasharray="3 5"/>
           {selected.planned!==null&&<circle cx={x(selected.date)} cy={y(selected.planned)} r={4} fill="white" stroke="#647386" strokeWidth={2}/>}
           {selected.submitted!==null&&<circle cx={x(selected.date)} cy={y(selected.submitted)} r={4} fill="white" stroke="#b94d20" strokeWidth={2}/>}
-          {selected.accepted!==null&&<circle cx={x(selected.date)} cy={y(selected.accepted)} r={5} fill="white" stroke="#10243e" strokeWidth={2.5}/>}
+          {selected.accepted!==null&&<circle cx={x(selected.date)} cy={y(selected.accepted)} r={5} fill="white" stroke={acceptedColor} strokeWidth={2.5}/>}
         </svg>
+        {currentAccepted&&<div className={styles.progressMotion} style={{color:acceptedColor}} aria-hidden="true">
+          {accepted.length>1&&<span data-curve-traveller className={styles.traveller} style={{offsetPath:`path("${acceptedPath}")`}}/>}
+          <span data-curve-current-marker data-date={currentAccepted.date} data-value={currentAccepted.accepted} className={styles.currentMarker} style={{left:x(currentAccepted.date),top:y(currentAccepted.accepted!),color:acceptedColor}}/>
+        </div>}
       </div>
       <figcaption className="rounded-xl border border-[#dce3ec] bg-[#f7f9fc] px-3 py-3 sm:px-4">
         <div role="status" aria-live="polite" aria-atomic="true"><dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4"><SelectedDatum label="Selected date" value={dateLabel(selected.date)}/><SelectedDatum label="Estimated plan" value={value(selected,"planned")}/><SelectedDatum label="Overall submitted" value={value(selected,"submitted")} source={selected.submitted===null?undefined:sourceLabel(selected.submittedSource)}/><SelectedDatum label="DCC accepted" value={value(selected,"accepted")} source={selected.accepted===null?undefined:sourceLabel(selected.acceptedSource)}/></dl></div>

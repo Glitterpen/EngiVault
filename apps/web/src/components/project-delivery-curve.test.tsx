@@ -1,12 +1,12 @@
 import {act,cleanup,fireEvent,render,screen,within} from "@testing-library/react";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 import {ProjectDeliveryCurve} from "./project-delivery-curve";
 import type {DeliveryCurveModel,DeliveryCurvePoint} from "@/lib/project-delivery-curve";
 
-// React detects animation-event support before its DOM event module loads.
-vi.hoisted(()=>{vi.stubGlobal("AnimationEvent",Event);});
-let reduced=false,measuredWidth=640;
-const motionListeners=new Set<()=>void>(),observers:MockResizeObserver[]=[];
+let measuredWidth=640;
+const observers:MockResizeObserver[]=[];
 const fetchData=vi.fn();
 class MockResizeObserver implements ResizeObserver{
   disconnected=false;
@@ -28,15 +28,15 @@ function datum(label:string){return within(screen.getByRole("status")).getByText
 function selectedValue(label:string){return datum(label).firstElementChild!.textContent;}
 function trace(container:HTMLElement){return container.querySelector<HTMLElement>("[data-curve-traces]")!;}
 function path(container:HTMLElement,series:string){return container.querySelector<SVGPathElement>(`path[data-curve-series="${series}"]`);}
+function currentMarker(container:HTMLElement){return container.querySelector<HTMLElement>("[data-curve-current-marker]");}
+function traveller(container:HTMLElement){return container.querySelector<HTMLElement>("[data-curve-traveller]");}
 function image(){return screen.getByRole("img",{name:"Estimated plan, submitted and DCC-accepted progress S-curve"});}
 function axisLabels(){return [...image().querySelectorAll<SVGTextElement>("[data-axis-date]")];}
-function preference(value:boolean){act(()=>{reduced=value;motionListeners.forEach(listener=>listener());});}
 function showData(){fireEvent.click(screen.getByText("View curve data"));return screen.getByRole("table",{name:"Estimated plan, submitted and DCC-accepted progress data"});}
 
 beforeEach(()=>{
-  reduced=false;measuredWidth=640;motionListeners.clear();observers.length=0;fetchData.mockReset();
-  const media={get matches(){return reduced;},media:"(prefers-reduced-motion: reduce)",addEventListener:vi.fn((_type:string,listener:()=>void)=>motionListeners.add(listener)),removeEventListener:vi.fn((_type:string,listener:()=>void)=>motionListeners.delete(listener))};
-  vi.stubGlobal("matchMedia",vi.fn(()=>media));vi.stubGlobal("ResizeObserver",MockResizeObserver);vi.stubGlobal("PointerEvent",MouseEvent);vi.stubGlobal("fetch",fetchData);
+  measuredWidth=640;observers.length=0;fetchData.mockReset();
+  vi.stubGlobal("ResizeObserver",MockResizeObserver);vi.stubGlobal("PointerEvent",MouseEvent);vi.stubGlobal("fetch",fetchData);
 });
 afterEach(()=>{expect(fetchData).not.toHaveBeenCalled();cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
 
@@ -48,7 +48,7 @@ describe("observed submitted and accepted measures",()=>{
     expect(selectedValue("Selected date")).toBe("15 Oct 2026");expect(selectedValue("Overall submitted")).toBe("65%");expect(selectedValue("DCC accepted")).toBe("40%");
     expect(datum("Overall submitted").textContent).toContain("Live MDR");expect(datum("DCC accepted").textContent).toContain("Live MDR");
     expect(screen.getByText("Current snapshot: 25 percentage points pending DCC acceptance.")).toBeTruthy();
-    expect(trace(result.container).getAttribute("data-animating")).toBe("true");expect(result.container.textContent).not.toMatch(/Calculated plan|Planned final issues|final-issue dates/);
+    expect(trace(result.container).getAttribute("data-progress-status")).toBe("behind");expect(result.container.textContent).not.toMatch(/Calculated plan|Planned final issues|final-issue dates/);
   });
   it("does not copy old accepted reports into an invented submitted trend",()=>{
     const result=workspace();
@@ -63,7 +63,7 @@ describe("observed submitted and accepted measures",()=>{
     const result=workspace({...values,submittedHistoryCount:1});
     expect(path(result.container,"submitted")!.getAttribute("d")).toBe("M 317.79 135.5 L 469.89 93.5");
     expect(path(result.container,"submitted")!.getAttribute("stroke")).toBe("#b94d20");expect(path(result.container,"submitted")!.getAttribute("stroke-dasharray")).toBe("6 6");
-    expect(path(result.container,"accepted")!.getAttribute("d")).toBe("M 44 209 L 317.79 177.5 L 469.89 146");expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#10243e");
+    expect(path(result.container,"accepted")!.getAttribute("d")).toBe("M 44 209 L 317.79 177.5 L 469.89 146");expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#b91c1c");
     fireEvent.change(screen.getByRole("slider"),{target:{value:"2"}});expect(selectedValue("Overall submitted")).toBe("45%");expect(selectedValue("DCC accepted")).toBe("25%");
   });
   it("renders current-only observations as single markers without a zero baseline or false trend",()=>{
@@ -198,7 +198,7 @@ describe("accessible exploration and exact data",()=>{
   });
   it("keeps all read controls individually preview-safe and touch-sized without exempting the parent",()=>{
     workspace();
-    for(const label of ["Previous curve date","Next curve date","Replay animation"]){const control=screen.getByRole("button",{name:label});expect(control.getAttribute("type")).toBe("button");expect(control.hasAttribute("data-preview-safe")).toBe(true);expect(control.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");}
+    for(const label of ["Previous curve date","Next curve date"]){const control=screen.getByRole("button",{name:label});expect(control.getAttribute("type")).toBe("button");expect(control.hasAttribute("data-preview-safe")).toBe(true);expect(control.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");}
     expect(screen.getByRole("button",{name:"Previous curve date"}).className).toContain("size-11");expect(screen.getByRole("slider").hasAttribute("data-preview-safe")).toBe(true);
     expect(screen.getByRole("region",{name:"Project delivery S-curve"}).hasAttribute("data-preview-safe")).toBe(false);
     fireEvent.click(screen.getByRole("button",{name:"Previous curve date"}));expect(selectedValue("Selected date")).toBe("10 Oct 2026");
@@ -240,24 +240,125 @@ describe("accessible exploration and exact data",()=>{
   });
 });
 
-describe("one-pass and reduced-motion presentation",()=>{
-  it("reveals once without animated counters and replays only after an explicit request",()=>{
-    const result=workspace(),first=trace(result.container);expect(first.getAttribute("data-animating")).toBe("true");expect(selectedValue("DCC accepted")).toBe("40%");
-    fireEvent.animationEnd(first);expect(trace(result.container).getAttribute("data-animating")).toBe("false");
-    const next={...result.curve,acceptedToday:41,points:result.curve.points.map(value=>value.acceptedSource==="live"?{...value,accepted:41}:value)};
-    result.rerender(<ProjectDeliveryCurve curve={next}/>);expect(trace(result.container)).toBe(first);expect(trace(result.container).getAttribute("data-animating")).toBe("false");expect(selectedValue("DCC accepted")).toBe("41%");
-    fireEvent.click(screen.getByRole("button",{name:"Replay animation"}));expect(trace(result.container)).not.toBe(first);expect(trace(result.container).getAttribute("data-animating")).toBe("true");
-    fireEvent.animationEnd(trace(result.container));expect(trace(result.container).getAttribute("data-animating")).toBe("false");
+describe("automatic actual-progress marker",()=>{
+  it("removes replay and animation settings while keeping exact values and date exploration",()=>{
+    const result=workspace();
+    expect(screen.queryByRole("button",{name:/replay|animation/i})).toBeNull();
+    expect(screen.queryByRole("slider",{name:/animation|speed/i})).toBeNull();
+    expect(screen.getByRole("slider",{name:"Explore curve dates"})).toBeTruthy();
+    expect(selectedValue("DCC accepted")).toBe("40%");expect(selectedValue("Overall submitted")).toBe("65%");
+    expect(traveller(result.container)).toBeTruthy();expect(currentMarker(result.container)).toBeTruthy();
   });
-  it("does not animate or allow replay with reduced motion",()=>{
-    reduced=true;const result=workspace();expect(trace(result.container).getAttribute("data-animating")).toBe("false");expect((screen.getByRole("button",{name:"Replay animation"}) as HTMLButtonElement).disabled).toBe(true);expect(selectedValue("Overall submitted")).toBe("65%");
+  it("follows the accepted path only and ends at the current accepted observation",()=>{
+    const result=workspace(),marker=currentMarker(result.container)!,moving=traveller(result.container)!;
+    const acceptedPath=path(result.container,"accepted")!.getAttribute("d")!;
+    expect(moving.style.offsetPath).toBe(`path("${acceptedPath}")`);
+    expect(acceptedPath).toBe("M 44 209 L 317.79 177.5 L 469.89 146");
+    expect(marker.dataset.date).toBe("2026-10-15");expect(marker.dataset.value).toBe("40");
+    expect(parseFloat(marker.style.left)).toBeCloseTo(469.894737);expect(parseFloat(marker.style.top)).toBe(146);
+    expect(marker.closest('[aria-hidden="true"]')).toBeTruthy();expect(moving.closest('[aria-hidden="true"]')).toBeTruthy();
+    expect(marker.tabIndex).toBe(-1);expect(moving.tabIndex).toBe(-1);
+    const selectionLayer=image().querySelector("svg[class]")!;
+    expect(selectionLayer.compareDocumentPosition(marker.parentElement!)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
-  it("cancels when reduced motion changes, then waits for manual replay even if motion is restored",()=>{
-    const result=workspace();preference(true);expect(trace(result.container).getAttribute("data-animating")).toBe("false");preference(false);expect(trace(result.container).getAttribute("data-animating")).toBe("false");
-    fireEvent.click(screen.getByRole("button",{name:"Replay animation"}));expect(trace(result.container).getAttribute("data-animating")).toBe("true");
+  it.each([
+    {accepted:40,planned:73.7,status:"behind",color:"#b91c1c"},
+    {accepted:40,planned:40,status:"achieved",color:"#15803d"},
+    {accepted:80,planned:73.7,status:"achieved",color:"#15803d"},
+    {accepted:0,planned:0,status:"achieved",color:"#15803d"},
+    {accepted:100,planned:100,status:"achieved",color:"#15803d"},
+    {accepted:40,planned:40.04,status:"behind",color:"#b91c1c"},
+  ])("uses $status colour for accepted $accepted versus today's plan $planned",({accepted,planned,status,color})=>{
+    const values=model();values.points[3]={...values.points[3],accepted,planned};
+    const result=workspace({...values,acceptedToday:accepted,estimatedPlan:{...values.estimatedPlan,today:planned,acceptedVariance:0}});
+    expect(trace(result.container).dataset.progressStatus).toBe(status);
+    expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe(color);
+    expect(currentMarker(result.container)!.style.color).toBe(color==="#b91c1c"?"rgb(185, 28, 28)":"rgb(21, 128, 61)");
+    expect(path(result.container,"submitted")).toBeNull();expect(result.container.querySelector('[data-curve-series="submitted-point"]')?.getAttribute("stroke")).toBe("#b94d20");
   });
-  it("cleans up container measurement and motion subscriptions",()=>{
-    const result=workspace();expect(motionListeners.size).toBe(1);result.unmount();expect(motionListeners.size).toBe(0);expect(observers[0].disconnected).toBe(true);
+  it.each([null,NaN,-1,101])("keeps the actual path neutral when today's estimated comparison is %s",today=>{
+    const result=workspace({estimatedPlan:{...model().estimatedPlan,today}});
+    expect(trace(result.container).dataset.progressStatus).toBe("unavailable");
+    expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#10243e");
+    expect(currentMarker(result.container)!.style.color).toBe("rgb(16, 36, 62)");
+  });
+  it.each(["missing","invalid"] as const)("does not claim plan achievement for a %s PM timeline",status=>{
+    const result=workspace({timeline:{...model().timeline,status},estimatedPlan:{...model().estimatedPlan,today:0}});
+    expect(trace(result.container).dataset.progressStatus).toBe("unavailable");
+    expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#10243e");expect(currentMarker(result.container)).toBeTruthy();
+  });
+  it("keeps marker and status at today while exploring historical or future dates",()=>{
+    const result=workspace(),marker=currentMarker(result.container)!;
+    const position={left:marker.style.left,top:marker.style.top,offsetPath:traveller(result.container)!.style.offsetPath};
+    for(const key of ["Home","End"]){
+      fireEvent.keyDown(screen.getByRole("slider"),{key});
+      expect(currentMarker(result.container)).toBe(marker);expect(marker.dataset.date).toBe("2026-10-15");expect(marker.dataset.value).toBe("40");
+      expect(marker.style.left).toBe(position.left);expect(marker.style.top).toBe(position.top);expect(traveller(result.container)!.style.offsetPath).toBe(position.offsetPath);
+      expect(trace(result.container).dataset.progressStatus).toBe("behind");
+    }
+  });
+  it("does not extend the traveller to future observations, even if their source claims to be live",()=>{
+    const values=model();values.points[4]=point("2026-10-20",100,100,"live","live",100);
+    const result=workspace(values);
+    expect(traveller(result.container)!.style.offsetPath).toBe('path("M 44 209 L 317.79 177.5 L 469.89 146")');
+    expect(currentMarker(result.container)!.dataset.date).toBe("2026-10-15");expect(currentMarker(result.container)!.dataset.value).toBe("40");
+    expect(trace(result.container).dataset.progressStatus).toBe("behind");
+  });
+  it("shows only the current endpoint when no accepted history exists",()=>{
+    const result=workspace({historyAvailable:false});
+    expect(path(result.container,"accepted")).toBeNull();expect(traveller(result.container)).toBeNull();
+    expect(currentMarker(result.container)!.dataset.value).toBe("40");expect(currentMarker(result.container)!.dataset.date).toBe("2026-10-15");
+    expect(parseFloat(currentMarker(result.container)!.style.top)).toBe(146);
+  });
+  it.each([null,"report"] as const)("does not present an old or unverified accepted observation as the live endpoint (%s)",source=>{
+    const values=model();values.points[3]={...values.points[3],acceptedSource:source};
+    const result=workspace(values);
+    expect(currentMarker(result.container)).toBeNull();expect(traveller(result.container)).toBeNull();expect(trace(result.container).dataset.progressStatus).toBe("unavailable");
+    expect(path(result.container,"accepted")!.getAttribute("stroke")).toBe("#10243e");
+  });
+  it.each([NaN,-1,101,null])("does not animate an invalid current accepted value (%s)",accepted=>{
+    const values=model();values.points[3]={...values.points[3],accepted};
+    const result=workspace(values);
+    expect(currentMarker(result.container)).toBeNull();expect(traveller(result.container)).toBeNull();expect(trace(result.container).dataset.progressStatus).toBe("unavailable");
+  });
+  it("does not animate a historical live-source point when today's accepted observation is absent",()=>{
+    const values=model();values.points[2]={...values.points[2],acceptedSource:"live"};values.points[3]={...values.points[3],accepted:null,acceptedSource:null};
+    const result=workspace(values);
+    expect(currentMarker(result.container)).toBeNull();expect(traveller(result.container)).toBeNull();expect(trace(result.container).dataset.progressStatus).toBe("unavailable");
+  });
+  it("updates the current marker and path on refresh without changing inputs or waiting for a replay",()=>{
+    const result=workspace(),original=structuredClone(result.curve);
+    const next={...result.curve,acceptedToday:81,points:result.curve.points.map(value=>value.acceptedSource==="live"?{...value,accepted:81}:value)};
+    const nextOriginal=structuredClone(next);result.rerender(<ProjectDeliveryCurve curve={next}/>);
+    expect(currentMarker(result.container)!.dataset.value).toBe("81");expect(parseFloat(currentMarker(result.container)!.style.top)).toBeCloseTo(59.9);
+    expect(trace(result.container).dataset.progressStatus).toBe("achieved");expect(traveller(result.container)!.style.offsetPath).toContain("469.89 59.9");
+    expect(selectedValue("DCC accepted")).toBe("81%");expect(result.curve).toEqual(original);expect(next).toEqual(nextOriginal);
+    expect(screen.queryByRole("button",{name:/replay/i})).toBeNull();
+  });
+  it("keeps the moving path and current endpoint aligned when resized",()=>{
+    measuredWidth=320;const result=workspace();
+    for(const width of [320,900]){
+      act(()=>observers[0].resize(width));
+      const endpoint=result.container.querySelector('[data-curve-series="accepted-point"][data-source="live"]')!;
+      expect(parseFloat(currentMarker(result.container)!.style.left)).toBeCloseTo(Number(endpoint.getAttribute("cx")));
+      expect(parseFloat(currentMarker(result.container)!.style.top)).toBeCloseTo(Number(endpoint.getAttribute("cy")));
+      expect(traveller(result.container)!.style.offsetPath).toBe(`path("${path(result.container,"accepted")!.getAttribute("d")}")`);
+    }
+  });
+  it("cleans up container measurement without subscribing to animation events or motion state",()=>{
+    const media=vi.fn();vi.stubGlobal("matchMedia",media);
+    const result=workspace();expect(media).not.toHaveBeenCalled();result.unmount();expect(observers[0].disconnected).toBe(true);
+  });
+  it("declares slow CSS loops and honours reduced motion for travel and endpoint glow",()=>{
+    const css=readFileSync(resolve(process.cwd(),"src/components/project-delivery-curve.module.css"),"utf8");
+    expect(css).toMatch(/animation:\s*[^;{}]*\b20s\b[^;{}]*\binfinite\b/);
+    expect(css).toMatch(/animation:\s*[^;{}]*\b3s\b[^;{}]*\binfinite\b/);
+    const reducedMotion=css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reducedMotion).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(reducedMotion).toMatch(/animation:\s*none/);expect(reducedMotion).toMatch(/display:\s*none/);
+    expect(css).toMatch(/\.plot:hover \.traveller[\s\S]*?animation-play-state:\s*paused/);
+    expect(css).toMatch(/section:focus-within[\s\S]*?animation-play-state:\s*paused/);
+    expect(css).not.toContain("delivery-curve-reveal");
   });
 });
 
