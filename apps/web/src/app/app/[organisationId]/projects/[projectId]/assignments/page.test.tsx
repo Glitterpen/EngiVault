@@ -72,7 +72,7 @@ it("keeps the project brief and impact visible before deliverables while seconda
   expect(within(brief).getByText("Deliver safe operating information")).toBeTruthy();
   expect(brief.querySelector('time[datetime="2026-09-07"]')?.textContent).toContain("2026");expect(brief.querySelector('time[datetime="2026-10-09"]')?.textContent).toContain("2026");
   expect(within(impact).getByRole("heading",{name:"My project impact"})).toBeTruthy();
-  expect(screen.getAllByText("On track").length).toBeGreaterThan(0);
+  expect(screen.getByText("Plan unavailable")).toBeTruthy();
   const actionsSummary=screen.getByText("Priority close-out actions",{exact:false}).closest("summary");
   expect(actionsSummary?.textContent).toContain("1 outstanding");
   expect(actionsSummary?.closest("details")?.hasAttribute("open")).toBe(false);
@@ -90,12 +90,12 @@ it("keeps the project identity, progress and every authorised discipline discove
   expect(screen.getByRole("heading",{name:"My progress"})).toBeTruthy();
 });
 
-it("labels the MDR expected baseline without changing accepted progress or the baseline values",async()=>{
+it("labels the approved weighted baseline without changing accepted progress",async()=>{
   state.hasDocument=true;state.hasImpact=true;
   render(await page());
   const impact=document.getElementById("project-impact")!;
-  expect(within(impact).getByText(/MDR due-date baseline/)).toBeTruthy();
-  expect(within(impact).getByText("MDR expected: 25%")).toBeTruthy();
+  expect(within(impact).getByText(/Approved weighted milestone baseline/)).toBeTruthy();
+  expect(within(impact).getByText("Approved plan: 25%")).toBeTruthy();
   expect(within(impact).getByText("Overall project · DCC accepted")).toBeTruthy();
   expect(within(impact).getByRole("progressbar",{name:"Overall project DCC-accepted progress"}).getAttribute("value")).toBe("25");
 });

@@ -1,6 +1,6 @@
 import {PDFDocument,StandardFonts,rgb,type PDFFont,type PDFImage,type PDFPage} from "pdf-lib";
 import {assessProjectHealth} from "@/lib/project-health";
-import {disciplineReportColumnLabel,disciplineReportValue,progressMovement,projectReportNumber,projectSCurveProgress,type ProjectReportSnapshot} from "@/lib/project-report";
+import {approvedProjectSCurveProgress,disciplineReportColumnLabel,disciplineReportValue,progressMovement,projectReportNumber,projectSCurveProgress,reportPlannedWeeklyDue,type ProjectReportSnapshot} from "@/lib/project-report";
 import {projectDeliveryStageLabel} from "@/lib/project-delivery-stage";
 import {pdfColorTemplate} from "@/lib/pdf-color-template";
 
@@ -268,6 +268,7 @@ function executiveSummary(canvas:ReportCanvas){
 
 function sCurve(canvas:ReportCanvas){
   const {snapshot,report}=canvas.input;
+  if(snapshot.s_curve.planning_baseline){approvedBaselineSCurve(canvas);return;}
   const progress=projectSCurveProgress(snapshot.s_curve,snapshot.summary.planned_deliverables);
   if(progress.length<2){
     canvas.section("Schedule performance","Project delivery S-curve");
@@ -322,6 +323,47 @@ function sCurve(canvas:ReportCanvas){
   canvas.paragraph(explanation,{size:9,leading:13,color:canvas.colours.MUTED,after:17});
 }
 
+/** Future snapshots only. The legacy weekly/count renderer above is unchanged. */
+function approvedBaselineSCurve(canvas:ReportCanvas){
+  const {snapshot}=canvas.input;
+  const points=approvedProjectSCurveProgress(snapshot.s_curve,snapshot.summary.planned_deliverables);
+  canvas.ensure(285);
+  canvas.section("Schedule performance","Project delivery S-curve");
+  if(points.length<2){canvas.paragraph("Progress observations unavailable.",{color:canvas.colours.MUTED});return;}
+  const baseline=snapshot.s_curve.planning_baseline!;
+  canvas.paragraph(baseline.status==="approved"?`Approved weighted milestone baseline v${baseline.approved_baseline_version}.`:
+    "Approved plan unavailable. Actual progress remains shown; no zero plan is inferred.",{size:9,color:canvas.colours.MUTED,after:12});
+  const x=M+36,width=CW-46,height=145,top=canvas.y-10,bottom=top-height;
+  const first=Date.parse(`${points[0].date}T00:00:00Z`),last=Date.parse(`${points.at(-1)!.date}T00:00:00Z`);
+  const px=(date:string)=>x+(Date.parse(`${date}T00:00:00Z`)-first)/Math.max(1,last-first)*width;
+  const py=(value:number)=>bottom+value/100*height;
+  canvas.page.drawRectangle({x,y:bottom,width,height,color:canvas.colours.PAPER});
+  for(const value of [0,25,50,75,100]){
+    canvas.page.drawLine({start:{x,y:py(value)},end:{x:x+width,y:py(value)},thickness:.5,color:canvas.colours.LINE});
+    canvas.at(`${value}%`,x-7,py(value)-3,9,canvas.regular,canvas.colours.MUTED,"right");
+  }
+  for(let index=1;index<points.length;index++){
+    const previous=points[index-1],current=points[index];
+    if(previous.planned!==null&&current.planned!==null){
+      canvas.page.drawLine({start:{x:px(previous.date),y:py(previous.planned)},end:{x:px(current.date),y:py(previous.planned)},thickness:1.7,color:canvas.colours.PLANNED,dashArray:[5,3]});
+      if(previous.planned!==current.planned)canvas.page.drawLine({start:{x:px(current.date),y:py(previous.planned)},end:{x:px(current.date),y:py(current.planned)},thickness:1.7,color:canvas.colours.PLANNED,dashArray:[5,3]});
+    }
+    if(previous.actual!==null&&current.actual!==null)canvas.page.drawLine({start:{x:px(previous.date),y:py(previous.actual)},end:{x:px(current.date),y:py(current.actual)},thickness:2.3,color:canvas.colours.TEAL});
+  }
+  const tickCount=Math.min(5,points.length),ticks=[...new Set(Array.from({length:tickCount},(_,index)=>Math.round(index*(points.length-1)/Math.max(1,tickCount-1))))];
+  for(const index of ticks){
+    const point=points[index],label=shortDate(point.date,points[0].date.slice(0,4)!==points.at(-1)!.date.slice(0,4)),labelWidth=canvas.regular.widthOfTextAtSize(label,9);
+    canvas.at(label,Math.min(x+width-labelWidth,Math.max(x,px(point.date)-labelWidth/2)),bottom-17,9,canvas.regular,canvas.colours.MUTED);
+    if(point.actual!==null)canvas.page.drawRectangle({x:px(point.date)-2.2,y:py(point.actual)-2.2,width:4.4,height:4.4,color:canvas.colours.TEAL});
+  }
+  const legend=bottom-37;
+  canvas.page.drawLine({start:{x,y:legend+3},end:{x:x+24,y:legend+3},thickness:1.7,color:canvas.colours.PLANNED,dashArray:[5,3]});
+  canvas.at("Approved plan (step)",x+31,legend,9,canvas.regular,canvas.colours.MUTED);
+  canvas.page.drawLine({start:{x:x+185,y:legend+3},end:{x:x+209,y:legend+3},thickness:2.3,color:canvas.colours.TEAL});
+  canvas.at("DCC-accepted actual",x+216,legend,9,canvas.regular,canvas.colours.MUTED);
+  canvas.y=legend-23;
+}
+
 function disciplinePerformance(canvas:ReportCanvas){
   const snapshot=canvas.input.snapshot;
   canvas.section("Performance detail","Discipline delivery position");
@@ -350,7 +392,7 @@ function registers(canvas:ReportCanvas){
   const firstIssued=issuedGroups[0];
   if(firstIssued)canvas.ensure(43+38+canvas.tableStartHeight(issuedColumns,issuedRow(firstIssued[1][0]),issuedCaption(firstIssued[0],firstIssued[1].length)));
   canvas.section("Reporting period","Issued deliverables");
-  canvas.paragraph(`Stage issues this week: ${snapshot.summary.weekly_acceptances}. Final milestones due: ${snapshot.summary.weekly_due}. Terminal-stage issued to date: ${snapshot.summary.completed_deliverables}.`,{color:canvas.colours.MUTED});
+  canvas.paragraph(`Stage issues this week: ${snapshot.summary.weekly_acceptances}. Final milestones due: ${reportPlannedWeeklyDue(snapshot.summary)}. Terminal-stage issued to date: ${snapshot.summary.completed_deliverables}.`,{color:canvas.colours.MUTED});
   if(!snapshot.weekly_issued_deliverables.length)canvas.paragraph("No deliverable was issued during this reporting period.",{color:canvas.colours.MUTED});
   for(const [discipline,items] of issuedGroups){
     canvas.table(issuedColumns,items.map(issuedRow),issuedCaption(discipline,items.length));
@@ -391,7 +433,7 @@ function appendix(canvas:ReportCanvas){
   snapshot.identity.key_objectives.forEach((objective,index)=>canvas.paragraph(`${index+1}. ${objective}`,{after:5}));
   if(snapshot.s_curve.disciplines.length){
     const columns:Column[]=[{label:"Discipline",width:150},{label:"Planned scope",width:90,align:"right"},{label:"Terminal issued",width:95,align:"right"},{label:"Variance",width:80,align:"right"},{label:"Actual %",width:CW-415,align:"right"}];
-    const rows=snapshot.s_curve.disciplines.map(row=>[row.discipline,String(row.planned),String(row.completed),{text:row.variance>0?`+${row.variance}`:String(row.variance),warning:row.variance<0},`${row.completion_percent}%`]);
+    const rows=snapshot.s_curve.disciplines.map(row=>{const variance=snapshot.s_curve.planning_baseline?row.baseline_variance:row.variance;return [row.discipline,String(row.planned),String(row.completed),{text:variance===null||variance===undefined?"N/A":variance>0?`+${variance}`:String(variance),warning:typeof variance==="number"&&variance<0},`${row.completion_percent}%`];});
     canvas.ensure(43+canvas.tableStartHeight(columns,rows[0]));
     canvas.section("Terminal milestone detail","Discipline scope and variance");
     canvas.table(columns,rows);

@@ -1,7 +1,9 @@
+import {parseProjectMilestoneBaseline,type ProjectMilestoneBaseline} from "./project-milestone-baseline";
+
 export type DeliveryCurveDocument={document_id:string;progress_weight:number;progress_credit:number;planned_final_date?:string|null;planned_submission_date?:string|null;revision_cycle_days?:number|null};
 export type DeliveryCurveSubmissionProgress={version:1;captured_at:string;submitted_progress:number;accepted_progress:number;total_deliverables:number;total_weight:number};
-export type DeliveryCurveReport={id:string;period_end:string;generated_at:string;snapshot:unknown};
-export type DeliveryCurvePoint={date:string;planned:number|null;submitted:number|null;accepted:number|null;submittedSource:"report"|"live"|null;acceptedSource:"report"|"live"|null};
+export type DeliveryCurveReport={id:string;period_end:string;generated_at:string;snapshot:unknown;source_kind?:"snapshot"};
+export type DeliveryCurvePoint={date:string;planned:number|null;submitted:number|null;accepted:number|null;submittedSource:"report"|"snapshot"|"live"|null;acceptedSource:"report"|"snapshot"|"live"|null};
 export type DeliveryCurveModel={
   points:DeliveryCurvePoint[];
   asOf:string;
@@ -14,14 +16,14 @@ export type DeliveryCurveModel={
   acceptedHistoryCount:number;
   invalidHistoryCount:number;
   timeline:{plannedStart:string|null;plannedEnd:string|null;status:"configured"|"missing"|"invalid";displayStart:string;displayEnd:string};
-  estimatedPlan:{basis:"timeline_linear_estimate";today:number|null;weeklyRate:number|null;acceptedVariance:number|null;submittedVariance:number|null};
+  baseline?:ProjectMilestoneBaseline|null;
+  estimatedPlan:{basis:"approved_weighted_milestones"|"unavailable";today:number|null;weeklyRate:null;acceptedVariance:number|null;submittedVariance:number|null};
 };
 
-type Input={documents:readonly DeliveryCurveDocument[];submissionProgress:DeliveryCurveSubmissionProgress|null;reports:readonly DeliveryCurveReport[];asOf:string;plannedStart:string|null;plannedEnd:string|null;historyAvailable:boolean};
-type Observation={date:string;generatedAt:number;id:string;submitted:number|null;accepted:number|null};
+type Input={documents:readonly DeliveryCurveDocument[];submissionProgress:DeliveryCurveSubmissionProgress|null;reports:readonly DeliveryCurveReport[];asOf:string;plannedStart:string|null;plannedEnd:string|null;historyAvailable:boolean;baseline?:ProjectMilestoneBaseline|null};
+type Observation={date:string;generatedAt:number;id:string;submitted:number|null;accepted:number|null;source:"report"|"snapshot"};
 const MAX_POINTS=300;
 const ACCEPTED_TOLERANCE=0.15;
-const DAY=86_400_000,WEEK=7*DAY;
 
 function dateTime(value:string):number|null{
   const match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -57,21 +59,6 @@ function evenly<T>(items:readonly T[],limit:number):T[]{
 }
 function oneDecimal(value:number):number{return Number(value.toFixed(1));}
 
-/** Sample only unused weekly dates, without allocating an unbounded calendar. */
-function addWeeklyPlanDates(dates:Set<string>,start:number,end:number){
-  const count=Math.ceil((end-start)/WEEK)-1;
-  const occupied=[...dates].map(date=>(dateTime(date)!-start)/WEEK)
-    .filter(index=>Number.isInteger(index)&&index>=1&&index<=count).sort((a,b)=>a-b);
-  const available=count-occupied.length,limit=Math.min(MAX_POINTS-dates.size,available);
-  if(limit<=0)return;
-  for(let index=0;index<limit;index++){
-    const rank=limit===1?available:1+Math.round(index*(available-1)/(limit-1));
-    let week=rank;
-    for(const blocked of occupied){if(blocked>week)break;week++;}
-    dates.add(new Date(start+week*WEEK).toISOString().slice(0,10));
-  }
-}
-
 /** The management RPC supplies only an aggregate, so never infer missing submitted credit. */
 function liveSubmittedProgress(value:DeliveryCurveSubmissionProgress|null,now:number,today:string,documentCount:number,totalWeight:number,acceptedPercentage:number):number|null{
   if(!object(value)||value.version!==1)return null;
@@ -106,8 +93,8 @@ function reportObservation(snapshot:unknown,cutoff:string,now:number){
   return valid?{submitted,accepted,invalid:false}:{submitted:null,accepted:legacyAccepted,invalid:true};
 }
 
-/** A timeline-based estimate alongside independently observed submitted/accepted progress. */
-export function buildProjectDeliveryCurve({documents,submissionProgress,reports,asOf,plannedStart,plannedEnd,historyAvailable}:Input):DeliveryCurveModel{
+/** The approved plan is independent of immutable observed submitted/accepted progress. */
+export function buildProjectDeliveryCurve({documents,submissionProgress,reports,asOf,plannedStart,plannedEnd,historyAvailable,baseline:inputBaseline}:Input):DeliveryCurveModel{
   const now=timestampTime(asOf);
   if(now===null)throw new Error("A valid as-of timestamp is required for the delivery curve.");
   const normalizedAsOf=new Date(now).toISOString(),today=normalizedAsOf.slice(0,10);
@@ -119,20 +106,23 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
   const acceptedPercentage=totalWeight?Math.min(100,Math.max(0,acceptedWeight/totalWeight*100)):0;
   const acceptedToday=Math.round(acceptedPercentage);
   const submittedToday=liveSubmittedProgress(submissionProgress,now,today,documents.length,totalWeight,acceptedPercentage);
-
-  const start=typeof plannedStart==="string"&&plannedStart.trim()?plannedStart:null;
-  const end=typeof plannedEnd==="string"&&plannedEnd.trim()?plannedEnd:null;
+  const parsedBaseline=parseProjectMilestoneBaseline(inputBaseline);
+  const baseline=parsedBaseline?.status==="approved"&&
+    (Date.parse(parsedBaseline.approved_at!)>now||parsedBaseline.total_deliverables!==documents.length||Math.abs(parsedBaseline.total_weight-totalWeight)>Math.max(1e-6,Math.abs(totalWeight)*1e-9))
+    ?{...parsedBaseline,status:"scope_changed" as const,today:null,points:[]}:parsedBaseline;
+  const approved=baseline?.status==="approved";
+  const start=approved?baseline.planned_start_date:typeof plannedStart==="string"&&plannedStart.trim()?plannedStart:null;
+  const end=approved?baseline.planned_end_date:typeof plannedEnd==="string"&&plannedEnd.trim()?plannedEnd:null;
   const startValid=start!==null&&dateTime(start)!==null,endValid=end!==null&&dateTime(end)!==null;
   const configured=startValid&&endValid&&start!==null&&end!==null&&start<=end;
   const status:DeliveryCurveModel["timeline"]["status"]=(start!==null&&!startValid)||(end!==null&&!endValid)||(startValid&&endValid&&!configured)?"invalid":configured?"configured":"missing";
   let displayStart=configured&&start<today?start:today;
   const displayEnd=configured&&end>today?end:today;
-  const planStart=configured?dateTime(start)!:null,planEnd=configured?dateTime(end)!:null;
   const plannedAt=(date:string):number|null=>{
-    if(planStart===null||planEnd===null)return null;
-    const time=dateTime(date)!;
-    if(planStart===planEnd)return time<planStart?0:100;
-    return oneDecimal(Math.max(0,Math.min(100,(time-planStart)/(planEnd-planStart)*100)));
+    if(!approved||!configured)return null;
+    if(date<start!)return 0;
+    // Credits are earned at dated milestones, never by elapsed time/interpolation.
+    return baseline.points.findLast(point=>point.date<=date)?.planned??0;
   };
   const plannedToday=plannedAt(today);
   let invalidHistoryCount=0;
@@ -150,7 +140,7 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
       if(values.submitted===null&&values.accepted===null)continue;
       const prior=observations.get(report.period_end),id=typeof report.id==="string"?report.id:"";
       if(!prior||generatedAt>prior.generatedAt||generatedAt===prior.generatedAt&&id>prior.id){
-        observations.set(report.period_end,{date:report.period_end,generatedAt,id,submitted:values.submitted,accepted:values.accepted});
+        observations.set(report.period_end,{date:report.period_end,generatedAt,id,submitted:values.submitted,accepted:values.accepted,source:report.source_kind==="snapshot"?"snapshot":"report"});
       }
     }
   }
@@ -162,13 +152,13 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
   const history=evenly([...observations.values()].sort((a,b)=>a.date.localeCompare(b.date)),MAX_POINTS-dates.size);
   const retained=new Map(history.map(point=>[point.date,point]));
   for(const point of history)dates.add(point.date);
-  // Genuine report observations take priority over estimated weekly samples.
-  if(planStart!==null&&planEnd!==null)addWeeklyPlanDates(dates,planStart,planEnd);
+  // Preserve every baseline breakpoint; dropping one would move its credit date.
+  if(approved)for(const point of baseline.points)dates.add(point.date);
   const points=[...dates].sort().map(date=>{
     const historic=retained.get(date),live=date===today;
     const submitted=live?submittedToday:historic?.submitted??null;
     const accepted=live?acceptedToday:historic?.accepted??null;
-    return {date,planned:plannedAt(date),submitted,accepted,submittedSource:submitted===null?null:live?"live":"report",acceptedSource:accepted===null?null:live?"live":"report"} satisfies DeliveryCurvePoint;
+    return {date,planned:plannedAt(date),submitted,accepted,submittedSource:submitted===null?null:live?"live":historic!.source,acceptedSource:accepted===null?null:live?"live":historic!.source} satisfies DeliveryCurvePoint;
   });
   return {
     points,asOf:normalizedAsOf,submittedToday,acceptedToday,gap:submittedToday===null?null:submittedToday-acceptedToday,
@@ -176,9 +166,9 @@ export function buildProjectDeliveryCurve({documents,submissionProgress,reports,
     submittedHistoryCount:history.filter(point=>point.submitted!==null).length,
     acceptedHistoryCount:history.filter(point=>point.accepted!==null).length,
     invalidHistoryCount,
-    timeline:{plannedStart:start,plannedEnd:end,status,displayStart,displayEnd},
-    estimatedPlan:{basis:"timeline_linear_estimate",today:plannedToday,
-      weeklyRate:planStart!==null&&planEnd!==null&&planEnd>planStart?oneDecimal(WEEK/(planEnd-planStart)*100):null,
+    timeline:{plannedStart:start,plannedEnd:end,status,displayStart,displayEnd},baseline,
+    estimatedPlan:{basis:approved?"approved_weighted_milestones":"unavailable",today:plannedToday,
+      weeklyRate:null,
       acceptedVariance:plannedToday===null?null:oneDecimal(acceptedToday-plannedToday),
       submittedVariance:plannedToday===null||submittedToday===null?null:oneDecimal(submittedToday-plannedToday)},
   };

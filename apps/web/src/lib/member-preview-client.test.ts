@@ -11,6 +11,16 @@ const rpc=vi.fn();
 const actor={rpc} as unknown as SupabaseClient;
 beforeEach(()=>rpc.mockReset());
 describe('member preview Supabase transport',()=>{
+ it('delegates only aggregate baseline reads through the validated preview and blocks approval/editor reads',async()=>{
+   rpc.mockResolvedValue({data:{status:'approved',points:[]},error:null});
+   const client=createMemberPreviewClient(actor,preview);
+   await client.rpc('get_project_milestone_baseline',{target_organisation:'org-id',target_project:'project-id',target_preview:'forged'});
+   expect(rpc).toHaveBeenCalledExactlyOnceWith('get_project_milestone_baseline',{target_organisation:'org-id',target_project:'project-id',target_preview:'session-id'});
+   expect((await client.rpc('approve_project_milestone_baseline',{})).error).not.toBeNull();
+   expect((await client.rpc('get_project_milestone_baseline_editor',{})).error).not.toBeNull();
+   expect((await client.rpc('get_project_milestone_baseline',{target_project:'foreign'})).error).not.toBeNull();
+   expect(rpc).toHaveBeenCalledTimes(1);
+ });
  it('scopes submitted progress to the validated DCC preview rather than actor administrator access',async()=>{
    rpc.mockResolvedValue({data:{version:1,submitted_progress:67,accepted_progress:33},error:null});
    const client=createMemberPreviewClient(actor,{...preview,role:'document_controller'});

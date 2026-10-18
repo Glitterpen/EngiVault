@@ -4,6 +4,24 @@
   min-width: 0;
   touch-action: pan-y;
 }
+.plot:focus-visible {
+  outline: 2px solid #10243e;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.inspection {
+  position: absolute;
+  z-index: 1;
+  padding: 10px 12px;
+  border: 1px solid #dce3ec;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 4px 16px #10243e14;
+  color: #526675;
+  font-size: 12px;
+  line-height: 18px;
+  pointer-events: none;
+}
 .traceLayer,
 .cursorLayer {
   position: absolute;
@@ -49,6 +67,8 @@
 /* Inspection pauses decorative motion without adding animation settings. */
 .plot:hover .traveller,
 .plot:hover .currentMarker::before,
+.plot[data-inspecting="true"] .traveller,
+.plot[data-inspecting="true"] .currentMarker::before,
 :global(section:focus-within) .traveller,
 :global(section:focus-within) .currentMarker::before {
   animation-play-state: paused;
@@ -63,19 +83,6 @@
 .acceptedKey { border-top: 3px solid #10243e; }
 .plannedKey { border-top: 2px dashed #647386; }
 .submittedKey { border-top: 2px dashed #b94d20; }
-.range {
-  width: 100%;
-  min-width: 0;
-  height: 44px;
-  accent-color: #10243e;
-  cursor: pointer;
-}
-.range:focus-visible {
-  outline: 2px solid #10243e;
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-.range:disabled { cursor: default; opacity: .55; }
 @keyframes delivery-curve-travel {
   0% { offset-distance: 0%; opacity: 0; }
   5% { offset-distance: 0%; opacity: 1; }

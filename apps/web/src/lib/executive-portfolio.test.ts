@@ -12,7 +12,7 @@ describe("executive summaries and capabilities",()=>{
   });
   it("never calls missing baselines on track",()=>{
     expect(executiveProjectStatus({...project,deliverables:0})).toBe("Not baselined");
-    expect(executiveProjectStatus({...project,overdue:0,planned_percent:null,lag_points:null})).toBe("Dates incomplete");
+    expect(executiveProjectStatus({...project,overdue:0,planned_percent:null,lag_points:null})).toBe("Plan unavailable");
   });
   it("distinguishes incomplete, lagging and complete projects",()=>{
     expect(executiveProjectStatus(project)).toBe("Behind plan");

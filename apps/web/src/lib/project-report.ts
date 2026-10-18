@@ -41,6 +41,17 @@ const disciplineReportColumnSchema=z.enum(DISCIPLINE_REPORT_COLUMN_OPTIONS.map(o
 
 const nullableText=z.string().nullable();
 const nullableDate=z.iso.date().nullable();
+const baselineMetadataSchema=z.object({
+  version:z.literal(1),basis:z.literal("approved_weighted_milestones"),
+  status:z.enum(["approved","missing","scope_changed"]),
+  approved_baseline_id:z.uuid().nullable(),approved_baseline_version:z.number().int().positive().nullable(),
+  approved_at:z.string().nullable(),scope_hash:z.string().nullable(),
+});
+const baselineDisciplinePlanSchema=z.object({
+  planned_this_week:z.number().int().nonnegative().nullable(),weekly_variance:z.number().int().nullable(),
+  project_variance:z.number().int().nullable(),cumulative_planned:z.number().int().nonnegative().nullable(),
+  planned_completion:z.number().min(0).max(100).nullable(),
+});
 
 const reportSummarySchema=z.object({
   planned_deliverables:z.number().int().nonnegative().optional(),
@@ -55,6 +66,7 @@ const reportSummarySchema=z.object({
   weekly_submissions:z.number().int().nonnegative(),
   weekly_acceptances:z.number().int().nonnegative(),
   weekly_due:z.number().int().nonnegative(),
+  baseline_weekly_due:z.number().int().nonnegative().nullable().optional(),
 }).transform(summary=>({
   ...summary,
   planned_deliverables:summary.planned_deliverables??summary.total_deliverables,
@@ -71,7 +83,9 @@ const reportDisciplineSchema=z.object({
   weekly_variance:z.number().int().optional(),
   project_variance:z.number().int().optional(),
   cumulative_planned:z.number().int().nonnegative().optional(),
-  planned_completion:z.number().int().min(0).max(100).optional(),
+  planned_completion:z.number().min(0).max(100).optional(),
+  planning_baseline:baselineMetadataSchema.optional(),
+  baseline_plan:baselineDisciplinePlanSchema.optional(),
   actual_completion:z.number().int().min(0).max(100).optional(),
   total:z.number().int().nonnegative(),
   uploaded:z.number().int().nonnegative(),
@@ -95,9 +109,11 @@ const reportDisciplineSchema=z.object({
 }));
 
 const sCurveSchema=z.object({
+  planning_baseline:baselineMetadataSchema.optional(),
   overall:z.array(z.object({
     date:z.iso.date(),
     planned:z.number().nonnegative(),
+    baseline_planned:z.number().nonnegative().nullable().optional(),
     completed:z.number().nonnegative().nullable(),
   })),
   disciplines:z.array(z.object({
@@ -105,6 +121,7 @@ const sCurveSchema=z.object({
     planned:z.number().int().nonnegative(),
     completed:z.number().int().nonnegative(),
     variance:z.number().int(),
+    baseline_variance:z.number().int().nullable().optional(),
     completion_percent:z.number().int().min(0).max(100),
   })),
 });
@@ -176,6 +193,14 @@ export function disciplineReportColumnsQuery(columns:DisciplineReportColumn[]){
 }
 
 export function disciplineReportValue(row:ProjectReportSnapshot["disciplines"][number],column:DisciplineReportColumn){
+  if(row.planning_baseline){
+    const plan=row.planning_baseline.status==="approved"?row.baseline_plan:undefined;
+    if(column==="planned_completion")return plan?.planned_completion===null||plan?.planned_completion===undefined?"N/A":`${plan.planned_completion}%`;
+    if(column==="planned_this_week"||column==="weekly_variance"||column==="project_variance")return plan?.[column]===null||plan?.[column]===undefined?"N/A":String(plan[column]);
+    if(column==="issued_this_week_percent")return plan?.planned_this_week===null||plan?.planned_this_week===undefined?"N/A":percentageRatio(row.issued_this_week,plan.planned_this_week);
+    if(column==="weekly_variance_percent")return !plan||plan.weekly_variance===null||plan.planned_this_week===null?"N/A":percentageRatio(plan.weekly_variance,plan.planned_this_week,true);
+    if(column==="cumulative_variance_percent")return !plan||plan.project_variance===null||plan.cumulative_planned===null?"N/A":percentageRatio(plan.project_variance,plan.cumulative_planned,true);
+  }
   if(column==="issued_this_week_percent")return percentageRatio(row.issued_this_week,row.planned_this_week);
   if(column==="weekly_variance_percent")return percentageRatio(row.weekly_variance,row.planned_this_week,true);
   if(column==="cumulative_variance_percent")return percentageRatio(row.project_variance,row.cumulative_planned,true);
@@ -196,6 +221,19 @@ export function projectSCurveProgress(curve:ProjectReportSnapshot["s_curve"],tot
   const firstDate=curve.overall[0]?.date;
   const weeklyPoints=firstDate?curve.overall.filter(point=>isProjectSCurveWeeklyDate(point.date,firstDate)):[];
   return weeklyPoints.map(point=>({date:point.date,planned:percentage(point.planned),actual:point.completed===null?null:percentage(point.completed)}));
+}
+
+/** New snapshots carry explicit nullable baseline counts. Legacy interpretation stays unchanged. */
+export function approvedProjectSCurveProgress(curve:ProjectReportSnapshot["s_curve"],totalDeliverables:number){
+  const total=Math.max(1,totalDeliverables);
+  const percentage=(value:number)=>Math.min(100,Math.max(0,Math.round(value/total*1000)/10));
+  return curve.overall.map(point=>({date:point.date,
+    planned:curve.planning_baseline?.status==="approved"&&typeof point.baseline_planned==="number"?percentage(point.baseline_planned):null,
+    actual:point.completed===null?null:percentage(point.completed)}));
+}
+
+export function reportPlannedWeeklyDue(summary:ProjectReportSnapshot["summary"]){
+  return summary.baseline_weekly_due===undefined?String(summary.weekly_due):summary.baseline_weekly_due===null?"N/A":String(summary.baseline_weekly_due);
 }
 
 export function isProjectSCurveWeeklyDate(value:string,projectStart:string){

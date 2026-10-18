@@ -78,7 +78,7 @@ describe("logo-aligned application palette",()=>{
     for(const colour of ["#b91c1c","#15803d"])expect(contrast(colour,"#ffffff")).toBeGreaterThanOrEqual(4.5);
     expect(component).toContain('strokeDasharray="10 4"');
     expect(component).toContain('strokeDasharray="6 6"');
-    expect(component).toContain("Slate dashed estimated plan");
+    expect(component).toContain("Slate dashed approved plan");
     expect(component).toContain("Orange dashed overall submitted progress and solid DCC-accepted progress");
   });
 

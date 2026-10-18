@@ -54,7 +54,9 @@ it("loads current project, active deliveries, persisted report snapshots and ope
   expect(result.reports).toEqual([report()]);
   expect(result.issues).toEqual([expect.objectContaining({severity:"high",status:"open"})]);
   expect(result.submissionProgress).toEqual(observation);
-  expect(mutation).not.toHaveBeenCalled();expect(rpc).toHaveBeenCalledExactlyOnceWith("get_project_submission_progress",{target_organisation:"org",target_project:"project"});
+  expect(mutation).not.toHaveBeenCalled();expect(rpc).toHaveBeenCalledWith("get_project_submission_progress",{target_organisation:"org",target_project:"project"});
+  expect(rpc).toHaveBeenCalledWith("get_project_milestone_baseline",{target_organisation:"org",target_project:"project"});
+  expect(result.baseline).toBeNull();
 });
 
 it("scopes every read to this organisation and exact project and requests explicit bounded selections",async()=>{
@@ -82,9 +84,24 @@ it("scopes every read to this organisation and exact project and requests explic
 it("does not query report snapshots or manufacture an empty history when history is not authorised",async()=>{
   const result=await load(false);
   expect(result.reports).toBeNull();
-  expect(result.submissionProgress).toBeNull();expect(rpc).not.toHaveBeenCalled();
+  expect(result.submissionProgress).toBeNull();expect(rpc).toHaveBeenCalledExactlyOnceWith("get_project_milestone_baseline",{target_organisation:"org",target_project:"project"});
   expect(from).not.toHaveBeenCalledWith("project_weekly_reports");
   expect(result.rows).toEqual([delivery()]);expect(result.issues).not.toBeNull();
+});
+
+it("loads sanitised daily aggregate observations without requiring a generated PDF",async()=>{
+  const daily={id:"daily-1",period_end:"2026-10-14",generated_at:"2026-10-14T06:05:00Z",source_kind:"snapshot",snapshot:{delivery_progress_comparison:{...observation,captured_at:"2026-10-14T06:05:00Z",secret:"must not leak"},storage_key:"private/path"}};
+  rpc.mockImplementation(async name=>({data:name==="get_project_progress_observations"?[daily]:observation,error:null}));
+  const result=await load();
+  expect(result.observations).toEqual([{id:"daily-1",period_end:"2026-10-14",generated_at:"2026-10-14T06:05:00Z",source_kind:"snapshot",snapshot:{summary:{overall_progress:33},delivery_progress_comparison:{...observation,captured_at:"2026-10-14T06:05:00Z"}}}]);
+  expect(JSON.stringify(result.observations)).not.toMatch(/must not leak|private\/path/);
+  expect(mutation).not.toHaveBeenCalled();
+});
+
+it("does not discard saved reports or live actuals when daily history fails",async()=>{
+  rpc.mockImplementation(async name=>name==="get_project_progress_observations"?{data:null,error:{code:"XX000"}}:{data:observation,error:null});
+  const result=await load();
+  expect(result.observations).toBeNull();expect(result.reports).toEqual([report()]);expect(result.submissionProgress).toEqual(observation);
 });
 
 describe("restricted submitted-progress aggregate",()=>{

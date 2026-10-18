@@ -24,7 +24,7 @@ let role:string,preview:unknown,data:Data;
 beforeEach(()=>{
   vi.clearAllMocks();vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
   role="project_admin";preview=undefined;
-  data={project,rows:[document],reports:[report],issues:[{id:"issue",severity:"high",status:"open"}],submissionProgress:{version:1,captured_at:"2026-10-15T11:59:59Z",submitted_progress:67,accepted_progress:33,total_deliverables:1,total_weight:1}};
+  data={baseline:null,observations:null,project,rows:[document],reports:[report],issues:[{id:"issue",severity:"high",status:"open"}],submissionProgress:{version:1,captured_at:"2026-10-15T11:59:59Z",submitted_progress:67,accepted_progress:33,total_deliverables:1,total_weight:1}};
   vi.mocked(requireProject).mockImplementation(async()=>({supabase:preview?delegatedClient:ordinaryClient,access:{role},preview} as never));
   vi.mocked(loadProjectProgressData).mockImplementation(async()=>data);
 });
@@ -124,7 +124,7 @@ it("uses the Project Manager timeline, not first issue dates or revision cycles,
   render(await page());
   expect(props().curve.timeline).toMatchObject({status:"configured",plannedStart:"2026-10-01",plannedEnd:"2026-12-01",displayStart:"2026-10-01",displayEnd:"2026-12-01"});
   expect(props().curve).toMatchObject({submittedToday:67,acceptedToday:33});
-  expect(props().curve.estimatedPlan).toMatchObject({basis:"timeline_linear_estimate",today:23,weeklyRate:11.5,acceptedVariance:10,submittedVariance:44});
+  expect(props().curve.estimatedPlan).toMatchObject({basis:"unavailable",today:null,weeklyRate:null,acceptedVariance:null,submittedVariance:null});
   expect(props().curve).not.toHaveProperty("planning");expect(props().curve).not.toHaveProperty("plannedToday");
 });
 
@@ -143,18 +143,16 @@ it("keeps accepted progress available when the restricted submission aggregate i
 it("retains the PM end date while displaying real delivery after that date",async()=>{
   data.project={...project,planned_end_date:"2026-10-09"};render(await page());
   expect(props().curve.timeline).toMatchObject({plannedEnd:"2026-10-09",displayEnd:"2026-10-15"});
-  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({planned:100,submitted:67,accepted:33});
-  expect(props().curve.estimatedPlan).toMatchObject({today:100,acceptedVariance:-67,submittedVariance:-33});
+  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({planned:null,submitted:67,accepted:33});
+  expect(props().curve.estimatedPlan).toMatchObject({today:null,acceptedVariance:null,submittedVariance:null});
 });
 
-it("projects equal weekly progress from 7 September to 9 October and marks the live date without fabricating submissions",async()=>{
-  data.project={...project,planned_start_date:"2026-09-07",planned_end_date:"2026-10-09"};
-  data.rows=[{...document,progress_credit:47}];data.reports=[];
-  data.submissionProgress={...data.submissionProgress!,accepted_progress:47,submitted_progress:47};
+it("uses only the approved weighted baseline and preserves actual delivery observations",async()=>{
+  data.baseline={status:"approved",baseline_id:"81000000-0000-4000-8000-000000000001",baseline_version:2,approved_at:"2026-10-01T10:00:00Z",
+    planned_start_date:"2026-10-01",planned_end_date:"2026-12-01",scope_hash:"a".repeat(64),total_deliverables:1,total_weight:1,today:67,reason:"Approved plan",
+    points:[{date:"2026-10-01",planned:0},{date:"2026-10-10",planned:67},{date:"2026-12-01",planned:100}]};
   render(await page());
-  expect(props().curve.estimatedPlan).toEqual({basis:"timeline_linear_estimate",today:100,weeklyRate:21.9,acceptedVariance:-53,submittedVariance:-53});
-  expect(props().curve.points.find(point=>point.date==="2026-09-07")).toMatchObject({planned:0,accepted:null,submitted:null});
-  expect(props().curve.points.find(point=>point.date==="2026-09-14")).toMatchObject({planned:21.9,accepted:null,submitted:null});
-  expect(props().curve.points.find(point=>point.date==="2026-10-09")).toMatchObject({planned:100,accepted:null,submitted:null});
-  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({planned:100,accepted:47,submitted:47,acceptedSource:"live",submittedSource:"live"});
+  expect(props().curve.estimatedPlan).toEqual({basis:"approved_weighted_milestones",today:67,weeklyRate:null,acceptedVariance:-34,submittedVariance:0});
+  expect(props().curve.points.find(point=>point.date==="2026-10-08")).toMatchObject({planned:0,accepted:20,submitted:null,acceptedSource:"report"});
+  expect(props().curve.points.find(point=>point.date==="2026-10-15")).toMatchObject({planned:67,accepted:33,submitted:67});
 });

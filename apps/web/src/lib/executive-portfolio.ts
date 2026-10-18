@@ -18,7 +18,7 @@ export function executiveProjectStatus(project:ExecutiveProject){
   if(project.deliverables===0)return "Not baselined";
   if(project.outstanding===0)return "Complete";
   if(project.overdue>0||(project.lag_points??0)>0)return "Behind plan";
-  if(project.planned_percent===null)return "Dates incomplete";
+  if(project.planned_percent===null)return "Plan unavailable";
   return "On track";
 }
 export function executivePortfolioTotals(projects:ExecutiveProject[]){

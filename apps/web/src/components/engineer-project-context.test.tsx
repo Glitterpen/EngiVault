@@ -84,8 +84,8 @@ describe("visible engineer project impact",()=>{
     expect(section.id).toBe("project-impact");
     expect(screen.getByText("63.2%")).toBeTruthy();
     expect(screen.getByText("55.4%")).toBeTruthy();
-    expect(screen.getByText("MDR expected: 70.1%")).toBeTruthy();
-    expect(screen.getByText("MDR expected: 65.2%")).toBeTruthy();
+    expect(screen.getByText("Approved plan: 70.1%")).toBeTruthy();
+    expect(screen.getByText("Approved plan: 65.2%")).toBeTruthy();
     expect(screen.getByText(/Expected: 20.5 percentage points/)).toBeTruthy();
     expect(screen.getByText("Your scope: 31.5% of project weight")).toBeTruthy();
     expect(screen.getByText("Contribution to project progress").parentElement?.textContent).toContain("17.5 percentage points");
@@ -106,6 +106,15 @@ describe("visible engineer project impact",()=>{
     expect(myProgress.getAttribute("value")).toBe("0");
     expect(screen.getByText("105%")).toBeTruthy();
     expect(screen.getByText("-1%")).toBeTruthy();
+  });
+
+  it("shows missing approved plans as unavailable rather than zero or an on-track claim",()=>{
+    render(<EngineerProjectImpactSummary {...impact} health="on_track" projectPlanned={null} engineerPlanned={null} expectedContribution={null} delayImpact={null}/>);
+    expect(screen.getByText("Plan unavailable")).toBeTruthy();
+    expect(screen.getAllByText("Approved plan: N/A")).toHaveLength(2);
+    expect(screen.queryByText("Approved plan: 0%")).toBeNull();
+    expect(screen.getByText("63.2%")).toBeTruthy();
+    expect(screen.getByText("55.4%")).toBeTruthy();
   });
 
   it("explains an unassigned scope honestly without inventing activity or personal obligations",()=>{

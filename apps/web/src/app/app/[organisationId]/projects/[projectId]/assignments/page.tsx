@@ -86,20 +86,18 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const acceptedCount=deliverables.filter(item=>item.status==="accepted").length;
   const totalWeight=deliverables.reduce((sum,item)=>sum+Number(item.document.progress_weight),0);
   const completion=totalWeight?Math.round(deliverables.reduce((sum,item)=>sum+Number(item.document.progress_weight)*item.credit/100,0)/totalWeight*100):0;
-  const plannedWeight=deliverables.reduce((sum,item)=>isDue(item.document.planned_final_date??item.document.planned_submission_date)?sum+Number(item.document.progress_weight):sum,0);
-  const plannedCompletion=totalWeight?Math.round(plannedWeight/totalWeight*100):0;
   const impact=(impactData??{}) as Partial<ProjectImpactRow>;
   const impactAvailable=!impactError&&Boolean(impactData);
   const projectActual=numberValue(impact.project_actual_percent,completion);
-  const projectPlanned=numberValue(impact.project_planned_percent,plannedCompletion);
+  const projectPlanned=nullableNumber(impact.project_planned_percent);
   const engineerActual=numberValue(impact.engineer_actual_percent,completion);
-  const engineerPlanned=numberValue(impact.engineer_planned_percent,plannedCompletion);
-  const engineerVariance=numberValue(impact.engineer_variance_points,engineerActual-engineerPlanned);
+  const engineerPlanned=nullableNumber(impact.engineer_planned_percent);
+  const engineerVariance=nullableNumber(impact.engineer_variance_points);
   const projectTotalWeight=Math.max(numberValue(impact.project_total_weight,totalWeight),totalWeight);
   const returnedCount=deliverables.filter(item=>item.status==="returned").length;
   const overdueCount=deliverables.filter(item=>item.status==="overdue").length;
   const dueSoonCount=deliverables.filter(item=>item.status==="due_soon").length;
-  const health=engineerProgressHealth({variancePoints:engineerVariance,overdueCount,returnedCount,dueSoonCount,deliverableCount:deliverables.length});
+  const health=engineerProgressHealth({variancePoints:engineerVariance??0,overdueCount,returnedCount,dueSoonCount,deliverableCount:deliverables.length});
   const closeOutActions=deliverables.filter(item=>requiresEngineerAction(item.status)).sort(compareEngineerActions);
   const noticesAvailable=!noticeError;
   const notices=(noticesAvailable?noticeData??[]:[]) as NoticeRow[];
@@ -125,7 +123,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
 
     <div className="mt-4 min-w-0 space-y-4">
       <EngineerProjectContext project={project}/>
-      {impactAvailable?<EngineerProjectImpactSummary health={health} projectActual={projectActual} projectPlanned={projectPlanned} engineerActual={engineerActual} engineerPlanned={engineerPlanned} engineerShare={numberValue(impact.engineer_share_percent,totalWeight?100:0)} contribution={numberValue(impact.engineer_project_contribution_percent,completion)} expectedContribution={numberValue(impact.engineer_project_expected_contribution_percent,plannedCompletion)} delayImpact={numberValue(impact.engineer_project_delay_impact_points,Math.max(0,plannedCompletion-completion))}/>:<section id="project-impact" role="status" className="ev-card scroll-mt-24 p-4 sm:p-5"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-1 text-sm leading-6 text-[#617083]">Your assigned deliverables remain available below. Refresh to retry the project summary.</p></section>}
+      {impactAvailable?<EngineerProjectImpactSummary health={health} projectActual={projectActual} projectPlanned={projectPlanned} engineerActual={engineerActual} engineerPlanned={engineerPlanned} engineerShare={numberValue(impact.engineer_share_percent,totalWeight?100:0)} contribution={numberValue(impact.engineer_project_contribution_percent,completion)} expectedContribution={nullableNumber(impact.engineer_project_expected_contribution_percent)} delayImpact={nullableNumber(impact.engineer_project_delay_impact_points)}/>:<section id="project-impact" role="status" className="ev-card scroll-mt-24 p-4 sm:p-5"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-1 text-sm leading-6 text-[#617083]">Your assigned deliverables remain available below. Refresh to retry the project summary.</p></section>}
     </div>
 
       <section id="deliverables" aria-label="My deliverables" className="mt-6 min-w-0 scroll-mt-24">
@@ -194,7 +192,7 @@ function compareEngineerActions(left:DeliverableItem,right:DeliverableItem){
 
 function actionDueDate(item:DeliverableItem){return item.schedule.next_submission_date;}
 function dateValue(value:string|null){return value?new Date(`${value}T00:00:00Z`).getTime():Number.MAX_SAFE_INTEGER;}
-function isDue(value:string|null){return value!==null&&dateValue(value)<=Date.now();}
+function nullableNumber(value:unknown){return typeof value==="number"&&Number.isFinite(value)?value:null;}
 function numberValue(value:unknown,fallback:number){const parsed=Number(value);return Number.isFinite(parsed)?parsed:fallback;}
 function formatPercent(value:number){return Number.isInteger(value)?String(value):value.toFixed(1);}
 

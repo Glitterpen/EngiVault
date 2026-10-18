@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {disciplineReportColumnsQuery,disciplineReportValue,isProjectSCurveWeeklyDate,progressMovement,projectReportNumber,projectReportSnapshotSchema,projectSCurveCurrentWeekDate,projectSCurveProgress,reportDateInTimezone,reportWeekdayLabel,resolveDisciplineReportColumns} from "./project-report";
+import {approvedProjectSCurveProgress,disciplineReportColumnsQuery,disciplineReportValue,isProjectSCurveWeeklyDate,progressMovement,projectReportNumber,projectReportSnapshotSchema,projectSCurveCurrentWeekDate,projectSCurveProgress,reportDateInTimezone,reportPlannedWeeklyDue,reportWeekdayLabel,resolveDisciplineReportColumns,type ProjectReportSnapshot} from "./project-report";
 
 describe("project report helpers",()=>{
   it("formats controlled report numbers",()=>expect(projectReportNumber(12)).toBe("PCR-0012"));
@@ -52,5 +52,26 @@ describe("project report helpers",()=>{
   });
   it("snaps the current-week marker to the latest weekly graph date",()=>{
     expect(projectSCurveCurrentWeekDate(["2026-07-29","2026-08-05","2026-08-12","2026-08-13","2026-08-19"],"2026-08-13")).toBe("2026-08-12");
+  });
+  it("uses explicit approved weighted counts and retains non-weekly milestone dates",()=>{
+    const curve={planning_baseline:{version:1 as const,basis:"approved_weighted_milestones" as const,status:"approved" as const,approved_baseline_id:null,approved_baseline_version:1,approved_at:null,scope_hash:null},overall:[{date:"2026-08-01",planned:0,baseline_planned:0,completed:0},{date:"2026-08-04",planned:9,baseline_planned:3.3,completed:2},{date:"2026-08-08",planned:10,baseline_planned:10,completed:null}],disciplines:[]};
+    expect(approvedProjectSCurveProgress(curve,10)).toEqual([{date:"2026-08-01",planned:0,actual:0},{date:"2026-08-04",planned:33,actual:20},{date:"2026-08-08",planned:100,actual:null}]);
+    expect(approvedProjectSCurveProgress({...curve,planning_baseline:{...curve.planning_baseline,status:"scope_changed"}},10).map(point=>point.planned)).toEqual([null,null,null]);
+  });
+  it("does not use legacy compatibility zeros when the approved plan is missing",()=>{
+    const row={issued_this_week:2,planning_baseline:{status:"missing"},baseline_plan:{planned_completion:null,planned_this_week:null,weekly_variance:null,project_variance:null,cumulative_planned:null},planned_completion:0,planned_this_week:0,weekly_variance:0,project_variance:0,cumulative_planned:0} as ProjectReportSnapshot["disciplines"][number];
+    for(const column of ["planned_completion","planned_this_week","weekly_variance","project_variance","issued_this_week_percent","weekly_variance_percent","cumulative_variance_percent"] as const)expect(disciplineReportValue(row,column)).toBe("N/A");
+    expect(reportPlannedWeeklyDue({weekly_due:0,baseline_weekly_due:null} as ProjectReportSnapshot["summary"])).toBe("N/A");
+    expect(reportPlannedWeeklyDue({weekly_due:3} as ProjectReportSnapshot["summary"])).toBe("3");
+  });
+  it("preserves additive nullable baseline metadata while leaving legacy snapshot interpretation intact",()=>{
+    const metadata={version:1,basis:"approved_weighted_milestones",status:"missing",approved_baseline_id:null,approved_baseline_version:null,approved_at:null,scope_hash:null};
+    const stored={identity:{organisation_name:"Example",project_code:"PRJ-1",project_name:"Project",client_name:null,facility_location:null,project_introduction:null,key_objectives:[],planned_start_date:null,planned_end_date:null,client_logo_count:0},summary:{overall_progress:20,previous_progress:null,progress_gain:null,total_deliverables:5,uploaded_deliverables:2,approved_deliverables:1,overdue_deliverables:0,weekly_submissions:0,weekly_acceptances:0,weekly_due:0,baseline_weekly_due:null},disciplines:[],lookahead:[],challenges:[],s_curve:{planning_baseline:metadata,overall:[{date:"2026-08-01",planned:0,baseline_planned:null,completed:1}],disciplines:[]}};
+    const before=structuredClone(stored),parsed=projectReportSnapshotSchema.parse(stored);
+    expect(stored).toEqual(before);
+    expect(parsed.s_curve.planning_baseline).toEqual(metadata);
+    expect(parsed.s_curve.overall[0].baseline_planned).toBeNull();
+    expect(parsed.summary.baseline_weekly_due).toBeNull();
+    expect(approvedProjectSCurveProgress(parsed.s_curve,5)).toEqual([{date:"2026-08-01",planned:null,actual:20}]);
   });
 });

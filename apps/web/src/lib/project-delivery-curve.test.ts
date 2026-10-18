@@ -19,7 +19,7 @@ describe("live submitted versus DCC-accepted progress",()=>{
   it("uses the validated management aggregate with matching weighted denominator and integer display rounding",()=>{
     const result=curve();
     expect(result).toMatchObject({asOf:"2026-10-15T12:00:00.000Z",submittedToday:92,acceptedToday:59,gap:33,hasScope:true,submittedHistoryCount:0,acceptedHistoryCount:0,invalidHistoryCount:0,historyAvailable:true});
-    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:15.4,submitted:92,accepted:59,submittedSource:"live",acceptedSource:"live"});
+    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:null,submitted:92,accepted:59,submittedSource:"live",acceptedSource:"live"});
     expect(result.timeline).toEqual({plannedStart:"2026-10-01",plannedEnd:"2026-12-31",status:"configured",displayStart:"2026-10-01",displayEnd:"2026-12-31"});
   });
   it("keeps accepted progress row-derived even when the aggregate differs within SQL decimal tolerance",()=>{
@@ -69,12 +69,12 @@ describe("live submitted versus DCC-accepted progress",()=>{
   ])("keeps submitted unavailable for invalid or stale aggregate %#",change=>{
     const result=curve({submissionProgress:{...submissionProgress(),...change} as DeliveryCurveSubmissionProgress});
     expect(result).toMatchObject({submittedToday:null,acceptedToday:59,gap:null});
-    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:15.4,submitted:null,accepted:59,submittedSource:null,acceptedSource:"live"});
+    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:null,submitted:null,accepted:59,submittedSource:null,acceptedSource:"live"});
   });
   it("treats a failed aggregate read as unavailable, not zero or the accepted series",()=>{
     const result=curve({submissionProgress:null});
     expect(result).toMatchObject({submittedToday:null,acceptedToday:59,gap:null});
-    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:15.4,submitted:null,accepted:59,submittedSource:null,acceptedSource:"live"});
+    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:null,submitted:null,accepted:59,submittedSource:null,acceptedSource:"live"});
   });
   it("accepts finite numeric aggregate strings and a UTC-day-equivalent timestamp offset",()=>{
     const aggregate={...submissionProgress(),captured_at:"2026-10-16T00:30:00+14:00",submitted_progress:"91.8",accepted_progress:"58.5",total_deliverables:"2",total_weight:"4"} as unknown as DeliveryCurveSubmissionProgress;
@@ -110,18 +110,24 @@ describe("live submitted versus DCC-accepted progress",()=>{
 });
 
 describe("true saved observations, never inferred submitted history",()=>{
+  it("uses daily aggregate captures as real observations and never invents an earlier trend",()=>{
+    const daily={...modern("daily","2026-10-10",60,40),source_kind:"snapshot" as const};
+    const result=curve({reports:[daily]});
+    expect(at(result,"2026-10-10")).toMatchObject({planned:null,submitted:60,accepted:40,submittedSource:"snapshot",acceptedSource:"snapshot"});
+    expect(at(result,"2026-10-08")).toBeUndefined();
+  });
   it("uses legacy report summary only as accepted history",()=>{
     const result=curve({reports:[report("legacy")]});
-    expect(at(result,"2026-10-08")).toEqual({date:"2026-10-08",planned:7.7,submitted:null,accepted:20,submittedSource:null,acceptedSource:"report"});
+    expect(at(result,"2026-10-08")).toEqual({date:"2026-10-08",planned:null,submitted:null,accepted:20,submittedSource:null,acceptedSource:"report"});
     expect(result).toMatchObject({submittedHistoryCount:0,acceptedHistoryCount:1,invalidHistoryCount:0});
-    expect(at(result,"2026-10-01")).toEqual({date:"2026-10-01",planned:0,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
-    expect(at(result,"2026-12-31")).toEqual({date:"2026-12-31",planned:100,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
+    expect(at(result,"2026-10-01")).toEqual({date:"2026-10-01",planned:null,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
+    expect(at(result,"2026-12-31")).toEqual({date:"2026-12-31",planned:null,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
   });
   it("uses valid captured submitted/accepted comparison metadata without recalculating history",()=>{
     const saved=modern("modern");
     (saved.snapshot as {summary:{overall_progress:number}}).summary.overall_progress=5;
     const result=curve({reports:[saved]});
-    expect(at(result,"2026-10-08")).toEqual({date:"2026-10-08",planned:7.7,submitted:60,accepted:40,submittedSource:"report",acceptedSource:"report"});
+    expect(at(result,"2026-10-08")).toEqual({date:"2026-10-08",planned:null,submitted:60,accepted:40,submittedSource:"report",acceptedSource:"report"});
     expect(result).toMatchObject({submittedHistoryCount:1,acceptedHistoryCount:1,invalidHistoryCount:0});
   });
   it("does not invent submitted history when modern metadata omits the required paired accepted progress",()=>{
@@ -133,7 +139,7 @@ describe("true saved observations, never inferred submitted history",()=>{
   it("rejects an incomplete submitted-only metadata object without inventing accepted history",()=>{
     const saved={...report("submitted-only"),snapshot:{delivery_progress_comparison:{version:1,captured_at:"2026-10-08T12:00:00Z",submitted_progress:60,total_deliverables:1,total_weight:1}}};
     const result=curve({reports:[saved]});
-    expect(at(result,"2026-10-08")).toMatchObject({planned:7.7,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
+    expect(at(result,"2026-10-08")).toBeUndefined();
     expect(result).toMatchObject({submittedHistoryCount:0,acceptedHistoryCount:0,invalidHistoryCount:1});
   });
   it("keeps real zero observations distinct from missing history",()=>{
@@ -205,137 +211,68 @@ describe("true saved observations, never inferred submitted history",()=>{
   });
 });
 
-describe("PM dates set the estimated plan, never fabricate observed completion",()=>{
-  it("retains valid PM endpoints and today without inventing actual zero or completion at them",()=>{
+const approvedBaseline={
+  status:"approved" as const,baseline_id:"81000000-0000-4000-8000-000000000001",baseline_version:1,
+  approved_at:"2026-09-30T12:00:00Z",planned_start_date:"2026-10-01",planned_end_date:"2026-12-31",
+  scope_hash:"a".repeat(64),total_deliverables:2,total_weight:4,today:58.5,reason:"Approved engineering plan",
+  points:[{date:"2026-10-01",planned:0},{date:"2026-10-08",planned:8.25},{date:"2026-10-10",planned:58.5},{date:"2026-12-31",planned:100}],
+};
+describe("one approved weighted milestone plan",()=>{
+  it("never creates a plan merely from PM dates, first issue dates or review cycles",()=>{
     const result=curve();
-    expect(at(result,"2026-10-01")).toEqual({date:"2026-10-01",planned:0,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
-    expect(at(result,"2026-10-15")).toEqual({date:"2026-10-15",planned:15.4,submitted:92,accepted:59,submittedSource:"live",acceptedSource:"live"});
-    expect(at(result,"2026-12-31")).toEqual({date:"2026-12-31",planned:100,submitted:null,accepted:null,submittedSource:null,acceptedSource:null});
-    expect(result.points.filter(point=>point.submitted!==null||point.accepted!==null)).toHaveLength(1);
+    expect(result.estimatedPlan).toEqual({basis:"unavailable",today:null,weeklyRate:null,acceptedVariance:null,submittedVariance:null});
+    expect(result.points.every(point=>point.planned===null)).toBe(true);
+    expect(result).toMatchObject({acceptedToday:59,submittedToday:92,gap:33});
   });
-  it("extends an overrun display to today without changing the PM's original end date",()=>{
-    const result=curve({plannedStart:"2026-05-01",plannedEnd:"2026-06-01",reports:[report("overrun","2026-06-10",15)]});
-    expect(result.timeline).toEqual({plannedStart:"2026-05-01",plannedEnd:"2026-06-01",status:"configured",displayStart:"2026-05-01",displayEnd:"2026-10-15"});
-    expect(at(result,"2026-06-01")).toMatchObject({submitted:null,accepted:null});
-    expect(at(result,"2026-06-10")?.accepted).toBe(15);
+  it("uses exact frozen milestone percentages and holds credit between dated milestones",()=>{
+    const result=curve({baseline:approvedBaseline,reports:[report("between","2026-10-09",20)]});
+    expect(at(result,"2026-10-08")?.planned).toBe(8.25);
+    expect(at(result,"2026-10-09")?.planned).toBe(8.25);
+    expect(at(result,"2026-10-10")?.planned).toBe(58.5);
+    expect(at(result,"2026-10-15")?.planned).toBe(58.5);
+    expect(result.estimatedPlan).toEqual({basis:"approved_weighted_milestones",today:58.5,weeklyRate:null,acceptedVariance:0.5,submittedVariance:33.5});
   });
-  it("does not extend the configured domain to historical observations before PM start or clamp them onto a marker",()=>{
-    const result=curve({reports:[report("outside","2026-09-30",100),report("inside","2026-10-08",20)]});
-    expect(at(result,"2026-09-30")).toBeUndefined();expect(at(result,"2026-10-01")?.accepted).toBeNull();
-    expect(result.acceptedHistoryCount).toBe(1);
+  it("uses the approved dates even when current PM forecast dates change",()=>{
+    const result=curve({baseline:approvedBaseline,plannedStart:"2026-01-01",plannedEnd:"2027-01-01"});
+    expect(result.timeline).toMatchObject({plannedStart:"2026-10-01",plannedEnd:"2026-12-31"});
+    expect(at(result,"2026-01-01")).toBeUndefined();
   });
-  it("includes today before a future PM start but no historical or future fabricated series",()=>{
-    const result=curve({plannedStart:"2026-11-01",plannedEnd:"2026-12-31",reports:[report("outside")]});
-    expect(result.timeline).toMatchObject({displayStart:"2026-10-15",displayEnd:"2026-12-31",status:"configured"});
-    expect(result.acceptedHistoryCount).toBe(0);
-    expect(result.points.filter(point=>point.date>"2026-10-15").every(point=>point.submitted===null&&point.accepted===null)).toBe(true);
-  });
-  it.each([
-    {plannedStart:null,plannedEnd:null,status:"missing"},
-    {plannedStart:null,plannedEnd:"2026-12-31",status:"missing"},
-    {plannedStart:"2026-10-01",plannedEnd:null,status:"missing"},
-    {plannedStart:"2026-02-30",plannedEnd:"2026-12-31",status:"invalid"},
-    {plannedStart:"2026-11-01",plannedEnd:"2026-10-01",status:"invalid"},
-  ] as const)("uses observed date extent when project dates are $status %#",dates=>{
-    const result=curve({...dates,reports:[report("observed","2026-09-08",20)]});
-    expect(result.timeline).toEqual({...dates,displayStart:"2026-09-08",displayEnd:"2026-10-15"});
-    expect(result.points.map(point=>point.date)).toEqual(["2026-09-08","2026-10-15"]);
-  });
-  it("allows an equal valid start and end date",()=>{
-    const result=curve({plannedStart:"2026-10-15",plannedEnd:"2026-10-15"});
-    expect(result.timeline).toMatchObject({status:"configured",displayStart:"2026-10-15",displayEnd:"2026-10-15"});
-    expect(result.points).toHaveLength(1);
-  });
-  it("does not invent a prior day when dates and history are missing",()=>{
-    const result=curve({plannedStart:null,plannedEnd:null,reports:[]});
-    expect(result.timeline).toMatchObject({status:"missing",displayStart:"2026-10-15",displayEnd:"2026-10-15"});
-    expect(result.points).toHaveLength(1);
-  });
-});
-
-describe("calendar-time linear estimated plan",()=>{
-  it("spreads 100 percent evenly across the 32-day Sep 7–Oct 9 timeline with a 21.9pp weekly estimate",()=>{
-    const date="2026-09-14T12:00:00Z";
-    const result=curve({plannedStart:"2026-09-07",plannedEnd:"2026-10-09",asOf:date,submissionProgress:submissionProgress({captured_at:date})});
-    expect(result.estimatedPlan).toEqual({basis:"timeline_linear_estimate",today:21.9,weeklyRate:21.9,acceptedVariance:37.1,submittedVariance:70.1});
-    expect(result.points.map(point=>[point.date,point.planned])).toEqual([
-      ["2026-09-07",0],["2026-09-14",21.9],["2026-09-21",43.8],
-      ["2026-09-28",65.6],["2026-10-05",87.5],["2026-10-09",100],
-    ]);
-    expect(result.points.filter(point=>point.date!=="2026-09-14").every(point=>point.submitted===null&&point.accepted===null&&point.submittedSource===null&&point.acceptedSource===null)).toBe(true);
-  });
-  it("uses calendar days including weekends, never the working-day revision cycle",()=>{
-    const result=curve({plannedStart:"2026-09-11",plannedEnd:"2026-09-14",asOf:"2026-09-12T12:00:00Z",submissionProgress:null,
-      documents:[{...document("one",1,33),revision_cycle_days:365,planned_submission_date:"2030-01-01",planned_final_date:"2040-01-01"}]});
-    expect(result.estimatedPlan).toEqual({basis:"timeline_linear_estimate",today:33.3,weeklyRate:233.3,acceptedVariance:-0.3,submittedVariance:null});
-    expect(at(result,"2026-09-12")?.planned).toBe(33.3);
+  it.each(["missing","scope_changed"] as const)("keeps actual observations when the baseline is %s",status=>{
+    const result=curve({baseline:{...approvedBaseline,status,today:null,points:[]},reports:[modern("saved")]});
+    expect(result.points.every(point=>point.planned===null)).toBe(true);
+    expect(result).toMatchObject({acceptedToday:59,submittedToday:92,acceptedHistoryCount:1,submittedHistoryCount:1});
   });
   it.each([
-    {today:"2026-09-01",expected:0},
-    {today:"2026-09-07",expected:0},
-    {today:"2026-10-09",expected:100},
-    {today:"2026-10-15",expected:100},
-  ])("clamps the estimate to $expected at $today without changing PM dates",({today,expected})=>{
-    const result=curve({plannedStart:"2026-09-07",plannedEnd:"2026-10-09",asOf:today+"T12:00:00Z",submissionProgress:null});
-    expect(result.estimatedPlan.today).toBe(expected);
-    expect(at(result,today)?.planned).toBe(expected);
-    expect(result.timeline).toMatchObject({plannedStart:"2026-09-07",plannedEnd:"2026-10-09"});
+    {total_deliverables:3},{total_weight:4.5},{approved_at:"2026-10-15T12:00:01Z"},
+  ])("refuses a stale/foreign scope or approval made after the snapshot %#",change=>{
+    const result=curve({baseline:{...approvedBaseline,...change}});
+    expect(result.estimatedPlan.today).toBeNull();
+    expect(result.baseline?.status).toBe("scope_changed");
     expect(result.acceptedToday).toBe(59);
   });
-  it.each([
-    {plannedStart:null,plannedEnd:null},
-    {plannedStart:null,plannedEnd:"2026-12-31"},
-    {plannedStart:"2026-10-01",plannedEnd:null},
-    {plannedStart:"2026-02-30",plannedEnd:"2026-12-31"},
-    {plannedStart:"2026-12-31",plannedEnd:"2026-10-01"},
-    {plannedStart:"2026-10-01",plannedEnd:"not-a-date"},
-  ])("does not infer an estimate from MDR data for missing or invalid PM dates %#",dates=>{
-    const result=curve({...dates,reports:[report("historic","2026-10-08",20)],documents:[{...document("one",1,33),planned_submission_date:"2026-01-01",planned_final_date:"2026-12-31",revision_cycle_days:3}],submissionProgress:null});
-    expect(result.estimatedPlan).toEqual({basis:"timeline_linear_estimate",today:null,weeklyRate:null,acceptedVariance:null,submittedVariance:null});
-    expect(result.points.every(point=>point.planned===null)).toBe(true);
-    expect(at(result,"2026-10-08")?.accepted).toBe(20);
-    expect(result.acceptedToday).toBe(33);
+  it("fails closed for invalid percentages and descending/duplicate milestone dates",()=>{
+    for(const points of [[{date:"2026-10-01",planned:101}],[{date:"2026-10-10",planned:50},{date:"2026-10-08",planned:60}],[{date:"2026-10-10",planned:50},{date:"2026-10-10",planned:60}]]){
+      expect(curve({baseline:{...approvedBaseline,points}}).estimatedPlan.today).toBeNull();
+    }
   });
-  it.each([
-    {today:"2026-10-14",expected:0},
-    {today:"2026-10-15",expected:100},
-    {today:"2026-10-16",expected:100},
-  ])("treats a same-day project as a milestone at $today, without a made-up weekly rate",({today,expected})=>{
-    const result=curve({plannedStart:"2026-10-15",plannedEnd:"2026-10-15",asOf:today+"T12:00:00Z",submissionProgress:null});
-    expect(result.estimatedPlan).toMatchObject({today:expected,weeklyRate:null,acceptedVariance:59-expected,submittedVariance:null});
-    expect(at(result,"2026-10-15")?.planned).toBe(100);
-    expect(result.points.every(point=>Number.isFinite(point.planned))).toBe(true);
+  it("never changes current or historic actual values when a plan is approved",()=>{
+    const reports=[report("legacy"),modern("modern","2026-10-10",60,40)];
+    const without=curve({reports}),withPlan=curve({reports,baseline:approvedBaseline});
+    for(const point of without.points.filter(point=>point.accepted!==null||point.submitted!==null)){
+      expect(at(withPlan,point.date)).toMatchObject({accepted:point.accepted,submitted:point.submitted,acceptedSource:point.acceptedSource,submittedSource:point.submittedSource});
+    }
+    expect(withPlan).toMatchObject({acceptedToday:without.acceptedToday,submittedToday:without.submittedToday,gap:without.gap});
   });
-  it("handles leap days and year boundaries as exact UTC calendar intervals",()=>{
-    const leap=curve({plannedStart:"2028-02-28",plannedEnd:"2028-03-01",asOf:"2028-02-29T23:00:00Z",submissionProgress:null});
-    expect(leap.estimatedPlan).toMatchObject({today:50,weeklyRate:350});
-    const year=curve({plannedStart:"2026-12-28",plannedEnd:"2027-01-11",asOf:"2027-01-04T00:01:00Z",submissionProgress:null});
-    expect(year.estimatedPlan).toMatchObject({today:50,weeklyRate:50});
-    expect(year.points.map(point=>[point.date,point.planned])).toEqual([["2026-12-28",0],["2027-01-04",50],["2027-01-11",100]]);
+  it("retains every baseline breakpoint instead of shifting credit to sampled dates",()=>{
+    const points=Array.from({length:400},(_,index)=>({date:new Date(Date.UTC(2025,0,index+1)).toISOString().slice(0,10),planned:Math.round(index/399*10000)/100}));
+    const result=curve({baseline:{...approvedBaseline,approved_at:"2024-12-31T12:00:00Z",planned_start_date:points[0].date,planned_end_date:points.at(-1)!.date,points}});
+    for(const point of points)expect(at(result,point.date)?.planned).toBe(point.planned);
+    expect(result.points.filter(point=>point.acceptedSource==="live")).toHaveLength(1);
   });
-  it("retains actual observations and independent sources at coincident estimated dates",()=>{
-    const result=curve({reports:[report("legacy","2026-10-08",20),modern("paired","2026-10-10",60,40)]});
-    expect(at(result,"2026-10-08")).toMatchObject({planned:7.7,submitted:null,accepted:20,submittedSource:null,acceptedSource:"report"});
-    expect(at(result,"2026-10-10")).toMatchObject({planned:9.9,submitted:60,accepted:40,submittedSource:"report",acceptedSource:"report"});
-    expect(result).toMatchObject({submittedToday:92,acceptedToday:59,gap:33,submittedHistoryCount:1,acceptedHistoryCount:2});
-    expect(result.estimatedPlan).toMatchObject({today:15.4,acceptedVariance:43.6,submittedVariance:76.6});
-  });
-  it("prioritizes all actual report observations over weekly estimates before sampling to 300 points",()=>{
-    const reports=Array.from({length:200},(_,index)=>report(String(index),new Date(Date.UTC(2020,0,index+2)).toISOString().slice(0,10),index%101));
-    const result=curve({plannedStart:"2020-01-01",plannedEnd:"2027-01-01",reports});
-    expect(result.points).toHaveLength(300);
-    expect(result.acceptedHistoryCount).toBe(200);
-    for(const saved of reports)expect(at(result,saved.period_end)?.acceptedSource).toBe("report");
-    for(const point of result.points.filter(point=>point.acceptedSource===null))expect(point).toMatchObject({submitted:null,accepted:null,submittedSource:null});
-    expect(new Set(result.points.map(point=>point.date)).size).toBe(300);
-  });
-  it("bounds a multi-millennial estimated calendar without truncating its endpoint or fabricating actuals",()=>{
-    const result=curve({plannedStart:"0001-01-01",plannedEnd:"9999-12-31",reports:[report("historic","2026-10-08",20)]});
-    expect(result.points).toHaveLength(300);
-    expect(at(result,"0001-01-01")?.planned).toBe(0);
-    expect(at(result,"9999-12-31")).toMatchObject({planned:100,submitted:null,accepted:null});
-    expect(result.acceptedHistoryCount).toBe(1);
-    expect(result.points.every(point=>point.planned!==null&&Number.isFinite(point.planned)&&point.planned>=0&&point.planned<=100)).toBe(true);
+  it("retains original dates and actual overrun observations without an invented time-based target",()=>{
+    const result=curve({plannedStart:"2026-05-01",plannedEnd:"2026-06-01",reports:[report("overrun","2026-06-10",15)]});
+    expect(result.timeline).toEqual({plannedStart:"2026-05-01",plannedEnd:"2026-06-01",status:"configured",displayStart:"2026-05-01",displayEnd:"2026-10-15"});
+    expect(at(result,"2026-06-10")).toMatchObject({accepted:15,planned:null});
   });
 });
 

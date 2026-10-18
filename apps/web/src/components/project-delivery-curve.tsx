@@ -1,8 +1,6 @@
 "use client";
 
 import {useEffect,useId,useMemo,useRef,useState,type PointerEvent} from "react";
-import {ArrowLeft,ArrowRight} from "lucide-react";
-import {HelpTip} from "@/components/help-tip";
 import type {DeliveryCurveModel,DeliveryCurvePoint} from "@/lib/project-delivery-curve";
 import styles from "./project-delivery-curve.module.css";
 
@@ -12,34 +10,26 @@ const percentage=(value:number|null)=>value!==null&&Number.isFinite(value)&&valu
 const dayTime=(date:string)=>Date.parse(`${date}T00:00:00Z`);
 function validDate(date:string){const time=dayTime(date);return /^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===date;}
 function dateLabel(date:string,short=false){return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:short?"2-digit":"numeric",timeZone:"UTC"});}
-const sourceLabel=(source:DeliveryCurvePoint["submittedSource"])=>source==="live"?"Live MDR":source==="report"?"Saved report":"—";
+const sourceLabel=(source:DeliveryCurvePoint["submittedSource"])=>source==="live"?"Live MDR":source==="snapshot"?"Daily snapshot":source==="report"?"Saved report":"—";
 
-/** Timeline-only estimates and observed progress; no fetching or project date changes. */
+/** Approved milestone planning and observed progress; no fetching or project changes. */
 export function ProjectDeliveryCurve({curve}:{curve:DeliveryCurveModel}){
   const id=useId();
-  const configured=curve.timeline.status==="configured"&&curve.timeline.plannedStart&&curve.timeline.plannedEnd;
   return <section aria-labelledby={`${id}-heading`} className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
-    <header className="flex flex-wrap items-start justify-between gap-2 px-4 pt-4 sm:px-5">
-      <div className="min-w-0"><div className="flex items-center gap-2"><h2 id={`${id}-heading`} className="font-semibold">Project delivery S-curve</h2><HelpTip label="About the project delivery S-curve">
-        <span className="block">Submitted progress includes completed submissions awaiting DCC review; accepted progress counts DCC-accepted milestones only. Both are stage-weighted, not file counts.</span>
-        <span className="mt-2 block">The estimated plan spreads progress evenly across the Project Manager’s dates, not an approved MDR baseline. Gaps are percentage points, not days of delay; actual lines join recorded snapshots only.</span>
-      </HelpTip></div><p className="mt-1 text-xs leading-5 text-[#526675]">{configured?`PM timeline · ${dateLabel(curve.timeline.plannedStart!)} – ${dateLabel(curve.timeline.plannedEnd!)}`:curve.timeline.status==="invalid"?"PM timeline · Needs correction":"PM timeline · Not set"}</p></div>
-      <p className="text-xs leading-5 text-[#526675]">Live snapshot · {new Date(curve.asOf).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"UTC"})} UTC</p>
-    </header>
-    <TimelineNotice curve={curve}/>
-    {!curve.hasScope?<p className="px-4 py-8 text-sm text-[#526675] sm:px-5">Add MDR deliverables to start tracking submitted and DCC-accepted progress.</p>:<CurveExplorer curve={curve}/>}
+    <h2 id={`${id}-heading`} className="sr-only">Project delivery S-curve</h2>
+    {!curve.hasScope?<p role="status" className="px-4 py-8 text-sm text-[#526675]">No MDR deliverables yet.</p>:<CurveExplorer curve={curve}/>}
   </section>;
 }
 
 function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
   const id=useId(),container=useRef<HTMLDivElement>(null);
-  const [width,setWidth]=useState(640),[selectedDate,setSelectedDate]=useState<string|null>(null);
+  const [width,setWidth]=useState(640),[selectedDate,setSelectedDate]=useState<string|null>(null),[inspecting,setInspecting]=useState(false);
   const asOfDate=curve.asOf.slice(0,10);
   const points=useMemo(()=>curve.points.filter(point=>validDate(point.date)).map(point=>({
     ...point,
     planned:curve.timeline.status==="configured"?percentage(point.planned):null,
-    submitted:point.date<=asOfDate&&(point.submittedSource==="live"||point.submittedSource==="report"&&curve.historyAvailable)?percentage(point.submitted):null,
-    accepted:point.date<=asOfDate&&(point.acceptedSource==="live"||point.acceptedSource==="report"&&curve.historyAvailable)?percentage(point.accepted):null,
+    submitted:point.date<=asOfDate&&(point.submittedSource==="live"||(point.submittedSource==="report"||point.submittedSource==="snapshot")&&curve.historyAvailable)?percentage(point.submitted):null,
+    accepted:point.date<=asOfDate&&(point.acceptedSource==="live"||(point.acceptedSource==="report"||point.acceptedSource==="snapshot")&&curve.historyAvailable)?percentage(point.accepted):null,
   })).sort((a,b)=>a.date.localeCompare(b.date)),[curve.points,curve.historyAvailable,curve.timeline.status,asOfDate]);
   const hasPoints=points.length>0;
   useEffect(()=>{
@@ -49,7 +39,7 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
     observer.observe(target);return ()=>observer.disconnect();
   },[hasPoints]);
 
-  if(!hasPoints)return <p className="px-4 py-8 text-sm text-[#526675] sm:px-5">The progress curve is unavailable. Refresh progress to try again.</p>;
+  if(!hasPoints)return <p role="status" className="px-4 py-8 text-sm text-[#526675]">Progress unavailable.</p>;
   const latestObservation=points.findLastIndex(point=>point.submitted!==null||point.accepted!==null);
   const requested=selectedDate===null?-1:points.findIndex(point=>point.date===selectedDate);
   const index=requested<0?(latestObservation<0?points.length-1:latestObservation):requested,selected=points[index];
@@ -59,8 +49,7 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
   const x=(date:string)=>span?LEFT+(dayTime(date)-first)/span*plotWidth:LEFT+plotWidth/2;
   const y=(value:number)=>TOP+(1-value/100)*plotHeight;
   const planned=points.filter(point=>point.planned!==null),submitted=points.filter(point=>point.submitted!==null),accepted=points.filter(point=>point.accepted!==null);
-  const sameDayPlan=curve.timeline.plannedStart===curve.timeline.plannedEnd;
-  const plannedPath=sameDayPlan?milestonePath(planned,x,y):linePath(planned,"planned",x,y),submittedPath=linePath(submitted,"submitted",x,y),acceptedPath=linePath(accepted,"accepted",x,y);
+  const plannedPath=milestonePath(planned,x,y),submittedPath=linePath(submitted,"submitted",x,y),acceptedPath=linePath(accepted,"accepted",x,y);
   // Decorative motion follows only real accepted observations, ending at today's live snapshot.
   const currentAccepted=accepted.findLast(point=>point.date===asOfDate&&point.acceptedSource==="live");
   const planToday=curve.timeline.status==="configured"?percentage(curve.estimatedPlan.today):null;
@@ -80,17 +69,21 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
     select(nearest);
   };
   const value=(point:DeliveryCurvePoint,field:"planned"|"submitted"|"accepted")=>point[field]!==null?percent(point[field]!):field==="planned"||point.date===asOfDate?"Unavailable":"Not observed";
-  const label=`${dateLabel(selected.date)}; estimated plan ${value(selected,"planned").toLowerCase()}; overall submitted ${value(selected,"submitted").toLowerCase()}; DCC accepted ${value(selected,"accepted").toLowerCase()}`;
-  const acceptedVariance=curve.timeline.status==="configured"?curve.estimatedPlan.acceptedVariance:null;
-  const weeklyRate=curve.timeline.status==="configured"?curve.estimatedPlan.weeklyRate:null;
-  return <div className="min-w-0 px-4 pb-4 sm:px-5 sm:pb-5">
-    <div className="mt-2 flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#526675]"><span className="inline-flex items-center gap-2"><span className={styles.plannedKey} aria-hidden="true"/>Estimated plan</span><span className="inline-flex items-center gap-2"><span className={styles.submittedKey} aria-hidden="true"/>Overall submitted</span><span className="inline-flex flex-wrap items-center gap-2"><span className={styles.acceptedKey} style={{borderTopColor:acceptedColor}} aria-hidden="true"/><span>DCC accepted</span><span className="font-medium" style={{color:acceptedColor}}>· {progressStatusLabel}</span></span></div>
+  const inspectionWidth=Math.min(232,Math.max(1,width-12));
+  const inspectionLeft=Math.max(6,Math.min(width-inspectionWidth-6,x(selected.date)-inspectionWidth/2));
+  const inspectionTop=y(selected.accepted??selected.submitted??selected.planned??0)<TOP+plotHeight/2?Math.max(TOP+4,height-BOTTOM-108):TOP+4;
+  return <div className="min-w-0 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
+    <div className="flex min-h-9 flex-wrap items-center gap-x-5 gap-y-2 py-1 text-xs text-[#526675]" data-curve-legend>
+      <span className="inline-flex items-center gap-2"><span className={styles.plannedKey} aria-hidden="true"/>Approved plan</span><span className="inline-flex items-center gap-2"><span className={styles.submittedKey} aria-hidden="true"/>Overall submitted</span><span className="inline-flex items-center gap-2"><span className={styles.acceptedKey} style={{borderTopColor:acceptedColor}} aria-hidden="true"/><span>DCC accepted</span><span className="sr-only">{progressStatusLabel}</span></span>
     </div>
-    {weeklyRate!==null&&<p className="text-xs leading-5 text-[#526675]">Linear estimate · approximately {numberLabel(weeklyRate)}% per week</p>}
     <figure className="min-w-0">
-      <p id={`${id}-description`} className="sr-only">Slate dashed estimated plan assumes equal calendar-day progress from the Project Manager’s planned start at 0% to planned completion at 100%; it is not an approved MDR baseline. Orange dashed overall submitted progress and solid DCC-accepted progress connect their own recorded observations only. DCC accepted is red below today’s plan, green when achieved, or navy when comparison is unavailable. The larger endpoint marks current accepted progress; decorative motion does not change values. Missing observations are not zero; actual lines never forecast future progress. The Today marker identifies the current snapshot date. Exact estimates, actual values and independent actual sources are available using Explore curve dates or View curve data.</p>
-      <div ref={container} role="img" aria-label="Estimated plan, submitted and DCC-accepted progress S-curve" aria-describedby={`${id}-description`} className={styles.plot} style={{height}} onPointerDown={selectAtPointer}>
+      <p id={`${id}-description`} className="sr-only">Slate dashed approved plan earns frozen weighted milestone credit on each approved date. Orange dashed overall submitted progress and solid DCC-accepted progress join recorded observations only. Red is below today’s approved plan; green is achieved; navy means comparison unavailable. {curve.timeline.status==="configured"&&curve.timeline.plannedStart&&curve.timeline.plannedEnd?`Planned period: ${dateLabel(curve.timeline.plannedStart)} to ${dateLabel(curve.timeline.plannedEnd)}.`:"Planned dates unavailable."} Focus the chart and use Arrow keys, Home or End to inspect dates; Escape dismisses values. Missing observations are not zero.</p>
+      <div ref={container} role="img" tabIndex={0} data-preview-safe data-inspecting={inspecting} aria-label="Approved plan, submitted and DCC-accepted progress S-curve" aria-describedby={`${id}-description ${id}-selection`} className={styles.plot} style={{height}}
+        onFocus={()=>setInspecting(true)} onBlur={()=>setInspecting(false)}
+        onPointerMove={event=>{if(event.pointerType!=="touch"){setInspecting(true);selectAtPointer(event);}}}
+        onPointerLeave={event=>{if(event.pointerType!=="touch")setInspecting(false);}}
+        onPointerDown={event=>{event.currentTarget.focus({preventScroll:true});setInspecting(true);selectAtPointer(event);}}
+        onKeyDown={event=>{if(event.key==="Escape"){setInspecting(false);return;}const next=event.key==="Home"?0:event.key==="End"?points.length-1:event.key==="ArrowLeft"||event.key==="ArrowDown"?index-1:event.key==="ArrowRight"||event.key==="ArrowUp"?index+1:null;if(next!==null){event.preventDefault();setInspecting(true);select(next);}}}>
         <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
           <rect x={LEFT} y={TOP} width={plotWidth} height={plotHeight} rx={8} fill="#f7f9fc"/>
           {afterCompletion&&<rect data-curve-period="after-pm-completion" x={x(plannedEnd!)} y={TOP} width={Math.max(0,x(asOfDate)-x(plannedEnd!))} height={plotHeight} fill="#fff0e9" opacity=".65"/>}
@@ -112,43 +105,29 @@ function CurveExplorer({curve}:{curve:DeliveryCurveModel}){
             {accepted.filter(point=>accepted.length<12||point.acceptedSource==="live").map(point=><circle key={point.date} data-curve-series="accepted-point" data-source={point.acceptedSource} cx={x(point.date)} cy={y(point.accepted!)} r={point.acceptedSource==="live"?5:3} fill={point.acceptedSource==="live"?acceptedColor:"white"} stroke={acceptedColor} strokeWidth={2}/>)}
           </svg>
         </div>
-        <svg className={styles.cursorLayer} width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
+        {inspecting&&<svg className={styles.cursorLayer} width="100%" height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" preserveAspectRatio="none">
           <line x1={x(selected.date)} x2={x(selected.date)} y1={TOP} y2={TOP+plotHeight} stroke="#526675" strokeOpacity=".4" strokeDasharray="3 5"/>
           {selected.planned!==null&&<circle cx={x(selected.date)} cy={y(selected.planned)} r={4} fill="white" stroke="#647386" strokeWidth={2}/>}
           {selected.submitted!==null&&<circle cx={x(selected.date)} cy={y(selected.submitted)} r={4} fill="white" stroke="#b94d20" strokeWidth={2}/>}
           {selected.accepted!==null&&<circle cx={x(selected.date)} cy={y(selected.accepted)} r={5} fill="white" stroke={acceptedColor} strokeWidth={2.5}/>}
-        </svg>
+        </svg>}
         {currentAccepted&&<div className={styles.progressMotion} style={{color:acceptedColor}} aria-hidden="true">
           {accepted.length>1&&<span data-curve-traveller className={styles.traveller} style={{offsetPath:`path("${acceptedPath}")`}}/>}
           <span data-curve-current-marker data-date={currentAccepted.date} data-value={currentAccepted.accepted} className={styles.currentMarker} style={{left:x(currentAccepted.date),top:y(currentAccepted.accepted!),color:acceptedColor}}/>
         </div>}
+        {inspecting&&<div data-curve-inspection className={styles.inspection} style={{left:inspectionLeft,top:inspectionTop,width:inspectionWidth}} aria-hidden="true">
+          <p className="mb-1 font-semibold text-[#10243e]">{dateLabel(selected.date)}</p>
+          <dl>{[["Approved plan","planned"],["Overall submitted","submitted"],["DCC accepted","accepted"]].map(([name,field])=><div key={field} className="flex items-center justify-between gap-2"><dt>{name}</dt><dd className="font-semibold tabular-nums text-[#10243e]">{value(selected,field as "planned"|"submitted"|"accepted")}</dd></div>)}</dl>
+        </div>}
       </div>
-      <figcaption className="rounded-xl border border-[#dce3ec] bg-[#f7f9fc] px-3 py-3 sm:px-4">
-        <div role="status" aria-live="polite" aria-atomic="true"><dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4"><SelectedDatum label="Selected date" value={dateLabel(selected.date)}/><SelectedDatum label="Estimated plan" value={value(selected,"planned")}/><SelectedDatum label="Overall submitted" value={value(selected,"submitted")} source={selected.submitted===null?undefined:sourceLabel(selected.submittedSource)}/><SelectedDatum label="DCC accepted" value={value(selected,"accepted")} source={selected.accepted===null?undefined:sourceLabel(selected.acceptedSource)}/></dl></div>
-        {acceptedVariance!==null&&<p className={`mt-3 text-xs ${acceptedVariance<0?"text-[#8b3d1f]":"text-[#526675]"}`}>{acceptedVariance===0?"DCC-accepted progress matches the estimated plan today.":`DCC-accepted progress is ${numberLabel(Math.abs(acceptedVariance))} percentage points ${acceptedVariance<0?"behind":"ahead of"} the estimated plan today.`}</p>}
-        <p className={`mt-3 text-xs ${curve.gap!==null&&curve.gap>0?"text-[#8b3d1f]":"text-[#526675]"}`}>{curve.gap===null?"Current pending DCC acceptance: unavailable.":curve.gap===0?"Current snapshot: no submitted-to-accepted progress gap.":curve.gap>0?`Current snapshot: ${numberLabel(curve.gap)} percentage points pending DCC acceptance.`:`Current snapshot: DCC-accepted progress is ${numberLabel(Math.abs(curve.gap))} percentage points above the submitted observation.`}</p>
+      <figcaption id={`${id}-selection`} data-curve-selected className="sr-only">
+        <div role="status" aria-live={inspecting?"polite":"off"} aria-atomic="true"><dl><SelectedDatum label="Selected date" value={dateLabel(selected.date)}/><SelectedDatum label="Approved plan" value={value(selected,"planned")}/><SelectedDatum label="Overall submitted" value={value(selected,"submitted")} source={selected.submitted===null?undefined:sourceLabel(selected.submittedSource)}/><SelectedDatum label="DCC accepted" value={value(selected,"accepted")} source={selected.accepted===null?undefined:sourceLabel(selected.acceptedSource)}/></dl></div>
       </figcaption>
     </figure>
-    <div className="mt-3 min-w-0"><div className="flex items-center justify-between gap-2"><label htmlFor={`${id}-date`} className="text-xs font-semibold text-[#526675]">Explore curve dates</label><HelpTip label="Explore S-curve dates">Tap the chart or move the slider to inspect a date. With the slider focused, use Arrow keys to move or Home and End to jump to either end; “Not observed” means no snapshot was recorded.</HelpTip></div>
-      <div className="flex min-w-0 items-center gap-2"><button type="button" data-preview-safe aria-label="Previous curve date" className="grid size-11 shrink-0 place-items-center rounded-lg border border-[#dde4eb] text-[#10243e] disabled:opacity-40" disabled={index===0} onClick={()=>select(index-1)}><ArrowLeft size={16} aria-hidden="true"/></button>
-        <input id={`${id}-date`} data-preview-safe className={styles.range} type="range" min={0} max={points.length-1} step={1} value={index} disabled={points.length===1} aria-valuetext={label} onChange={event=>select(Number(event.currentTarget.value))} onKeyDown={event=>{const next=event.key==="Home"?0:event.key==="End"?points.length-1:event.key==="ArrowLeft"||event.key==="ArrowDown"?index-1:event.key==="ArrowRight"||event.key==="ArrowUp"?index+1:null;if(next!==null){event.preventDefault();select(next);}}}/>
-        <button type="button" data-preview-safe aria-label="Next curve date" className="grid size-11 shrink-0 place-items-center rounded-lg border border-[#dde4eb] text-[#10243e] disabled:opacity-40" disabled={index===points.length-1} onClick={()=>select(index+1)}><ArrowRight size={16} aria-hidden="true"/></button></div>
-    </div>
-    <div className="mt-2 space-y-1 text-xs leading-5 text-[#526675]">
-      {curve.submittedToday===null?<p>Overall submitted progress is unavailable. DCC-accepted progress remains visible.</p>:submitted.length<2?<p>Overall submitted trend will appear when submitted-progress snapshots are available. No earlier submitted values have been assumed.</p>:null}
-      {!curve.historyAvailable?<p>Saved report history is unavailable. Current observations are still shown.</p>:accepted.length<2?<p>DCC-accepted trend will appear as project reports are saved.</p>:null}
-      {curve.invalidHistoryCount>0&&<p>{curve.invalidHistoryCount} saved report {curve.invalidHistoryCount===1?"snapshot could":"snapshots could"} not be plotted.</p>}
-    </div>
-    <details className="mt-3 border-t border-[#e7ecef]"><summary className="min-h-11 cursor-pointer py-3 text-xs font-semibold text-[#10243e]">View curve data</summary><div role="region" aria-label="S-curve data — scroll horizontally for all columns" tabIndex={0} className="min-w-0 overflow-x-auto rounded-lg border border-[#dce3ec]"><table className="w-full min-w-[760px] text-left text-xs"><caption className="sr-only">Estimated plan, submitted and DCC-accepted progress data</caption><thead className="bg-[#f1f5fa] text-[#526675]"><tr>{["Date","Estimated plan","Overall submitted","DCC accepted","Submitted source","Accepted source"].map(column=><th key={column} scope="col" className="px-3 py-3 font-semibold">{column}</th>)}</tr></thead><tbody>{points.map(point=><tr key={point.date} className="border-t border-[#e7ecef]"><th scope="row" className="whitespace-nowrap px-3 py-3 font-medium">{dateLabel(point.date)}</th><td className="px-3 py-3">{value(point,"planned")}</td><td className="px-3 py-3">{value(point,"submitted")}</td><td className="px-3 py-3">{value(point,"accepted")}</td><td className="px-3 py-3">{point.submitted===null?"—":sourceLabel(point.submittedSource)}</td><td className="px-3 py-3">{point.accepted===null?"—":sourceLabel(point.acceptedSource)}</td></tr>)}</tbody></table></div></details>
+    <div className="sr-only" role="region" aria-label="S-curve data"><table><caption>Approved plan, submitted and DCC-accepted progress data</caption><thead><tr>{["Date","Approved plan","Overall submitted","DCC accepted","Submitted source","Accepted source"].map(column=><th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{points.map(point=><tr key={point.date}><th scope="row">{dateLabel(point.date)}</th><td>{value(point,"planned")}</td><td>{value(point,"submitted")}</td><td>{value(point,"accepted")}</td><td>{point.submitted===null?"—":sourceLabel(point.submittedSource)}</td><td>{point.accepted===null?"—":sourceLabel(point.acceptedSource)}</td></tr>)}</tbody></table></div>
   </div>;
 }
 
 function SelectedDatum({label,value,source}:{label:string;value:string;source?:string}){return <div className="min-w-0"><dt className="text-xs leading-5 text-[#526675]">{label}</dt><dd className="mt-0.5 break-words text-sm font-semibold tabular-nums text-[#10243e]"><span>{value}</span>{source&&<span className="mt-0.5 block text-[11px] font-normal text-[#526675]">{source}</span>}</dd></div>;}
-function TimelineNotice({curve}:{curve:DeliveryCurveModel}){
-  const {timeline}=curve;
-  const notice=timeline.status==="missing"?"PM timeline is not set. Ask the Project Manager to set the planned start and completion dates; no project schedule is assumed.":timeline.status==="invalid"?"PM timeline needs correction. Ask the Project Manager to check the planned start and completion dates; no project schedule is assumed.":timeline.plannedEnd&&timeline.plannedEnd<curve.asOf.slice(0,10)?`The snapshot is after PM planned completion (${dateLabel(timeline.plannedEnd)}). The displayed period extends to ${dateLabel(curve.asOf.slice(0,10))}; project dates have not been changed.`:null;
-  return notice?<p className="px-4 pt-3 text-xs leading-5 text-[#526675] sm:px-5">{notice}</p>:null;
-}
-function numberLabel(value:number){return Number.isInteger(value)?String(value):value.toFixed(1);}
 function linePath(points:DeliveryCurvePoint[],field:"planned"|"submitted"|"accepted",x:(date:string)=>number,y:(value:number)=>number){return points.map((point,index)=>`${index?"L":"M"} ${Number(x(point.date).toFixed(2))} ${Number(y(point[field]!).toFixed(2))}`).join(" ");}
 function milestonePath(points:DeliveryCurvePoint[],x:(date:string)=>number,y:(value:number)=>number){return points.map((point,index)=>{const horizontal=Number(x(point.date).toFixed(2)),vertical=Number(y(point.planned!).toFixed(2));return index?`H ${horizontal}${point.planned!==points[index-1].planned?` V ${vertical}`:""}`:`M ${horizontal} ${vertical}`;}).join(" ");}

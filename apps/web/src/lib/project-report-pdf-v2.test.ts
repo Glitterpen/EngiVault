@@ -45,6 +45,36 @@ async function savePreview(name:string,bytes:Uint8Array){
 afterEach(()=>vi.restoreAllMocks());
 
 describe("future project-report PDF layout",()=>{
+  it("draws approved milestones as steps and preserves actual and source snapshots",async()=>{
+    const input=snapshot(),drawn=capture();
+    input.s_curve.planning_baseline={version:1,basis:"approved_weighted_milestones",status:"approved",approved_baseline_id:null,approved_baseline_version:2,approved_at:null,scope_hash:null};
+    input.s_curve.overall=input.s_curve.overall.map(point=>({...point,baseline_planned:point.planned}));
+    input.s_curve.disciplines=input.s_curve.disciplines.map(row=>({...row,baseline_variance:row.variance}));
+    input.disciplines=input.disciplines.map(row=>({...row,planning_baseline:input.s_curve.planning_baseline,baseline_plan:{planned_this_week:row.planned_this_week,weekly_variance:row.weekly_variance,project_variance:row.project_variance,cumulative_planned:row.cumulative_planned,planned_completion:row.planned_completion}}));
+    const before=structuredClone(input),lines=vi.spyOn(PDFPage.prototype,"drawLine");
+    const bytes=await buildProjectReportPdfV2({snapshot:input,report});
+    expect(input).toEqual(before);
+    expect(fullText(drawn)).toContain("Approved weighted milestone baseline v2.");
+    const planLines=lines.mock.calls.map(([options])=>options).filter(options=>options?.dashArray?.join(",")==="5,3");
+    expect(planLines.length).toBeGreaterThan(2);
+    expect(planLines.every(options=>options?.start.x===options?.end.x||options?.start.y===options?.end.y)).toBe(true);
+    checkBounds(drawn);
+    await savePreview("report-approved-baseline-preview.pdf",bytes);
+  });
+  it("does not render a missing approved baseline as a zero plan",async()=>{
+    const input=snapshot(),drawn=capture();
+    input.s_curve.planning_baseline={version:1,basis:"approved_weighted_milestones",status:"missing",approved_baseline_id:null,approved_baseline_version:null,approved_at:null,scope_hash:null};
+    input.s_curve.overall=input.s_curve.overall.map(point=>({...point,planned:0,baseline_planned:null}));
+    input.s_curve.disciplines=input.s_curve.disciplines.map(row=>({...row,baseline_variance:null}));
+    input.disciplines=input.disciplines.map(row=>({...row,planning_baseline:input.s_curve.planning_baseline,baseline_plan:{planned_this_week:null,weekly_variance:null,project_variance:null,cumulative_planned:null,planned_completion:null}}));
+    input.summary.baseline_weekly_due=null;
+    const bytes=await buildProjectReportPdfV2({snapshot:input,report});
+    expect(fullText(drawn)).toContain("Approved plan unavailable.");
+    expect(fullText(drawn)).toContain("Final milestones due: N/A");
+    expect(fullText(drawn)).not.toContain("74%");
+    checkBounds(drawn);
+    await savePreview("report-unavailable-baseline-preview.pdf",bytes);
+  });
   it("renders all five palettes per request without changing figures or leaking concurrent selections",async()=>{
     const drawn=capture();
     const rectangles:{page:PDFPage;options:Parameters<PDFPage["drawRectangle"]>[0]}[]=[];
