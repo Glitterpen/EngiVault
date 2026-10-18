@@ -50,6 +50,19 @@ describe('member preview Supabase transport',()=>{
    const result=await createMemberPreviewClient(actor,preview).rpc('get_interdisciplinary_documents',{target_organisation:'org-id',target_project:'project-id',target_preview:'forged',page_offset:25});
    expect(result.error).toBeNull();expect(rpc).toHaveBeenCalledWith('get_interdisciplinary_documents',{target_organisation:'org-id',target_project:'project-id',target_preview:'session-id',page_offset:25});
  });
+ it.each(['get_interdisciplinary_stage_library','get_interdisciplinary_comments','search_interdisciplinary_evidence'])('delegates %s only through the validated member scope',async resource=>{
+   rpc.mockResolvedValue({data:[],error:null});
+   const client=createMemberPreviewClient(actor,preview);
+   await client.rpc(resource,{target_organisation:'org-id',target_project:'project-id',target_preview:'forged'});
+   expect(rpc).toHaveBeenCalledExactlyOnceWith(resource,{target_organisation:'org-id',target_project:'project-id',target_preview:'session-id'});
+   expect((await client.rpc(resource,{target_project:'foreign'})).error).not.toBeNull();
+   expect(rpc).toHaveBeenCalledTimes(1);
+ });
+ it.each(['submit_interdisciplinary_comment','record_interdisciplinary_answer'])('keeps %s disabled in member previews',async resource=>{
+   const client=createMemberPreviewClient(actor,preview);
+   expect((await client.rpc(resource,{})).error).not.toBeNull();
+   expect(rpc).not.toHaveBeenCalled();
+ });
  it('blocks interdisciplinary mutations and fails closed on denied references',async()=>{
    const client=createMemberPreviewClient(actor,preview);
    expect((await client.rpc('submit_interdisciplinary_check',{})).error).not.toBeNull();expect(rpc).not.toHaveBeenCalled();

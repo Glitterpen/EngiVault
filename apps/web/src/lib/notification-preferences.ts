@@ -3,7 +3,7 @@ export const EMAIL_EVENTS = {
   reviews: "Document review decisions",
   assignments: "Deliverable assignments",
   requests: "Date changes and additional deliverable requests",
-  interdisciplinary: "Interdisciplinary checks",
+  interdisciplinary: "Interdisciplinary comments, queries and checks",
   reports: "Project reports",
   team: "Invitations and team changes",
   overdue: "Overdue submission reminders",
