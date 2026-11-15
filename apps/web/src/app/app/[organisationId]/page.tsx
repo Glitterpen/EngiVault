@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {notFound,redirect} from "next/navigation";
+import {readAdminPreview} from "@/lib/admin-preview";
 import {requireUser} from "@/lib/auth";
 import {ProjectCreateDialog} from "@/components/project-create-dialog";
 import {OrganisationProjectsWorkspace} from "@/components/organisation-projects-workspace";
+import {UserGuideLinks} from "@/components/user-guide-links";
 import {buildProjectPortfolio,type PortfolioProject,type ProgressRow,type IssueRow} from "@/lib/organisation-project-portfolio";
 
 type Organisation={organisation_id:string;name:string;slug:string;role:string};
@@ -48,8 +50,10 @@ export default async function OrganisationPage({params}:{params:Promise<{organis
   // project navigation available while incomplete metrics remain unknown.
   const progressAvailable=completeRead(progressResult),issuesAvailable=completeRead(issueResult);
   const portfolio=buildProjectPortfolio(projects,progressAvailable?progressResult.data as ProgressRow[]:[],issuesAvailable?issueResult.data as IssueRow[]:[],{progressAvailable,issuesAvailable});
+  const preview=await readAdminPreview();
   return <OrganisationProjectsWorkspace organisationId={organisationId} organisationName={org.name} projects={portfolio.projects} metrics={portfolio.metrics} isAdmin
     createAction={<ProjectCreateDialog organisationId={organisationId}/>}
+    guideAction={!preview?<UserGuideLinks organisationId={organisationId}/>:undefined}
     notice={!progressAvailable||!issuesAvailable?<PortfolioNotice organisationId={organisationId}>Some portfolio summary data could not be loaded. Unavailable figures are not counted as zero.</PortfolioNotice>:undefined}/>;
 }
 

@@ -13,12 +13,12 @@ import type {PortfolioProject,ProjectSummary} from "@/lib/organisation-project-p
 
 type Project=PortfolioProject&{summary?:ProjectSummary};
 type Metrics={activeProjects:number;averageCompletion:number|null;attentionProjects:number|null;openIssues:number|null};
-type Props={organisationId:string;organisationName:string;projects:Project[];isAdmin:boolean;metrics?:Metrics;disciplines?:Record<string,string[]>;disciplinesAvailable?:boolean;notice?:ReactNode;createAction?:ReactNode};
+type Props={organisationId:string;organisationName:string;projects:Project[];isAdmin:boolean;metrics?:Metrics;disciplines?:Record<string,string[]>;disciplinesAvailable?:boolean;notice?:ReactNode;createAction?:ReactNode;guideAction?:ReactNode};
 const PAGE_SIZE=12;
 const statuses=[{value:"active",label:"Active"},{value:"archived",label:"Archived"},{value:"trashed",label:"Deleted"}] as const;
 type Status=typeof statuses[number]["value"];
 
-export function OrganisationProjectsWorkspace({organisationId,organisationName,projects,isAdmin,metrics,disciplines={},disciplinesAvailable=true,notice,createAction}:Props){
+export function OrganisationProjectsWorkspace({organisationId,organisationName,projects,isAdmin,metrics,disciplines={},disciplinesAvailable=true,notice,createAction,guideAction}:Props){
   const [query,setQuery]=useState("");
   const [status,setStatus]=useState<Status>("active");
   const [page,setPage]=useState(1);
@@ -41,6 +41,7 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
     <header className="min-w-0">
       <Link href="/app" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>Back to organisations</Link>
       <div className="mt-1"><WorkspacePageHeading title={title} context={organisationName} logo={<OrganisationLogo organisationId={organisationId} name={organisationName} size={44} className="size-full object-contain"/>} help={<HelpTip label={isAdmin?"Projects dashboard guidance":"Project assignments guidance"}>{isAdmin?"Summary figures cover active projects only; completion is weighted by accepted MDR milestones, not time elapsed. Use Archived or Deleted to find projects outside the active portfolio.":"Choose a project to open its workspace. Engineer discipline assignments are listed on each project card."}</HelpTip>} actions={isAdmin&&createAction}/></div>
+      {isAdmin&&guideAction}
       {isAdmin&&<nav aria-label="Organisation actions" className="mt-2 flex flex-wrap gap-x-5 text-sm font-semibold text-[#526675]">
         <Link href={`${base}/settings`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#10243e]"><Settings size={15} aria-hidden="true"/>Manage organisation</Link>
         <Link href={`${base}/audit`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Audit log</Link>

@@ -12,12 +12,12 @@ import {projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliver
 import type {OverviewIssue,ProjectOverviewSummary} from "@/lib/project-overview-summary";
 
 export type OverviewProject={code:string;name:string;planned_start_date:string|null;planned_end_date:string|null;delivery_stage:ProjectDeliveryStage|null;revision_cycle_days:number|null};
-type Props={organisationId:string;projectId:string;project:OverviewProject;role:string;preview:boolean;summary:ProjectOverviewSummary;issues:OverviewIssue[];issuesAvailable:boolean;resourcesAvailable:boolean;brief:ReactNode;revisionCycle:ReactNode;issueForm?:ReactNode;notice?:ReactNode;resolveIssueAction:(form:FormData)=>Promise<void>};
+type Props={organisationId:string;projectId:string;project:OverviewProject;role:string;preview:boolean;summary:ProjectOverviewSummary;issues:OverviewIssue[];issuesAvailable:boolean;resourcesAvailable:boolean;brief:ReactNode;revisionCycle:ReactNode;issueForm?:ReactNode;notice?:ReactNode;guideAction?:ReactNode;resolveIssueAction:(form:FormData)=>Promise<void>};
 const ISSUE_PAGE_SIZE=5;
 const severityOrder:Record<string,number>={critical:0,high:1,medium:2,low:3};
 
 /** Daily oversight first; occasional setup stays in keyboard-accessible disclosures. */
-export function ProjectOverviewWorkspace({organisationId,projectId,project,role,preview,summary,issues,issuesAvailable,resourcesAvailable,brief,revisionCycle,issueForm,notice,resolveIssueAction}:Props){
+export function ProjectOverviewWorkspace({organisationId,projectId,project,role,preview,summary,issues,issuesAvailable,resourcesAvailable,brief,revisionCycle,issueForm,notice,guideAction,resolveIssueAction}:Props){
   const base=`/app/${organisationId}/projects/${projectId}`;
   const canManage=role==="project_admin"&&!preview;
   const heading=useId();
@@ -25,6 +25,7 @@ export function ProjectOverviewWorkspace({organisationId,projectId,project,role,
     <header className="min-w-0">
       <Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>Back to projects</Link>
       <div className="mt-1"><WorkspacePageHeading title="Project overview" context={<>{project.code} · {project.name}</>} logo={<ProjectLogo organisationId={organisationId} projectId={projectId} name={project.name} size={44} className="size-full object-contain"/>} actions={<Link href={`${base}/reports`} className="ev-button w-full shrink-0 sm:w-auto"><FileText size={16} aria-hidden="true"/>Project report</Link>}/></div>
+      {guideAction}
       <nav aria-label="Project overview actions" className="mt-2 flex flex-wrap gap-x-5 text-sm font-semibold text-[#526675]">
         <Link href={`${base}/team`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#10243e]"><UsersRound size={15} aria-hidden="true"/>{role==="organisation_admin"?"Project leadership":"Team & resources"}</Link>
         <Link href={`${base}/templates`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Project templates</Link>

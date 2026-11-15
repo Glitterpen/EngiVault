@@ -2,7 +2,7 @@ import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import AssignmentsPage from "./page";
 const state=vi.hoisted(()=>({
-  failed:"",hasDocument:false,hasImpact:false,role:"engineer",revisions:[] as Record<string,string|undefined>[],
+  failed:"",hasDocument:false,hasImpact:false,role:"engineer",preview:false,revisions:[] as Record<string,string|undefined>[],
   documents:null as Record<string,unknown>[]|null,assignedIds:null as string[]|null,disciplines:["Mechanical"],
   scheduleOverrides:{} as Record<string,Record<string,unknown>>,sourceReads:[] as string[],
   queryCalls:[] as {table:string;method:string;args:unknown[]}[],projectOverrides:{} as Record<string,unknown>,
@@ -11,7 +11,7 @@ const state=vi.hoisted(()=>({
 vi.mock("next/navigation",()=>({redirect:vi.fn((href:string)=>{throw new Error(`NEXT_REDIRECT:${href}`);})}));
 vi.mock("@/components/help-tip",()=>({HelpTip:()=>null}));
 vi.mock("@/lib/document-schedule",()=>({loadDocumentSchedules:async(_client:unknown,_organisation:string,_project:string,documentIds:string[])=>new Map(documentIds.map(id=>[id,{document_id:id,planned_submission_date:null,next_submission_date:null,last_issue_date:null,revision_cycle_days:null,deadline_kind:"first_issue",overdue:false,...state.scheduleOverrides[id]}]))}));
-vi.mock("@/lib/auth",()=>({requireProject:async()=>({user:{id:"member"},access:{role:state.role},supabase:{
+vi.mock("@/lib/auth",()=>({requireProject:async()=>({user:{id:"member"},access:{role:state.role},preview:state.preview?{memberId:"member"}:null,supabase:{
   from:(table:string)=>{
     state.sourceReads.push(table);
     const documents=state.documents??(state.hasDocument?[{id:"doc",document_number:"M-001",title:"Mechanical design",discipline:"Mechanical",document_type:"Calculation",progress_weight:1}]:[]);
@@ -23,7 +23,7 @@ vi.mock("@/lib/auth",()=>({requireProject:async()=>({user:{id:"member"},access:{
   },
   rpc:async()=>state.hasImpact?{data:{project_actual_percent:25,project_planned_percent:25,...state.impactOverrides},error:null}:{data:null,error:{message:"aggregate unavailable"}},
 }})}));
-beforeEach(()=>{state.failed="";state.hasDocument=false;state.hasImpact=false;state.role="engineer";state.revisions=[];state.documents=null;state.assignedIds=null;state.disciplines=["Mechanical"];state.scheduleOverrides={};state.sourceReads=[];state.queryCalls=[];state.projectOverrides={};state.impactOverrides={};});
+beforeEach(()=>{state.failed="";state.hasDocument=false;state.hasImpact=false;state.role="engineer";state.preview=false;state.revisions=[];state.documents=null;state.assignedIds=null;state.disciplines=["Mechanical"];state.scheduleOverrides={};state.sourceReads=[];state.queryCalls=[];state.projectOverrides={};state.impactOverrides={};});
 afterEach(cleanup);
 const page=(view?:string,q?:string,sort?:string)=>AssignmentsPage({params:Promise.resolve({organisationId:"org",projectId:"project"}),searchParams:Promise.resolve({view,q,sort})});
 const makeDocument=(id:string,overrides:Record<string,unknown>={})=>({id,document_number:`M-${id}`,title:`Deliverable ${id}`,discipline:"Mechanical",document_type:"Calculation",planned_submission_date:null,planned_final_date:null,required_issue_status:"Issued for Design (IFD)",responsible_party:null,progress_weight:1,...overrides});
@@ -46,6 +46,8 @@ it("does not invent a revision status after a failed revision fetch",async()=>{
 it("retains successfully loaded assignments but hides unavailable project aggregates",async()=>{
   render(await page());
   expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
+  expect(screen.getByRole("link",{name:/open pdf user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project");
+  expect(screen.getByRole("link",{name:/download.*guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project&format=docx");
   expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
   for(const identity of screen.getAllByText("P01 · Test project"))expect(identity.closest("details")).toBeNull();
   expect(screen.queryByText("Discipline Engineer workspace")).toBeNull();
@@ -55,6 +57,14 @@ it("retains successfully loaded assignments but hides unavailable project aggreg
   expect(screen.queryByRole("progressbar",{name:"Overall project DCC-accepted progress"})).toBeNull();
   const unavailableImpact=document.getElementById("project-impact")!;
   expect(unavailableImpact.compareDocumentPosition(document.getElementById("deliverables")!)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("does not offer the engineer guide in an audited read-only preview",async()=>{
+  state.preview=true;
+  render(await page());
+  expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
+  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
 });
 it("keeps the project brief and impact visible before deliverables while secondary actions start collapsed",async()=>{
   state.hasDocument=true;state.hasImpact=true;
