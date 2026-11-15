@@ -7,9 +7,9 @@ const scriptSource = `'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" :
 const nextConfig: NextConfig = {
   // Vercel's adapter packages the server itself; retain standalone output for self-hosting.
   output: process.env.VERCEL === "1" ? undefined : "standalone",
-  // Package the guides with their authenticated route, not as public static files.
+  // Package only the guide PDFs with their authenticated route.
   outputFileTracingIncludes: {
-    "/api/v1/organisations/*/user-guide": ["./assets/user-guides/*.{pdf,docx}"],
+    "/api/v1/organisations/*/user-guide": ["./assets/user-guides/*.pdf"],
   },
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost"],

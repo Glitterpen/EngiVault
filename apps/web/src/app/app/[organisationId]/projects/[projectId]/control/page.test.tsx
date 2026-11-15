@@ -87,8 +87,8 @@ it("provides one primary MDR destination and a visible operational work queue",a
   expect(screen.getByRole("heading",{level:1,name:"Document control centre"})).toBeTruthy();
   expect(screen.getAllByRole("link",{name:"Open MDR"})).toHaveLength(1);
   const guide=`/api/v1/organisations/${organisationId}/user-guide?project=${projectId}`;
-  expect(screen.getByRole("link",{name:/open pdf user guide/i}).getAttribute("href")).toBe(guide);
-  expect(screen.getByRole("link",{name:/download.*guide/i}).getAttribute("href")).toBe(`${guide}&format=docx`);
+  expect(screen.getByRole("link",{name:/^user guide/i}).getAttribute("href")).toBe(guide);
+  expect(screen.queryByRole("link",{name:/download word user guide/i})).toBeNull();
   const destinations=[
     ["Open MDR","/documents"],
     ["Review submissions","/reviews"],
@@ -158,8 +158,7 @@ it("links every MDR discipline to its folder without narrowing the register",asy
 it("omits issue mutation controls during an audited read-only preview",async()=>{
   preview={targetUserId:"reviewed-member"};
   render(await dashboard());
-  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
-  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
   expect(screen.queryByRole("button",{name:"Report issue",hidden:true})).toBeNull();
   expect(within(screen.getByRole("region",{name:"Project brief and dates"})).getByText("Project delivery brief")).toBeTruthy();
   expect(disclosure("Project issues").textContent).toMatch(/read.only/i);
