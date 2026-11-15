@@ -11,9 +11,10 @@
 
 - Pull request:
 - Change type and risk rating:
+- Approval path and rationale ([release checklist](../../operations/RELEASE_CHECKLIST.md#approval-path)):
 - Author:
-- Independent reviewer:
-- CODEOWNER approval:
+- Independent reviewer (when required; otherwise record why not applicable):
+- CODEOWNER approval (when required):
 - Approved exceptions:
 
 ## Required evidence
@@ -45,5 +46,5 @@
 ## Closure
 
 - Release owner sign-off:
-- Independent reviewer sign-off:
+- Independent reviewer sign-off (when required):
 - Closure date:

@@ -6,6 +6,8 @@ Describe the business purpose and user-visible effect.
 
 **Risk rating:** Low / Moderate / High / Critical
 
+**Approval path:** Visual or wording only / Independent approval required ([release checklist](https://github.com/Glitterpen/EngiVault/blob/main/docs/operations/RELEASE_CHECKLIST.md#approval-path))
+
 **Change owner:**
 
 **Planned deployment window:**
@@ -32,8 +34,9 @@ Describe the rollout, monitoring signal, rollback method and data-recovery impac
 
 ## Approval
 
-- [ ] A reviewer other than the change author approved this change.
-- [ ] A CODEOWNER reviewed security-sensitive changes.
+- [ ] For visual or wording only: the scope and reason for using this path are recorded, and applicable CI and security checks passed before merge and deployment.
+- [ ] When independent approval is required: a qualified reviewer other than the change author approved the commit being released.
+- [ ] Applicable CODEOWNER and external approval requirements are met.
 - [ ] High/Critical risk has an identified independent approver and recorded residual-risk decision.
 - [ ] Emergency changes include an incident/change record and a next-business-day independent review.
 - [ ] The release checklist is complete for a production deployment.
