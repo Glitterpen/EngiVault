@@ -1,0 +1,4 @@
+/* Keep jumps between policy sections immediate, without changing other pages. */
+:global(html):has(.policyPage) {
+  scroll-behavior: auto;
+}

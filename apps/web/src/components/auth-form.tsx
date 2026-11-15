@@ -2,11 +2,13 @@
 import {HelpTip} from "@/components/help-tip";
 import {PasswordInput} from "@/components/password-input";
 import Link from "next/link";
-import {useActionState,useEffect,useId,useRef,useState} from "react";
+import {type FormEvent,useActionState,useEffect,useId,useRef,useState} from "react";
 import {FieldWithHelp} from "@/components/field-with-help";
 import type {AuthState} from "@/app/(auth)/actions";
 import {AuthTurnstile} from "@/components/auth-turnstile";
 import {isInvitationAuthDestination,safeAuthDestination} from "@/lib/auth-destination";
+import {ACCOUNT_USE_ACKNOWLEDGEMENT_FIELD,REGISTRATION_DECLARATION_FIELD} from "@/lib/account-use-acknowledgement";
+import {RegistrationPolicyDialog} from "@/components/registration-policy-dialog";
 
 export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied=false,notice,captchaSiteKey}:{mode:"login"|"register";action:(s:AuthState,d:FormData)=>Promise<AuthState>;resendAction:(s:AuthState,d:FormData)=>Promise<AuthState>;resetAction:(s:AuthState,d:FormData)=>Promise<AuthState>;next?:string;accessDenied?:boolean;notice?:string;captchaSiteKey?:string}){
   const [state,formAction,pending]=useActionState(action,undefined);
@@ -14,9 +16,12 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
   const [resetState,resetFormAction,resetPending]=useActionState(resetAction,undefined);
   const [captchaToken,setCaptchaToken]=useState("");
   const [captchaResetKey,setCaptchaResetKey]=useState(0);
+  const [reviewOpen,setReviewOpen]=useState(false);
   const wasPending=useRef(false);
   const helpDisclosure=useRef<HTMLDetailsElement>(null);
+  const signupTrigger=useRef<HTMLButtonElement>(null);
   const titleId=useId();
+  const reviewId=`${titleId}-registration-review`;
   const registering=mode==="register";
   const destination=next?safeAuthDestination(next):undefined;
   const invitation=isInvitationAuthDestination(destination);
@@ -27,13 +32,28 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
   const busy=pending||resendPending||resetPending;
   const captchaRequired=Boolean(captchaSiteKey?.trim());
   const captchaIncomplete=captchaRequired&&!captchaToken;
+  const reviewVisible=registering&&reviewOpen;
+  const policyError=state?.errors?.[ACCOUNT_USE_ACKNOWLEDGEMENT_FIELD]?.[0];
+  const declarationError=state?.errors?.[REGISTRATION_DECLARATION_FIELD]?.[0];
   useEffect(()=>{
-    if(wasPending.current&&!busy)setCaptchaResetKey(value=>value+1);
+    if(wasPending.current&&!busy){
+      setCaptchaResetKey(value=>value+1);
+      setReviewOpen(false);
+    }
     wasPending.current=busy;
   },[busy]);
   useEffect(()=>{
     if(helpDisclosure.current&&(state?.showResend||resendState?.message||resendState?.errors?.email?.length))helpDisclosure.current.open=true;
   },[resendState,state?.showResend]);
+  function reviewRegistration(event:FormEvent<HTMLFormElement>){
+    if(!registering)return;
+    const submitter=(event.nativeEvent as SubmitEvent).submitter;
+    // The two account-recovery submitters carry their own actions and bypass signup validation.
+    if(submitter instanceof HTMLButtonElement&&submitter.formNoValidate)return;
+    if(reviewVisible&&submitter instanceof HTMLButtonElement&&submitter.hasAttribute("data-registration-confirm")&&!busy&&!captchaIncomplete)return;
+    event.preventDefault();
+    if(!reviewVisible&&!busy&&!captchaIncomplete&&event.currentTarget.reportValidity())setReviewOpen(true);
+  }
   const securityCheck=<AuthTurnstile siteKey={captchaSiteKey} resetKey={captchaResetKey} onTokenChange={setCaptchaToken}/>;
   const nameField=<Field label="Full name" name="name" autoComplete="name" alignLabel={organisationRegistration} error={state?.errors?.name?.[0]}/>;
   const emailField=<Field label="Work email" name="email" type="email" autoComplete="email" hint={organisationRegistration?"Use an email not already registered with EngiCite. Existing Organisation Administrators should sign in instead.":undefined} error={state?.errors?.email?.[0]??resendState?.errors?.email?.[0]??resetState?.errors?.email?.[0]}/>;
@@ -46,7 +66,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
     {invalidInvitation&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This invitation link is invalid or incomplete. Ask the Organisation Administrator or Project Manager for a new invitation.{registering&&" The form below registers a new organisation, not an invited team account."}</div>}
     {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
     {notice&&<div className="mt-5 rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm leading-6 text-[#10243e]" role="status">{notice}</div>}
-    <form action={formAction} aria-labelledby={titleId} aria-busy={busy} className={registering?"mt-5 min-w-0 space-y-3":"mt-6 min-w-0 space-y-4"}>
+    <form action={formAction} onSubmit={reviewRegistration} aria-labelledby={titleId} aria-busy={busy} className={registering?"mt-5 min-w-0 space-y-3":"mt-6 min-w-0 space-y-4"}>
       {destination&&<input type="hidden" name="next" value={destination}/>}
       {organisationRegistration?<>
         <fieldset className="min-w-0">
@@ -71,9 +91,14 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       </div>}
       {resendState?.message&&<div className="rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm" role="status">{resendState.message}</div>}
       {resetState?.message&&<div className="rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm" role="status">{resetState.message}</div>}
+      {registering?<div className="rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] p-3 text-sm leading-6 text-[#526675]">
+        <p>Before creating an account, you&apos;ll review the <Link href="/account-use-policy" prefetch={false} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#10243e] underline underline-offset-2">Policy, Security and Data Protection notice <span className="sr-only">(opens in a new tab)</span></Link> and complete your declaration.</p>
+        {policyError&&!reviewVisible?<p className="mt-1 text-red-700" role="alert">{policyError}</p>:null}
+        {declarationError&&!reviewVisible?<p className="mt-1 text-red-700" role="alert">{declarationError}</p>:null}
+      </div>:null}
       {captchaRequired?<div className="-mx-2 min-[360px]:mx-0">{securityCheck}</div>:securityCheck}
       <input type="hidden" name="captchaToken" value={captchaToken}/>
-      <button className="ev-button min-h-11 w-full" disabled={busy||captchaIncomplete}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
+      <button ref={signupTrigger} type="submit" className="ev-button min-h-11 w-full" disabled={busy||captchaIncomplete} aria-haspopup={registering?"dialog":undefined} aria-expanded={registering?reviewVisible:undefined} aria-controls={reviewVisible?reviewId:undefined}>{pending?"Please wait…":organisationRegistration?"Register organisation":registering?"Create invited account":"Sign in"}</button>
       {!registering&&<div className="flex justify-center">{recoveryAction}</div>}
       <details ref={helpDisclosure} className="min-w-0 border-t border-[#d6e0ed]">
         <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-[#526675]">{registering?"Need help registering?":"Need help signing in?"}</summary>
@@ -81,6 +106,11 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
           <button className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#dce2e9] px-3 py-2 text-sm font-medium text-[#10243e] hover:bg-[#f4f7fb] disabled:cursor-not-allowed disabled:opacity-50" type="submit" formAction={resendFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resendPending?"Requesting verification...":"Account not verified? Resend verification"}</button>
         </div>
       </details>
+      {reviewVisible?<RegistrationPolicyDialog
+        id={reviewId} audience={organisationRegistration?"organisation":"invitation"} opener={signupTrigger}
+        busy={busy} captchaIncomplete={captchaIncomplete} onDismiss={()=>setReviewOpen(false)}
+        policyError={policyError} declarationError={declarationError}
+      />:null}
     </form>
     <p className={`${registering?"mt-3":"mt-5"} text-center text-sm leading-6 text-[#526675]`}>{registering?"Already registered? ":invitation?"Opening an invitation for the first time? ":"Setting up EngiCite for a company? "}<Link className="inline-flex min-h-11 max-w-full items-center font-semibold text-[#10243e] underline-offset-4 hover:underline" href={alternateHref}>{registering?"Sign in":invitation?"Create invited account":"Register an organisation"}</Link></p>
   </div>;

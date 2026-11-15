@@ -8,6 +8,11 @@ import { safeAuthDestination } from "@/lib/auth-destination";
 import { sanitiseEmailHeaderText } from "@/lib/email-sender";
 import { passwordRecoveryConfirmationUrl } from "@/lib/auth-email-callback";
 import {captchaFailureMessage,isCaptchaFailure,readAuthCaptchaSubmission} from "@/lib/auth-captcha";
+import {
+  ACCOUNT_USE_ACKNOWLEDGEMENT_FIELD,ACCOUNT_USE_ACKNOWLEDGEMENT_VERSION,
+  REGISTRATION_DECLARATION_FIELD,REGISTRATION_DECLARATIONS,
+  hasCurrentAccountUseAcknowledgement,hasRegistrationDeclaration,
+} from "@/lib/account-use-acknowledgement";
 
 export type AuthState = { message?: string; errors?: Record<string,string[]>; showResend?: boolean; showLogin?: boolean } | undefined;
 const email = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -122,6 +127,17 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
   const invitation=requestedDestination.match(invitationDestination);
   const parsed=(invitation?registerSchema:organisationRegisterSchema).safeParse(Object.fromEntries(formData));
   if(!parsed.success) return {errors:parsed.error.flatten().fieldErrors};
+  const audience=invitation?"invitation":"organisation";
+  const reviewErrors:Record<string,string[]>={};
+  if(!hasCurrentAccountUseAcknowledgement(formData)){
+    reviewErrors[ACCOUNT_USE_ACKNOWLEDGEMENT_FIELD]=["Review and acknowledge the current Policy, Security and Data Protection notice."];
+  }
+  if(!hasRegistrationDeclaration(formData,audience)){
+    reviewErrors[REGISTRATION_DECLARATION_FIELD]=[invitation
+      ? "Confirm the invitation and authorised access declaration."
+      : "Confirm the organisation data protection and authority declaration."];
+  }
+  if(Object.keys(reviewErrors).length)return {errors:reviewErrors};
   const captcha=readAuthCaptchaSubmission(formData);
   if(!captcha.ok)return {message:captcha.message};
   const supabase=await createClient();
@@ -148,7 +164,16 @@ export async function register(_:AuthState, formData:FormData):Promise<AuthState
         inviting_project_name:invitationContext?.project_name,
       }
     : {onboarding_mode:"organisation",organisation_name:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationName,organisation_slug:(parsed.data as z.infer<typeof organisationRegisterSchema>).organisationSlug};
-  const {data,error}=await supabase.auth.signUp({email:parsed.data.email,password:parsed.data.password,options:{data:{display_name:parsed.data.name,...organisationData},emailRedirectTo:callbackUrl.toString(),captchaToken:captcha.captchaToken}});
+  const {data,error}=await supabase.auth.signUp({
+    email:parsed.data.email,password:parsed.data.password,options:{
+      // Informational account metadata only; this is not an audit log or access control.
+      data:{display_name:parsed.data.name,...organisationData,
+        account_use_acknowledgement_version:ACCOUNT_USE_ACKNOWLEDGEMENT_VERSION,
+        account_use_acknowledged_at:new Date().toISOString(),
+        registration_declaration_version:REGISTRATION_DECLARATIONS[audience].value},
+      emailRedirectTo:callbackUrl.toString(),captchaToken:captcha.captchaToken,
+    },
+  });
   if(error){
     const code=error.code??`http_${error.status}`;
     const guidance=isCaptchaFailure(error)?captchaFailureMessage:code==="user_already_exists"?"An account already exists for this email. Use Sign in instead.":code==="email_address_invalid"?"Enter a valid deliverable email address.":code==="over_email_send_rate_limit"?"Email delivery is temporarily rate-limited. Wait a minute and try again.":"Registration could not be completed.";
