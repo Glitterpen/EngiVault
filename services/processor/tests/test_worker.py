@@ -1,14 +1,16 @@
 import hashlib
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import Mock
 
+import pytest
 from openpyxl import Workbook
 from pypdf import PdfWriter
 
 from app.extraction import ExtractionResult
 from app.malware import MalwareDetected, MalwareScannerUnavailable, MalwareScanResult
 from app.validation import MIME_PDF, MIME_XLSX
-from app.worker import ProcessingJob, process_next
+from app.worker import ProcessingJob, ScanReceipt, process_next
 
 
 class FakeGateway:
@@ -18,6 +20,7 @@ class FakeGateway:
         self.job = job
         self.result: ExtractionResult | None = None
         self.finished: dict[str, object] | None = None
+        self.receipts: dict[tuple[str, str, str], list[ScanReceipt]] = {}
 
     def claim(self) -> ProcessingJob | None:
         job, self.job = self.job, None
@@ -29,6 +32,12 @@ class FakeGateway:
     def download_native(self, job: ProcessingJob, target: Path) -> None:
         assert self.native_content is not None
         target.write_bytes(self.native_content)
+
+    def get_clean_scans(self, job: ProcessingJob) -> list[ScanReceipt]:
+        return self.receipts.get((job.organisation_id, job.project_id, job.revision_id), [])
+
+    def record_clean_scan(self, job: ProcessingJob, receipt: ScanReceipt) -> None:
+        self.receipts.setdefault((job.organisation_id, job.project_id, job.revision_id), []).append(receipt)
 
     def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None:
         self.result = result
@@ -201,3 +210,119 @@ def test_unavailable_scanner_keeps_revision_quarantined_for_retry(tmp_path: Path
     assert gateway.finished is not None
     assert gateway.finished["failure_code"] == "MALWARE_SCANNER_UNAVAILABLE"
     assert gateway.finished["retryable"] is True
+    assert not gateway.receipts
+
+
+def clamav_mock() -> Mock:
+    scanner = Mock(spec=["scan"])
+    scanner.scan.return_value = MalwareScanResult("clean", "clamav")
+    return scanner
+
+
+def test_retry_after_indexing_failure_reuses_both_clean_upload_scans(tmp_path, monkeypatch):
+    content = pdf_bytes(tmp_path)
+    native = b"AC1032 editable drawing source"
+    job = job_with_native(content, native)
+    gateway = FakeGateway(content, job, native)
+    write_index = gateway.replace_search_chunks
+    monkeypatch.setattr(gateway, "replace_search_chunks", Mock(side_effect=RuntimeError()))
+    first_worker = clamav_mock()
+
+    assert process_next(gateway, malware_scanner=first_worker) == "retrying"
+    assert first_worker.scan.call_count == 2
+    assert [proof.file_kind for proof in gateway.get_clean_scans(job)] == ["primary", "native"]
+
+    # The proof is persisted outside either worker instance. Both downloads and
+    # their integrity checks still run before the saved verdict is reused.
+    gateway.job = replace(job, attempt=2)
+    monkeypatch.setattr(gateway, "replace_search_chunks", write_index)
+    retry_worker = clamav_mock()
+    retry_worker.scan.side_effect = AssertionError("unexpected duplicate scan")
+    assert process_next(gateway, malware_scanner=retry_worker) == "processed"
+    retry_worker.scan.assert_not_called()
+    assert gateway.finished["metrics"]["malware_scan_reused"] is True
+    assert gateway.finished["metrics"]["native_malware_scan_reused"] is True
+
+
+def test_native_scanner_failure_retries_only_the_unverified_file(tmp_path):
+    content = pdf_bytes(tmp_path)
+    native = b"AC1032 editable drawing source"
+    job = job_with_native(content, native)
+    gateway = FakeGateway(content, job, native)
+    original = clamav_mock()
+    original.scan.side_effect = [MalwareScanResult("clean", "clamav"), MalwareScannerUnavailable()]
+
+    assert process_next(gateway, malware_scanner=original) == "retrying"
+    assert [proof.file_kind for proof in gateway.get_clean_scans(job)] == ["primary"]
+    assert gateway.result is None
+
+    gateway.job = replace(job, attempt=2)
+    retry = clamav_mock()
+    assert process_next(gateway, malware_scanner=retry) == "processed"
+    assert retry.scan.call_count == 1
+    assert retry.scan.call_args.args[0].name == "native-source.bin"
+    assert gateway.finished["metrics"]["malware_scan_reused"] is True
+    assert gateway.finished["metrics"]["native_malware_scan_reused"] is False
+
+
+@pytest.mark.parametrize("stale", [
+    {"file_kind": "native"}, {"storage_key": "other-object"},
+    {"sha256": "0" * 64}, {"byte_size": 1},
+])
+def test_stale_receipt_does_not_clear_an_upload(tmp_path, stale):
+    content = pdf_bytes(tmp_path)
+    job = job_for(content)
+    gateway = FakeGateway(content, job)
+    receipt = ScanReceipt("primary", job.storage_key, job.sha256, job.byte_size)
+    gateway.record_clean_scan(job, replace(receipt, **stale))
+
+    scanner = clamav_mock()
+    assert process_next(gateway, malware_scanner=scanner) == "processed"
+    assert scanner.scan.call_count == 1
+    assert gateway.finished["metrics"]["malware_scan_reused"] is False
+
+
+def test_valid_receipt_cannot_clear_altered_storage_bytes(tmp_path):
+    content = pdf_bytes(tmp_path)
+    job = job_for(content)
+    altered = content[:-1] + b"X"
+    gateway = FakeGateway(altered, job)
+    gateway.record_clean_scan(job, ScanReceipt("primary", job.storage_key, job.sha256, job.byte_size))
+    scanner = clamav_mock()
+
+    assert process_next(gateway, malware_scanner=scanner) == "failed"
+    assert gateway.finished["failure_code"] == "CHECKSUM_MISMATCH"
+    assert gateway.result is None
+    scanner.scan.assert_not_called()
+
+
+def test_missing_receipt_cannot_be_created_by_a_disabled_scan(tmp_path):
+    content = pdf_bytes(tmp_path)
+    gateway = FakeGateway(content, job_for(content))
+    assert process_next(gateway) == "processed"
+    assert not gateway.receipts
+    assert gateway.finished["metrics"]["malware_scan"] == "disabled"
+
+
+def test_unexpected_scanner_status_never_reaches_extraction(tmp_path):
+    content = pdf_bytes(tmp_path)
+    gateway = FakeGateway(content, job_for(content))
+    scanner = clamav_mock()
+    scanner.scan.return_value = MalwareScanResult("unknown", "clamav")
+
+    assert process_next(gateway, malware_scanner=scanner) == "retrying"
+    assert gateway.result is None
+    assert not gateway.receipts
+
+
+def test_receipt_write_failure_keeps_unfinished_upload_quarantined(tmp_path, monkeypatch):
+    content = pdf_bytes(tmp_path)
+    job = job_for(content)
+    gateway = FakeGateway(content, job)
+    monkeypatch.setattr(gateway, "record_clean_scan", Mock(side_effect=RuntimeError()))
+    scanner = clamav_mock()
+
+    assert process_next(gateway, malware_scanner=scanner) == "retrying"
+    assert gateway.finished["failure_code"] == "PROCESSOR_ERROR"
+    assert gateway.result is None
+    assert not gateway.receipts

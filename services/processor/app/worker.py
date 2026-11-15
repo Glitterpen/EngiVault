@@ -12,6 +12,7 @@ from .malware import (
     MalwareDetected,
     MalwareScanner,
     MalwareScannerUnavailable,
+    MalwareScanResult,
 )
 from .validation import FileValidationError, validate_file
 
@@ -35,16 +36,52 @@ class ProcessingJob:
     native_sha256: str | None = None
 
 
+@dataclass(frozen=True)
+class ScanReceipt:
+    """A processor-recorded clean ClamAV verdict for one validated upload object."""
+
+    file_kind: str
+    storage_key: str
+    sha256: str
+    byte_size: int
+
+
 class ProcessingGateway(Protocol):
     def claim(self) -> ProcessingJob | None: ...
     def download(self, job: ProcessingJob, target: Path) -> None: ...
     def download_native(self, job: ProcessingJob, target: Path) -> None: ...
+    def get_clean_scans(self, job: ProcessingJob) -> list[ScanReceipt]: ...
+    def record_clean_scan(self, job: ProcessingJob, receipt: ScanReceipt) -> None: ...
     def replace_units(self, job: ProcessingJob, result: ExtractionResult) -> None: ...
     def replace_search_chunks(self, job: ProcessingJob, result: ExtractionResult,
                               embeddings: list[list[float]], embedding_model: str | None) -> None: ...
     def finish(self, job: ProcessingJob, *, succeeded: bool, retryable: bool,
                detected_mime: str | None, failure_code: str | None,
                failure_detail: str | None, metrics: dict[str, object]) -> None: ...
+
+
+def _clear_upload(
+    gateway: ProcessingGateway,
+    job: ProcessingJob,
+    scanner: MalwareScanner,
+    source: Path,
+    identity: ScanReceipt,
+    previously_clean: set[ScanReceipt],
+) -> tuple[MalwareScanResult, bool]:
+    # Callers must validate the actual bytes before matching this identity. No
+    # download, comparison or export uses this upload-worker-only checkpoint.
+    if identity in previously_clean:
+        return MalwareScanResult(status="clean", engine="clamav"), True
+    result = scanner.scan(source)
+    if isinstance(scanner, DisabledMalwareScanner):
+        return result, False  # Never checkpoint a development bypass.
+    if result.status != "clean":
+        raise MalwareScannerUnavailable("A clean security scan is required.")
+    if result.engine == "clamav":
+        # Persist the verdict before any later file, parser or indexing step can
+        # fail. A network or worker failure without a receipt must never skip a scan.
+        gateway.record_clean_scan(job, identity)
+    return result, False
 
 
 def process_next(
@@ -68,8 +105,16 @@ def process_next(
                                       expected_size=job.byte_size, expected_sha256=job.sha256,
                                       max_file_bytes=max_file_bytes)
             detected_mime = validated.detected_mime
-            scan = scanner.scan(source)
+            previously_clean = (
+                set() if isinstance(scanner, DisabledMalwareScanner) else set(gateway.get_clean_scans(job))
+            )
+            scan, reused_primary = _clear_upload(
+                gateway, job, scanner, source,
+                ScanReceipt("primary", job.storage_key, validated.sha256, validated.byte_size),
+                previously_clean,
+            )
             native_scan = None
+            reused_native = None
             native_detected_mime = None
             if job.native_storage_key:
                 if not job.native_declared_mime or job.native_byte_size is None or not job.native_sha256:
@@ -87,7 +132,12 @@ def process_next(
                     max_file_bytes=max_file_bytes,
                 )
                 native_detected_mime = native_validated.detected_mime
-                native_scan = scanner.scan(native_source)
+                native_scan, reused_native = _clear_upload(
+                    gateway, job, scanner, native_source,
+                    ScanReceipt("native", job.native_storage_key, native_validated.sha256,
+                                native_validated.byte_size),
+                    previously_clean,
+                )
             result = extract_document(source, validated.detected_mime)
             gateway.replace_units(job, result)
             embeddings: list[list[float]] = []
@@ -103,9 +153,11 @@ def process_next(
             metrics = {**result.metrics, "preview_strategy": result.preview_strategy,
                        "semantic_indexed": bool(embeddings),
                        "malware_scan": scan.status, "malware_engine": scan.engine,
+                       "malware_scan_reused": reused_primary,
                        "native_source_scanned": native_scan is not None,
                        "native_source_mime": native_detected_mime,
                        "native_malware_scan": native_scan.status if native_scan else None,
+                       "native_malware_scan_reused": reused_native,
                        "duration_ms": round((time.monotonic() - started) * 1000)}
             gateway.finish(job, succeeded=True, retryable=False, detected_mime=validated.detected_mime,
                            failure_code=None, failure_detail=None, metrics=metrics)

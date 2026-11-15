@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import quote
@@ -7,7 +8,7 @@ from urllib.parse import quote
 import httpx
 
 from .extraction import ExtractionResult
-from .worker import ProcessingJob
+from .worker import ProcessingJob, ScanReceipt
 
 
 class GatewayError(RuntimeError):
@@ -34,6 +35,44 @@ class SupabaseGateway:
         self._raise(response, "Job claim failed.")
         rows = response.json()
         return ProcessingJob(**rows[0]) if rows else None
+
+    def get_clean_scans(self, job: ProcessingJob) -> list[ScanReceipt]:
+        response = self.client.post("/rest/v1/rpc/get_revision_clean_scans", json={
+            "target_run": job.run_id, "target_attempt": job.attempt,
+        })
+        if not response.is_success:
+            raise GatewayError(f"Clean scan receipts could not be loaded. Status {response.status_code}.")
+        try:
+            rows = response.json()
+        except ValueError as error:
+            raise GatewayError("Invalid clean scan receipts.") from error
+        if not isinstance(rows, list) or len(rows) > 2:
+            raise GatewayError("Invalid clean scan receipts.")
+
+        receipts: list[ScanReceipt] = []
+        seen: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                raise GatewayError("Invalid clean scan receipts.")
+            kind, key = row.get("file_kind"), row.get("storage_key")
+            sha256, byte_size = row.get("sha256"), row.get("byte_size")
+            if (kind not in ("primary", "native") or kind in seen
+                    or not isinstance(key, str) or not key.strip()
+                    or not isinstance(sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", sha256)
+                    or type(byte_size) is not int or byte_size <= 0):
+                raise GatewayError("Invalid clean scan receipts.")
+            receipts.append(ScanReceipt(kind, key, sha256, byte_size))
+            seen.add(kind)
+        return receipts
+
+    def record_clean_scan(self, job: ProcessingJob, receipt: ScanReceipt) -> None:
+        response = self.client.post("/rest/v1/rpc/record_revision_clean_scan", json={
+            "target_run": job.run_id, "target_attempt": job.attempt,
+            "file_kind": receipt.file_kind, "verified_storage_key": receipt.storage_key,
+            "verified_sha256": receipt.sha256, "verified_byte_size": receipt.byte_size,
+        })
+        if not response.is_success:
+            raise GatewayError(f"Clean scan receipt could not be recorded. Status {response.status_code}.")
 
     def download(self, job: ProcessingJob, target: Path) -> None:
         self._download_processing_object(job.storage_key, job.byte_size, target)
