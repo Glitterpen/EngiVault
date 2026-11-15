@@ -1,9 +1,9 @@
 # EngiCite registration policy — pre-publication review
 
-The in-app Policy, Security and Data Protection notice and the two registration declarations are drafts. They are not a substitute for approved service terms, a privacy notice, or a data-processing agreement. Do not publish the draft for live signup before the owner has confirmed the following items with the appropriate privacy or legal reviewer:
+The in-app Policy, Security and Data Protection notice and the two registration declarations are registration materials. They are not a substitute for approved service terms, a full privacy notice, or a data-processing agreement. The owner should verify the following items with the appropriate privacy or legal reviewer before an initial release and again when the underlying arrangements change:
 
 - Confirm the legal entity responsible for each activity, its contact details, and the monitored channel for privacy rights and incident reports. The site identifies EngiCite as a product of EngiOne LTD; that brand attribution alone does not establish the legal controller relationship or contact details.
-- Include a monitored privacy contact that a prospective user can reach before signing in or joining a workspace. Do not direct privacy or security reports to a sales or early-access form.
+- Retain the public privacy contact, `privacy@engicite.com`, which EngiOne confirmed accepts external mail and is monitored. A prospective user can reach it before signing in or joining a workspace. Do not direct privacy or security reports to a sales or early-access form.
 - Confirm the purposes and lawful bases by activity, data categories, applicable customer-controller and service-processor roles, recipient categories and supplier disclosures, including any optional assisted search.
 - Verify that EngiOne can meet the stated provider commitments, including limiting staff and supplier access, handling incidents and breach notices, responding to privacy and records requests, and communicating material policy changes. Confirm who owns each process and the appropriate escalation channels before publication.
 - Confirm hosting and support locations, applicable transfer safeguards, the approved retention and backup schedule, and how export, removal and rights requests operate in practice.

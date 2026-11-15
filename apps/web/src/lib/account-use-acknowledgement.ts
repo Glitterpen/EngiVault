@@ -1,6 +1,6 @@
 // Increment the policy or declaration version when its meaning changes.
 export const ACCOUNT_USE_ACKNOWLEDGEMENT_FIELD = "accountUseAcknowledgement";
-const registrationPolicyEdition = 3;
+const registrationPolicyEdition = 4;
 export const ACCOUNT_USE_ACKNOWLEDGEMENT_VERSION = `registration-policy-v${registrationPolicyEdition}`;
 export const REGISTRATION_POLICY_DISPLAY_VERSION = `Version ${registrationPolicyEdition}`;
 export const REGISTRATION_POLICY_LABEL = "I have read and understood the Policy, Security and Data Protection notice.";

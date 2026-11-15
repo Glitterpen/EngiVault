@@ -66,7 +66,7 @@ afterEach(() => {
 
 describe.each([false, true])("account-use gate (invited account: %s)", (invited) => {
   it.each([
-    [], [""], ["on"], ["account-use-v1"], ["registration-policy-v1"], ["registration-policy-v2"], [currentVersion, currentVersion], ["on", currentVersion],
+    [], [""], ["on"], ["account-use-v1"], ["registration-policy-v1"], ["registration-policy-v2"], ["registration-policy-v3"], [currentVersion, currentVersion], ["on", currentVersion],
   ].map(values => ({ values })))("rejects missing, stale or ambiguous confirmation: $values", async ({ values }) => {
     const form = registration(invited);
     form.set(declarationField, declarationValue(invited));

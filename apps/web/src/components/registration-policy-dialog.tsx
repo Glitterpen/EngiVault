@@ -54,7 +54,7 @@ export function RegistrationPolicyDialog({
   >
     <div className="flex max-h-[94dvh] min-h-0 flex-col">
       <header className="shrink-0 border-b border-[#d6e0ed] px-4 py-3 sm:px-6 sm:py-4">
-        <p className="text-xs font-semibold text-[#526675]">Draft for review · {REGISTRATION_POLICY_DISPLAY_VERSION}</p>
+        <p className="text-xs font-semibold text-[#526675]">Registration notice · {REGISTRATION_POLICY_DISPLAY_VERSION}</p>
         <h2 ref={heading} tabIndex={-1} id={`${id}-title`} className="mt-1 text-[1.1875rem] font-semibold leading-tight tracking-tight sm:text-[1.375rem]">Review policy and declaration</h2>
         <p id={`${id}-intro`} className="mt-1 text-sm leading-5 text-[#526675]">See how we protect your information, then confirm you’ve read the notice and have authority to set up or join the workspace.</p>
       </header>

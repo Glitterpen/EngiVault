@@ -42,6 +42,13 @@ export function RegistrationPolicyDocument({ idPrefix, headingLevel = 2, layout 
               {index + 1}. {section.title}
             </Heading>
             {section.paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
+            {section.contact ? (
+              <p className="rounded-lg border border-[#d6e0ed] bg-[#f4f7fb] px-3 py-2.5 sm:px-4">
+                {section.contact.intro}{" "}
+                <a href={`mailto:${section.contact.email}`} className="break-words rounded-sm font-semibold text-[#21466f] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10243e]">{section.contact.email}</a>.
+                {" "}{section.contact.note}
+              </p>
+            ) : null}
             {section.commitments?.length ? (
               <dl className="mt-3 divide-y divide-[#d6e0ed] rounded-lg border border-[#d6e0ed] bg-[#f4f7fb] px-3 sm:px-4">
                 {section.commitments.map(({ title, description }) => (

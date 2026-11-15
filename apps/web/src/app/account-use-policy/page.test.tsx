@@ -6,11 +6,11 @@ import { REGISTRATION_POLICY_SECTIONS } from "@/lib/registration-policy-content"
 
 afterEach(cleanup);
 
-describe("standalone registration policy draft", () => {
+describe("standalone registration policy notice", () => {
   it("offers the full versioned policy for reading without account details or an agreement form", () => {
     render(<AccountUsePolicyPage />);
     expect(screen.getByRole("heading", { level: 1, name: "Policy, Security and Data Protection" })).toBeTruthy();
-    expect(screen.getByText(`Draft for review · ${REGISTRATION_POLICY_DISPLAY_VERSION}`)).toBeTruthy();
+    expect(screen.getByText(`Registration notice · ${REGISTRATION_POLICY_DISPLAY_VERSION}`)).toBeTruthy();
     const contents = screen.getByRole("navigation", { name: "Policy sections" });
     const links = within(contents).getAllByRole("link");
     expect(links).toHaveLength(REGISTRATION_POLICY_SECTIONS.length);
@@ -23,6 +23,14 @@ describe("standalone registration policy draft", () => {
     expect(document.querySelector("form")).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+
+  it("provides a public privacy contact without requiring a user account", () => {
+    render(<AccountUsePolicyPage />);
+    const rights = screen.getByRole("region", { name: /Your privacy rights and how to raise a concern/ });
+    const contact = within(rights).getByRole("link", { name: "privacy@engicite.com" });
+    expect(contact.getAttribute("href")).toBe("mailto:privacy@engicite.com");
+    expect(within(rights).getByText(/before creating an account or signing in/)).toBeTruthy();
   });
 
   it("leads with provider commitments and safeguards before the registration declarations", () => {

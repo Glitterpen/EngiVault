@@ -4,9 +4,9 @@ type RegistrationPolicySection = {
   readonly paragraphs: readonly string[];
   readonly bullets?: readonly string[];
   readonly commitments?: readonly { readonly title: string; readonly description: string }[];
+  readonly contact?: { readonly email: string; readonly intro: string; readonly note: string };
 };
 
-// Draft for organisational and legal approval before production publication.
 // Changes to this text must be accompanied by a new registration-policy version.
 export const REGISTRATION_POLICY_INTRO = "Your organisation manages access to its project records. EngiOne LTD provides and protects the workspace. This notice explains how we look after information and where you can get help.";
 
@@ -93,9 +93,14 @@ export const REGISTRATION_POLICY_SECTIONS: readonly RegistrationPolicySection[] 
   {
     id: "data-rights",
     title: "Your privacy rights and how to raise a concern",
+    contact: {
+      email: "privacy@engicite.com",
+      intro: "For privacy questions or requests about your EngiCite account or the service, email EngiOne LTD at",
+      note: "You can contact us before creating an account or signing in.",
+    },
     paragraphs: [
       "You can ask how your personal information is used and request help with your privacy rights. Depending on the law, those rights may include access, correction, deletion, restriction, a portable copy, objection or withdrawal of consent where consent is the basis. We may verify your identity to protect your information.",
-      "For project records your organisation manages, contact its privacy or workspace administrator. For EngiCite account or service information, use the support contact provided for your workspace. You may also be able to raise a complaint with the appropriate regulator, such as the Nigeria Data Protection Commission where applicable.",
+      "For project records your organisation manages, contact its privacy or workspace administrator. You may also be able to raise a complaint with the appropriate regulator, such as the Nigeria Data Protection Commission where applicable.",
       "Acknowledging this notice confirms you have read it. It does not waive your privacy rights or give general permission for unrelated uses of your information.",
     ],
   },
