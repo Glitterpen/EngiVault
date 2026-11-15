@@ -6,6 +6,7 @@ import {requireProject} from "@/lib/auth";
 import {revalidatePath} from "next/cache";
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),from:vi.fn(),redirect:vi.fn((path:string)=>{throw new Error(`REDIRECT:${path}`);})}));
 vi.mock("@/lib/auth",()=>({requireProject:vi.fn(),requireUser:vi.fn(),requireAuthenticatedUser:vi.fn()}));
+vi.mock("@/lib/admin-preview",()=>({readAdminPreview:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("next/navigation",()=>({redirect:mocks.redirect}));
 vi.mock("@/lib/supabase/admin",()=>({createAdminClient:vi.fn()}));

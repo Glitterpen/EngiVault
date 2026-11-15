@@ -9,6 +9,8 @@ import { requireAuthenticatedUser, requireUser, requireProject } from "@/lib/aut
 import { DOCUMENT_ISSUE_STATUS_VALUES, isDocumentIssueStatus } from "@/lib/document-issue-status";
 import { organisationLogoValidation,projectLogoValidation } from "@/lib/file-validation";
 import { canCreateOrganisationWorkspace } from "@/lib/role-experience";
+import { readAdminPreview } from "@/lib/admin-preview";
+import { organisationVerificationSchema } from "@/lib/organisation-verification";
 import {buildProjectBackup} from "@/lib/processor";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {processQueuedIdentityPurges} from "@/lib/identity-purge";
@@ -18,15 +20,17 @@ import {pdfColorTemplateField} from "@/lib/pdf-color-template";
 const slug=z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48);
 const issueStatus=z.enum(DOCUMENT_ISSUE_STATUS_VALUES);
 const optionalIssueStatus=z.union([issueStatus,z.literal("")]);
-export type MutationState={message?:string;mutationId?:string;logoVersion?:string;projectId?:string}|undefined;
+export type MutationState={message?:string;mutationId?:string;logoVersion?:string;projectId?:string;organisationId?:string}|undefined;
 export async function createOrganisation(_:MutationState,form:FormData):Promise<MutationState>{
  const parsed=z.object({name:z.string().trim().min(2).max(100),slug}).safeParse(Object.fromEntries(form));
  const logo=form.get("logo");
+ const restoring=form.get("workspaceAction")==="restore";
  if(!parsed.success)return {message:"Enter a valid organisation name and lowercase URL slug."};
  if(!(logo instanceof File))return {message:"Choose your company logo."};
  const logoError=organisationLogoValidation(logo.size,logo.type,new Uint8Array(await logo.slice(0,16).arrayBuffer()));
  if(logoError)return {message:logoError};
  const {supabase,user}=await requireAuthenticatedUser();
+ if(await readAdminPreview())return {message:"Exit read-only role preview to manage organisation setup."};
  const {data:memberships,error:membershipError}=await supabase.rpc("get_my_organisations");
  if(membershipError)return {message:"Organisation creation permission could not be verified."};
  const organisationRoles=(memberships??[]).map((membership:{role:string})=>String(membership.role));
@@ -37,21 +41,36 @@ export async function createOrganisation(_:MutationState,form:FormData):Promise<
   projectRoles.push(...(projectAccess??[]).map((item:{role:string})=>String(item.role)));
  }
  const organisationOnboarding=user.user_metadata?.onboarding_mode==="organisation";
- if(!canCreateOrganisationWorkspace(organisationRoles,projectRoles,organisationOnboarding))return {message:"Project members cannot create organisations. Register an organisation owner account or use an existing Organisation Administrator account."};
- if(!organisationRoles.length&&(!user.email||!user.email_confirmed_at))return {message:"Verify your work email before creating the organisation workspace."};
+ if(!canCreateOrganisationWorkspace(organisationRoles,projectRoles,organisationOnboarding)&&(!restoring||organisationRoles.length||projectRoles.length))return {message:"Project members cannot create organisations. Register an organisation owner account or use an existing Organisation Administrator account."};
+ if((!restoring||!organisationRoles.length)&&(!user.email||!user.email_confirmed_at))return {message:"Verify your work email before continuing with organisation setup."};
  let organisationId:string;
- const {data,error}=await supabase.rpc("create_organisation",parsed.data);
- if(error?.code==="23505"){
+ if(restoring){
   const {data:recovered,error:recoveryError}=await supabase.rpc("recover_created_organisation",{organisation_slug:parsed.data.slug});
-  if(recoveryError||!recovered)return {message:"This organisation slug already exists and could not be reclaimed by the signed-in account."};
-  organisationId=String(recovered);
- }else if(error)return {message:serviceFailureMessage("Organisation could not be created. Please try again or contact EngiCite support.",error)};
- else organisationId=String(data);
+  const recoveredId=z.uuid().safeParse(recovered);
+  if(recoveryError||!recoveredId.success)return {message:"This existing workspace could not be restored by the signed-in account."};
+  organisationId=recoveredId.data;
+ }else{
+  const approvalNeeded={message:"Organisation verification must be approved for this exact workspace before activation. Check your verification status and try again."};
+  const {data:request,error:statusError}=await supabase.rpc("get_my_organisation_verification");
+  if(statusError)return {message:"Organisation verification status could not be checked. Please try again."};
+  const approval=organisationVerificationSchema.safeParse(request);
+  if(!approval.success||approval.data.status!=="approved"||approval.data.work_email.toLowerCase()!==user.email?.trim().toLowerCase()||
+    approval.data.organisation_name!==parsed.data.name||approval.data.organisation_slug!==parsed.data.slug)return approvalNeeded;
+
+  // This RPC re-verifies the exact approval and consumes it transactionally. The
+  // status read above just provides a helpful fail-closed response to stale forms.
+  const {data,error}=await supabase.rpc("create_organisation",parsed.data);
+  if(error?.code==="23505")return {message:"This workspace address is no longer available. Withdraw this request and submit a fresh one with a different address."};
+  if(error?.code==="P0001"&&error.message==="approved organisation verification is required")return approvalNeeded;
+  const createdId=z.uuid().safeParse(data);
+  if(error||!createdId.success)return {message:serviceFailureMessage("Organisation could not be created. Please try again or contact EngiCite support.",error)};
+  organisationId=createdId.data;
+ }
  const logoPath=`${organisationId}/branding/company-logo`;
  const {error:uploadError}=await supabase.storage.from("organisation-assets").upload(logoPath,await logo.arrayBuffer(),{contentType:logo.type,upsert:true,cacheControl:"3600"});
- if(uploadError)return {message:serviceFailureMessage("Organisation was created, but its logo could not be stored. Submit the same details again or contact EngiCite support.",uploadError)};
+ if(uploadError)return {organisationId,message:serviceFailureMessage("The workspace is active, but its logo could not be stored. Open the workspace to finish adding the logo.",uploadError)};
  const {error:updateError}=await supabase.rpc("update_organisation_identity",{target_organisation:organisationId,new_name:parsed.data.name,new_slug:parsed.data.slug,new_logo_path:logoPath,new_logo_mime:logo.type});
- if(updateError)return {message:updateError.code==="PGRST202"?"Organisation was created, but its logo could not be linked. Contact EngiCite support before trying again.":`Organisation was created and its logo was stored, but the logo could not be linked. Submit the same details again. Reference: ${supportReference(updateError.code)}.`};
+ if(updateError)return {organisationId,message:serviceFailureMessage("The workspace is active, but its logo could not be linked. Open the workspace to finish adding the logo.",updateError)};
  if(organisationOnboarding)await supabase.auth.updateUser({data:{...user.user_metadata,onboarding_mode:null}});
  redirect(`/app/${organisationId}`)
 }

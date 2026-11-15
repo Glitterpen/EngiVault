@@ -31,7 +31,7 @@ describe("deployment packaging", () => {
     const csp = globalHeaders.find((header) => header.key === "Content-Security-Policy")!.value;
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).not.toContain("'unsafe-eval'");
-    for (const source of ["/app/:path*", "/api/:path*", "/login"]) {
+    for (const source of ["/app/:path*", "/api/:path*", "/login", "/organisation/:path*", "/founder/:path*"]) {
       expect(rules.find((rule) => rule.source === source)!.headers).toContainEqual({
         key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate",
       });
