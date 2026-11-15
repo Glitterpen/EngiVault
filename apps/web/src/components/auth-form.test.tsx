@@ -1,7 +1,8 @@
-import {act,cleanup,fireEvent,render,screen} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {AuthForm} from "./auth-form";
 import type {AuthState} from "@/app/(auth)/actions";
+import {REGISTRATION_DECLARATIONS,REGISTRATION_POLICY_LABEL} from "@/lib/account-use-acknowledgement";
 
 vi.mock("@/components/auth-turnstile",()=>({AuthTurnstile:()=>null}));
 const noAction=async()=>undefined;
@@ -76,8 +77,14 @@ describe("clean authentication form",()=>{
   it("keeps existing-account guidance visible and the sign-in alternative correctly scoped",async()=>{
     const next="/invite/"+"a".repeat(64);
     const action=vi.fn(async():Promise<AuthState>=>({message:"Use your existing account.",showLogin:true}));
+    Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
+    Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
     render(<AuthForm mode="register" {...actions} action={action} next={next}/>);
-    await act(async()=>{fireEvent.submit(screen.getByRole("form",{name:"Create your invited account"}));});
+    for(const [label,value] of [["Full name","Test User"],["Work email","test@example.test"],["Password","synthetic-password-not-a-secret"]])fireEvent.change(screen.getByLabelText(label),{target:{value}});
+    fireEvent.click(screen.getByRole("button",{name:"Create invited account"}));
+    const review=within(screen.getByRole("dialog",{name:"Review policy and declaration"}));
+    fireEvent.click(review.getByRole("checkbox",{name:REGISTRATION_POLICY_LABEL}));fireEvent.click(review.getByRole("checkbox",{name:REGISTRATION_DECLARATIONS.invitation.label}));
+    await act(async()=>{fireEvent.click(review.getByRole("button",{name:"Agree and create account"}));});
     expect(screen.getByRole("alert").textContent).toContain("Already have an account? Do not wait for another email.");
     expect(screen.getByRole("link",{name:"Sign in instead"}).getAttribute("href")).toBe(`/login?next=${encodeURIComponent(next)}`);
     expect(screen.getByRole("link",{name:"Sign in instead"}).classList.contains("min-h-11")).toBe(true);

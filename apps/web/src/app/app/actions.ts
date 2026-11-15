@@ -38,6 +38,7 @@ export async function createOrganisation(_:MutationState,form:FormData):Promise<
  }
  const organisationOnboarding=user.user_metadata?.onboarding_mode==="organisation";
  if(!canCreateOrganisationWorkspace(organisationRoles,projectRoles,organisationOnboarding))return {message:"Project members cannot create organisations. Register an organisation owner account or use an existing Organisation Administrator account."};
+ if(!organisationRoles.length&&(!user.email||!user.email_confirmed_at))return {message:"Verify your work email before creating the organisation workspace."};
  let organisationId:string;
  const {data,error}=await supabase.rpc("create_organisation",parsed.data);
  if(error?.code==="23505"){
