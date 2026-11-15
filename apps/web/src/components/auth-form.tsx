@@ -61,7 +61,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
   const recoveryAction=<button className="inline-flex min-h-11 max-w-full items-center justify-center rounded-lg px-3 text-sm font-medium text-[#10243e] hover:underline hover:underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50" type="submit" formAction={resetFormAction} formNoValidate disabled={busy||captchaIncomplete}>{resetPending?"Requesting password reset...":"Forgot password?"}</button>;
   return <div className={`w-full min-w-0 ${registering?"max-w-none":"max-w-md"}`}>
     <div className="flex min-w-0 items-start gap-2"><h1 id={titleId} className="min-w-0 text-2xl font-semibold leading-tight tracking-tight text-[#10243e] [overflow-wrap:anywhere] sm:text-[1.75rem]">{organisationRegistration?"Register your organisation":registering?"Create your invited account":"Welcome back"}</h1></div>
-    <p className="mt-2 text-sm leading-6 text-[#526675]">{organisationRegistration?"Set up your workspace and owner account.":invitation?"Use the work email on your invitation.":"Sign in to your engineering workspace."}</p>
+    <p className="mt-2 text-sm leading-6 text-[#526675]">{organisationRegistration?"Create your owner account and verify your work email. We’ll then confirm with an authorised company representative before opening your workspace.":invitation?"Use the work email on your invitation.":"Sign in to your engineering workspace."}</p>
 
     {invalidInvitation&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This invitation link is invalid or incomplete. Ask the Organisation Administrator or Project Manager for a new invitation.{registering&&" The form below registers a new organisation, not an invited team account."}</div>}
     {accessDenied&&<div className="mt-5 rounded-xl border border-[#efc7bb] bg-[#fff7f4] p-3 text-sm leading-6 text-[#8b3d1f]" role="alert">This account has no active EngiCite organisation or authorised project role. Ask your Organisation Administrator to send an invitation.</div>}
@@ -93,6 +93,7 @@ export function AuthForm({mode,action,resendAction,resetAction,next,accessDenied
       {resetState?.message&&<div className="rounded-xl border border-[#d6e0ed] bg-[#eef3fa] p-3 text-sm" role="status">{resetState.message}</div>}
       {registering?<div className="rounded-xl border border-[#d6e0ed] bg-[#f4f7fb] p-3 text-sm leading-6 text-[#526675]">
         <p>Before creating an account, you&apos;ll review the <Link href="/account-use-policy" prefetch={false} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#10243e] underline underline-offset-2">Policy, Security and Data Protection notice <span className="sr-only">(opens in a new tab)</span></Link> and complete your declaration.</p>
+        {organisationRegistration&&<p className="mt-2">For a new workspace, EngiOne may share your name, work email and workspace request with an authorised company representative to confirm your affiliation and authority. We keep a private record of the confirmation and decision.</p>}
         {policyError&&!reviewVisible?<p className="mt-1 text-red-700" role="alert">{policyError}</p>:null}
         {declarationError&&!reviewVisible?<p className="mt-1 text-red-700" role="alert">{declarationError}</p>:null}
       </div>:null}

@@ -50,7 +50,7 @@ describe("organisation and invited registration redesign",()=>{
   it("presents owner registration as one named heading/form with separate organisation and owner fieldsets",()=>{
     const handlers=actions();render(<AuthForm mode="register" {...handlers}/>);
     expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);expect(screen.getByRole("heading",{level:1,name:"Register your organisation"})).toBeTruthy();
-    expect(screen.getByText("Set up your workspace and owner account.")).toBeTruthy();expect(screen.getByRole("form",{name:"Register your organisation"})).toBe(form());
+    expect(screen.getByText(/verify your work email.*authorised company representative before opening your workspace/)).toBeTruthy();expect(screen.getByRole("form",{name:"Register your organisation"})).toBe(form());
     const organisation=screen.getByRole("group",{name:"Organisation"}),owner=screen.getByRole("group",{name:"Owner account"});
     for(const label of ["Organisation name","Organisation URL name"])expect(within(organisation).getByLabelText(label)).toBeTruthy();
     for(const label of ["Full name","Work email","Password"])expect(within(owner).getByLabelText(label)).toBeTruthy();
@@ -78,7 +78,7 @@ describe("organisation and invited registration redesign",()=>{
     const handlers=actions();handlers.action.mockResolvedValue({message:"Synthetic invited registration response."});
     render(<AuthForm mode="register" {...handlers} next={invitation}/>);
     expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);expect(screen.getByRole("heading",{level:1,name:"Create your invited account"})).toBeTruthy();expect(screen.getByText("Use the work email on your invitation.")).toBeTruthy();
-    expect(screen.queryByRole("group",{name:"Organisation"})).toBeNull();expect(screen.queryByLabelText("Organisation name")).toBeNull();expect(screen.queryByLabelText("Organisation URL name")).toBeNull();
+    expect(screen.queryByText(/authorised company representative/)).toBeNull();expect(screen.queryByRole("group",{name:"Organisation"})).toBeNull();expect(screen.queryByLabelText("Organisation name")).toBeNull();expect(screen.queryByLabelText("Organisation URL name")).toBeNull();
     fillInvite();
     const button=confirmReview(openReview(true),true);
     await act(async()=>{fireEvent.click(button);});expect(Object.fromEntries(handlers.action.mock.calls[0][1])).toEqual({next:invitation,name:"Synthetic Engineer",email:"invited@example.test",password:"synthetic-invited-password",captchaToken:"",[ACCOUNT_USE_ACKNOWLEDGEMENT_FIELD]:ACCOUNT_USE_ACKNOWLEDGEMENT_VERSION,[REGISTRATION_DECLARATION_FIELD]:REGISTRATION_DECLARATIONS.invitation.value});

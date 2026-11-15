@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {AlertTriangle,ArrowRight,Building2,CheckCircle2,FileWarning,Filter,RefreshCw,Search,Trash2} from "lucide-react";
+import {AlertTriangle,ArrowRight,Building2,CheckCircle2,ClipboardCheck,FileWarning,Filter,RefreshCw,Search,Trash2} from "lucide-react";
 import {DashboardLead,DashboardSummary,DashboardWorkQueue,RoleDashboard} from "@/components/role-dashboard";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {getFounderPortfolio,type FounderOrganisation} from "@/lib/founder";
@@ -31,6 +31,7 @@ export default async function FounderPage({searchParams}:{searchParams:Promise<S
         {label:"Healthy tenants",value:Math.max(0,dashboard.summary.organisations-dashboard.summary.needs_attention).toLocaleString(),note:"No material warning"},
       ]}/>
       <DashboardWorkQueue title="Oversight shortcuts" items={[
+        {title:"Organisation verification",href:"/founder/organisation-verification",description:"Review company confirmation for new workspace requests.",icon:<ClipboardCheck size={19}/>},
         {title:"Browse organisations",href:"#organisation-filters",description:"Find current organisations and review account health.",icon:<Building2 size={19}/>},
         {title:"Deleted accounts",href:"/founder/deleted",description:"Review accounts recorded as deleted.",icon:<Trash2 size={19}/>,badge:{text:`${dashboard.summary.deleted_organisations} deleted`}},
       ]}/>
@@ -49,7 +50,7 @@ export default async function FounderPage({searchParams}:{searchParams:Promise<S
       <div className="grid gap-4 @min-[82rem]:hidden">{dashboard.organisations.map(organisation=><OrganisationCard key={organisation.id} organisation={organisation}/>)}{!dashboard.organisations.length&&<div className="ev-card"><EmptyState text="No organisations match these filters."/></div>}</div>
     </section>
 
-    <footer className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d8e1e8] bg-[#f4f7fb] p-4 text-xs leading-5 text-[#526675]"><span><strong className="text-[#10243e]">Founder security:</strong> read-only database functions, explicit founder allow-list, authenticator MFA and immutable access auditing.</span><span>No engineering document content is returned here.</span></footer>
+    <footer className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d8e1e8] bg-[#f4f7fb] p-4 text-xs leading-5 text-[#526675]"><span><strong className="text-[#10243e]">Founder oversight:</strong> existing workspaces are read-only. Access uses an explicit founder allow-list and is recorded.</span><span>No engineering document content is returned here.</span></footer>
     </RoleDashboard>
   </main>;
 }

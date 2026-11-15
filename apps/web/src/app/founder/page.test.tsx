@@ -23,6 +23,7 @@ it("keeps the founder summary and read-only destinations visible without changin
   const summary = within(screen.getByRole("region", { name: "Platform summary" }));
   expect(summary.getByText("Healthy tenants").nextElementSibling).toHaveTextContent("2");
   const shortcuts = within(screen.getByRole("region", { name: "Oversight shortcuts" }));
+  expect(shortcuts.getByRole("link", { name: "Organisation verification" })).toHaveAttribute("href", "/founder/organisation-verification");
   expect(shortcuts.getByRole("link", { name: "Deleted accounts 2 deleted" })).toHaveAttribute("href", "/founder/deleted");
   expect(shortcuts.getByRole("link", { name: "Browse organisations" })).toHaveAttribute("href", "#organisation-filters");
   const filters = screen.getByRole("form", { name: "Filter current organisations" });

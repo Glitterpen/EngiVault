@@ -1,7 +1,7 @@
 import Link from "next/link";
-import {ArrowUpRight,Settings} from "lucide-react";
+import {ArrowUpRight,Building2,Settings} from "lucide-react";
 import {requireUser} from "@/lib/auth";
-import {OrganisationCreateForm} from "@/components/organisation-create-form";
+import {readAdminPreview} from "@/lib/admin-preview";
 import {OrganisationLogo} from "@/components/organisation-logo";
 import {canCreateOrganisationWorkspace} from "@/lib/role-experience";
 import {redirect} from "next/navigation";
@@ -18,7 +18,7 @@ export default async function AppHome(){
   projectRoles.push(...(projectAccess??[]).map(item=>String(item.role)));
  }
  const organisationOnboarding=user.user_metadata?.onboarding_mode==="organisation";
- const canCreateOrganisation=canCreateOrganisationWorkspace(orgs.map(org=>org.role),projectRoles,organisationOnboarding);
+ const canCreateOrganisation=canCreateOrganisationWorkspace(orgs.map(org=>org.role),projectRoles,organisationOnboarding)&&!(await readAdminPreview());
  return <div className="mx-auto max-w-6xl">
   <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#e8733f]">Secure workspace</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Your organisations</h1></div></div>
   <div className={`mt-8 grid gap-5 ${canCreateOrganisation?"lg:grid-cols-[1fr_360px]":""}`}>
@@ -29,7 +29,7 @@ export default async function AppHome(){
     </Link>
     {org.role==="organisation_admin"&&<Link href={`/app/${org.organisation_id}/settings`} aria-label={`Manage ${org.name}`} title="Edit or delete organisation" className="grid size-10 shrink-0 place-items-center rounded-xl text-[#617083] transition hover:bg-[#eef3fa] hover:text-[#10243e]"><Settings size={18}/></Link>}
    </article>):<div className="ev-card p-10 text-center text-[#617083]">No organisation memberships yet.</div>}</section>
-   {canCreateOrganisation&&<OrganisationCreateForm/>}
+   {canCreateOrganisation&&<section className="ev-card h-fit p-5" aria-labelledby="request-workspace-title"><div className="flex items-center gap-2"><Building2 size={18} aria-hidden="true" className="text-[#a5452f]"/><h2 id="request-workspace-title" className="font-semibold text-[#10243e]">New organisation workspace</h2></div><p className="mt-2 text-sm leading-6 text-[#526675]">Verify a new organisation before opening its workspace. This does not affect your current workspaces.</p><Link href="/organisation/setup" className="ev-button-secondary mt-4 min-h-11 w-full">Request or track verification</Link></section>}
   </div>
  </div>
 }

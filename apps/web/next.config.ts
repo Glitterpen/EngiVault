@@ -48,7 +48,7 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" },
         ],
       },
-      ...["/login", "/register", "/auth/:path*", "/invite/:path*", "/organisation/:path*"].map((source) => ({
+      ...["/login", "/register", "/auth/:path*", "/invite/:path*", "/organisation/:path*", "/founder/:path*"].map((source) => ({
         source,
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" },
