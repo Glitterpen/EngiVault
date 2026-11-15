@@ -3,22 +3,31 @@ import {cleanup,fireEvent,render,screen,within} from "@testing-library/react";
 import PackagePage from "./page";
 import {requireProject} from "@/lib/auth";
 import {WorkPackageGenerate} from "@/components/work-package-generate";
+import {WorkPackageStaging} from "@/components/work-package-staging";
+import type {WorkPackageStagingData} from "@/lib/work-package-staging";
 
 vi.mock("@/lib/auth",()=>({requireProject:vi.fn()}));
 vi.mock("next/navigation",()=>({notFound:vi.fn(()=>{throw new Error("NEXT_NOT_FOUND");})}));
 vi.mock("@/components/work-package-generate",()=>({WorkPackageGenerate:vi.fn(({endpoint,label,loadingLabel}:{endpoint:string;label:string;loadingLabel:string})=><button data-endpoint={endpoint} data-loading-label={loadingLabel}>{label}</button>)}));
+vi.mock("@/components/work-package-staging",()=>({WorkPackageStaging:vi.fn(()=> <section aria-label="Review package selection"/>)}));
 
 type QueryRead={table:string;selection:string;filters:[string,unknown][];orders:string[]};
 type Query={select:(selection:string)=>Query;eq:(column:string,value:unknown)=>Query;order:(column:string)=>Query;maybeSingle:()=>Promise<{data:unknown}>;then:Promise<{data:unknown}>["then"]};
-type Manifest={kind?:string;included?:number;exceptions?:number;recipient?:{company?:string;contact?:string};issuer?:{name?:string;email?:string};acknowledgement?:{status?:string};message?:string;electronic_seal?:{status?:string;qualification?:string}};
-type Pack={package_number:string;version:number;name:string;state:string;destination:string;purpose:string;manifest:Manifest|null};
+type Manifest={kind?:string;included?:number;exceptions?:number;excluded?:number;recipient?:{company?:string;contact?:string};issuer?:{name?:string;email?:string};acknowledgement?:{status?:string};message?:string;electronic_seal?:{status?:string;qualification?:string}};
+type Pack={package_number:string;version:number;name:string;state:string;destination:string;purpose:string;storage_key?:string;manifest:Manifest|null};
 const params={organisationId:"org",projectId:"project",packageId:"package"};
 const endpoint="/api/v1/organisations/org/projects/project/work-packages/package";
 let pack:Pack|null,items:{id:string;document_number:string;discipline:string;document_type:string;revision_code:string|null;issue_status:string|null;inclusion_state:string}[];
 let reads:QueryRead[];
 const from=vi.fn();
+const rpc=vi.fn();
+const revisionId="10000000-0000-4000-8000-000000000001";
+let staging:WorkPackageStagingData;
+let role:string;
+let preview:unknown;
 beforeEach(()=>{
   vi.clearAllMocks();reads=[];
+  role="document_controller";preview=null;
   pack={package_number:"WP-001",version:2,name:"Process handover",state:"ready",destination:"client_review",purpose:"Review",manifest:{included:2,exceptions:1}};
   items=[{id:"one",document_number:"ENG-PROC-001",discipline:"Process",document_type:"Report",revision_code:"R01",issue_status:"Issued for Review (IFR)",inclusion_state:"included"},{id:"two",document_number:"ENG-ELEC-002",discipline:"Electrical",document_type:"Drawing",revision_code:null,issue_status:null,inclusion_state:"missing_revision"}];
   from.mockImplementation((table:string)=>{
@@ -27,7 +36,12 @@ beforeEach(()=>{
     const query:Query={select:selection=>{read.selection=selection;return query;},eq:(column,value)=>{read.filters.push([column,value]);return query;},order:column=>{read.orders.push(column);return query;},maybeSingle:()=>promise,then:promise.then.bind(promise)};
     return query;
   });
-  vi.mocked(requireProject).mockResolvedValue({supabase:{from}} as never);
+  staging={updated_at:"2026-11-15T10:04:07.123456+00:00",preferred_status:"Issued for Design (IFD)",documents:[
+    {id:"10000000-0000-4000-8000-000000000002",document_number:"ENG-PROC-001",discipline:"Process",document_type:"Report",inclusion_state:"included",revision_id:revisionId,revisions:[{id:revisionId,revision_code:"R01",issue_status:"Issued for Review (IFR)"}]},
+    {id:"10000000-0000-4000-8000-000000000003",document_number:"ENG-ELEC-002",discipline:"Electrical",document_type:"Drawing",inclusion_state:"excluded",revision_id:null,revisions:[]},
+  ]};
+  rpc.mockImplementation(async()=>({data:staging,error:null}));
+  vi.mocked(requireProject).mockImplementation(async()=>({supabase:{from,rpc},access:{role},preview} as never));
 });
 afterEach(cleanup);
 const page=()=>PackagePage({params:Promise.resolve(params)});
@@ -40,17 +54,57 @@ describe("package detail scope and generation gates",()=>{
   it("retains the authenticated project, scoped package query and ordered frozen items",async()=>{
     await renderPage();
     expect(requireProject).toHaveBeenCalledExactlyOnceWith("org","project");
-    expect(reads).toEqual([{table:"work_packages",selection:"*",filters:[["id","package"],["organisation_id","org"],["project_id","project"]],orders:[]},{table:"work_package_items",selection:"*",filters:[["work_package_id","package"]],orders:["discipline","document_number"]}]);
+    expect(reads).toEqual([{table:"work_packages",selection:"*",filters:[["id","package"],["organisation_id","org"],["project_id","project"]],orders:[]},{table:"work_package_items",selection:"*",filters:[["work_package_id","package"],["organisation_id","org"],["project_id","project"]],orders:["discipline","document_number"]}]);
     expect(screen.getByRole("heading",{level:1,name:"Process handover"})).toBeTruthy();
     expect(screen.getByRole("link",{name:"Transmittals & work packages"}).getAttribute("href")).toBe("/app/org/projects/project/work-packages");
     expect(screen.getByRole("link",{name:"Download package"}).getAttribute("href")).toBe(`${endpoint}/download`);
     expect(screen.queryByRole("button",{name:/Generate/})).toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
   });
   it("does not render a missing package",async()=>{pack=null;await expect(page()).rejects.toThrow("NEXT_NOT_FOUND");});
-  it.each(["frozen","failed"])("retains the generation endpoint for %s packages",async state=>{
+  it("offers a new version for a ready ordinary ZIP without editing or regenerating that ZIP",async()=>{
+    pack!.storage_key="historical.zip";
+    await renderPage();
+    expect(screen.getByRole("link",{name:"Download package"}).getAttribute("href")).toBe(`${endpoint}/download`);
+    expect(screen.getByRole("button",{name:"Stage a new version"})).toBeTruthy();
+    expect(screen.getByText(/The existing ZIP stays unchanged/)).toBeTruthy();
+    expect(WorkPackageStaging).not.toHaveBeenCalled();expect(WorkPackageGenerate).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("does not offer restaging for a ready package in audited preview",async()=>{
+    pack!.storage_key="historical.zip";preview={memberId:"dcc-user"};await renderPage();
+    expect(screen.queryByRole("button",{name:"Stage a new version"})).toBeNull();
+  });
+  it.each(["frozen","failed"])("hands the generator to the editor only for a saved valid selection in %s state",async state=>{
     pack!.state=state;await renderPage();
     expect(screen.queryByRole("link",{name:"Download package"})).toBeNull();
-    expect(vi.mocked(WorkPackageGenerate).mock.calls[0][0]).toMatchObject({endpoint:`${endpoint}/generate`,label:"Generate package ZIP",loadingLabel:"Building secure ZIP…"});
+    expect(screen.getByRole("region",{name:"Review package selection"})).toBeTruthy();
+    expect(WorkPackageGenerate).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledExactlyOnceWith("get_work_package_staging",{target_organisation:"org",target_project:"project",target_package:"package"});
+    expect(vi.mocked(WorkPackageStaging).mock.calls[0][0]).toEqual({...params,staging,generateEndpoint:`${endpoint}/generate`});
+    expect(screen.queryByRole("region",{name:"Package documents"})).toBeNull();
+  });
+  it.each(["status_mismatch","missing_revision","unsafe_included"])("lets the DCC repair %s rather than enable ZIP generation",async state=>{
+    pack!.state="frozen";
+    staging.documents[1].inclusion_state=state==="unsafe_included"?"included":state;
+    await renderPage();
+    expect(vi.mocked(WorkPackageStaging).mock.calls[0][0].generateEndpoint).toBeUndefined();
+    expect(screen.getByText("Review selection")).toBeTruthy();
+  });
+  it("reports an unavailable staging read without offering generation",async()=>{
+    pack!.state="failed";rpc.mockResolvedValue({data:null,error:{message:"private table error"}});await renderPage();
+    expect(screen.getByRole("heading",{name:"Package staging could not be loaded"})).toBeTruthy();
+    expect(screen.getByRole("link",{name:"Retry loading"})).toBeTruthy();
+    expect(WorkPackageGenerate).not.toHaveBeenCalled();expect(WorkPackageStaging).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("private table error");
+  });
+  it("gives audited previews and other project roles the existing read-only document list",async()=>{
+    pack!.state="frozen";preview={memberId:"dcc-user"};
+    const previewView=await renderPage();
+    expect(rpc).not.toHaveBeenCalled();expect(WorkPackageStaging).not.toHaveBeenCalled();
+    expect(screen.getByRole("region",{name:"Package documents"})).toBeTruthy();
+    previewView.unmount();preview=null;role="engineer";
+    await renderPage();expect(rpc).not.toHaveBeenCalled();expect(WorkPackageStaging).not.toHaveBeenCalled();
   });
   it.each(["draft","building","processing","cancelled"])("does not expose download or generation in state %s",async state=>{
     pack!.state=state;await renderPage();
@@ -61,9 +115,12 @@ describe("package detail scope and generation gates",()=>{
     const view=await renderPage();
     expect(screen.getByRole("heading",{name:"Client document transmittal"})).toBeTruthy();
     expect(vi.mocked(WorkPackageGenerate).mock.calls[0][0]).toMatchObject({endpoint:`${endpoint}/generate`,label:"Generate transmittal ZIP",loadingLabel:"Preparing transmittal and documents…"});
+    expect(rpc).not.toHaveBeenCalled();expect(WorkPackageStaging).not.toHaveBeenCalled();
     view.unmount();pack!.state="ready";
+    pack!.storage_key="issued-transmittal.zip";
     await renderPage();
     expect(screen.getByRole("link",{name:"Download transmittal ZIP"}).getAttribute("href")).toBe(`${endpoint}/download`);
+    expect(screen.queryByRole("button",{name:"Stage a new version"})).toBeNull();
   });
 });
 

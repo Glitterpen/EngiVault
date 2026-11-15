@@ -42,6 +42,14 @@ it("uses human-facing inclusion and exception labels without hiding exceptions",
   expect(screen.getByRole("status").textContent).toBe("2 of 4 documents · 1 discipline");
 });
 
+it("shows saved exclusions without treating them as unresolved exceptions", () => {
+  render(<WorkPackageDocuments items={[document("excluded", "Electrical", "excluded"), document("missing", "Electrical", "missing_revision")]} />);
+  fireEvent.click(screen.getByText("Electrical").closest("summary")!);
+  expect(screen.getByText("1 excluded")).toBeTruthy();
+  expect(screen.getByText("1 exception")).toBeTruthy();
+  expect(screen.getByText("Excluded from package")).toBeTruthy();
+});
+
 it("offers a recoverable empty search and restores collapsed folders when cleared", () => {
   const {container} = render(<WorkPackageDocuments items={items} />);
   fireEvent.change(screen.getByRole("searchbox"), {target: {value: "does not exist"}});

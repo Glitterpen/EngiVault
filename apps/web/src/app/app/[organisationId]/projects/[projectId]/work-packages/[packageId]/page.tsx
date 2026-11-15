@@ -6,11 +6,16 @@ import { WorkPackageGenerate } from "@/components/work-package-generate";
 import { WorkspacePageHeading } from "@/components/workspace-page-heading";
 import {ReadUnavailable} from "@/components/read-unavailable";
 import {WorkPackageDocuments, type WorkPackageDocument} from "@/components/work-package-documents";
+import {WorkPackageStaging} from "@/components/work-package-staging";
+import {WorkPackageRestage} from "@/components/work-package-restage";
+import {can} from "@/lib/permissions";
+import {hasGeneratableSelection, workPackageStagingSchema} from "@/lib/work-package-staging";
 
 type PackageManifest = {
   kind?: string;
   included?: number;
   exceptions?: number;
+  excluded?: number;
   issued_at?: string;
   recipient?: { company?: string; contact?: string; email?: string };
   issuer?: { name?: string; email?: string };
@@ -32,7 +37,7 @@ export default async function PackagePage({
   params: Promise<{ organisationId: string; projectId: string; packageId: string }>;
 }) {
   const { organisationId, projectId, packageId } = await params;
-  const { supabase } = await requireProject(organisationId, projectId);
+  const {supabase,access,preview}=await requireProject(organisationId, projectId);
   const retryHref=`/app/${organisationId}/projects/${projectId}/work-packages/${packageId}`;
   const [{ data: pack, error: packageError }, { data: items, error: itemsError }] = await Promise.all([
     supabase
@@ -42,13 +47,24 @@ export default async function PackagePage({
       .eq("organisation_id", organisationId)
       .eq("project_id", projectId)
       .maybeSingle(),
-    supabase.from("work_package_items").select("*").eq("work_package_id", packageId).order("discipline").order("document_number"),
+    supabase.from("work_package_items").select("*").eq("work_package_id", packageId).eq("organisation_id",organisationId).eq("project_id",projectId).order("discipline").order("document_number"),
   ]);
   if(packageError)return <ReadUnavailable title="Work package is temporarily unavailable" href={retryHref}/>;
   if (!pack) notFound();
-  if(itemsError)return <ReadUnavailable title="Package documents are temporarily unavailable" href={retryHref}>The frozen document list could not be loaded. Retry before generating or checking this package.</ReadUnavailable>;
   const manifest = (pack.manifest ?? {}) as PackageManifest;
   const isTransmittal = manifest.kind === "document_transmittal";
+  const canEdit=!preview&&can(String(access.role),"document:write");
+  const editable=canEdit&&!isTransmittal&&!pack.storage_key&&["draft","frozen","failed"].includes(pack.state);
+  const staging=editable?await (async()=>{
+    try{
+      const {data,error}=await supabase.rpc("get_work_package_staging",{target_organisation:organisationId,target_project:projectId,target_package:packageId});
+      if(error)return null;
+      const parsed=workPackageStagingSchema.safeParse(data);
+      return parsed.success?parsed.data:null;
+    }catch{return null;}
+  })():null;
+  if(itemsError&&!staging)return <ReadUnavailable title="Package documents are temporarily unavailable" href={retryHref}>The package document list could not be loaded. Retry before generating or checking this package.</ReadUnavailable>;
+  const generateSelection=staging&&["frozen","failed"].includes(pack.state)&&hasGeneratableSelection(staging);
   const seal = manifest.electronic_seal;
   const isQualifiedSeal = seal?.status === "qualified_electronic_seal" && seal.qualification === "provider_verified";
   const hasElectronicSeal = seal?.status === "electronic_seal" || isQualifiedSeal;
@@ -62,24 +78,27 @@ export default async function PackagePage({
       <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"><div className="min-w-0 flex-1"><WorkspacePageHeading
         title={isTransmittal ? "Client document transmittal" : pack.name}
         context={<><span className="break-all">{pack.package_number}</span> · Version {pack.version}</>}
-      /></div>{(pack.state === "ready"||pack.state === "frozen"||pack.state === "failed")&&<div className="w-full shrink-0 sm:w-auto xl:max-w-sm">{pack.state === "ready" ? (
+      /></div>{(pack.state==="ready"||(isTransmittal&&canEdit&&(pack.state==="frozen"||pack.state==="failed")))&&<div className="w-full shrink-0 sm:w-auto xl:max-w-sm">{pack.state === "ready" ? (
           <a className="ev-button min-h-11 w-full justify-center sm:w-auto" href={`${endpoint}/download`}>
             <Download size={16} aria-hidden="true" /> {isTransmittal ? "Download transmittal ZIP" : "Download package"}
           </a>
-        ) : pack.state === "frozen" || pack.state === "failed" ? (
+        ) : (
           <WorkPackageGenerate
             endpoint={`${endpoint}/generate`}
-            label={isTransmittal ? "Generate transmittal ZIP" : "Generate package ZIP"}
-            loadingLabel={isTransmittal ? "Preparing transmittal and documents…" : "Building secure ZIP…"}
+            label="Generate transmittal ZIP"
+            loadingLabel="Preparing transmittal and documents…"
           />
-        ) : null}</div>}</div>
+        )}</div>}</div>
 
-      <dl aria-label="Package summary" className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-[#d6e0ed] bg-white px-4 py-4 lg:grid-cols-4 sm:px-5">
-        <Detail label="Status" value={packageStateLabel(pack.state, isTransmittal)} />
+      <dl aria-label="Package summary" className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-[#d6e0ed] bg-white px-4 py-4 sm:px-5 ${!isTransmittal&&manifest.excluded!==undefined?"lg:grid-cols-5":"lg:grid-cols-4"}`}>
+        <Detail label="Status" value={staging&&!generateSelection?"Review selection":packageStateLabel(pack.state,isTransmittal)} />
         <Detail label="Included" value={String(Number(manifest.included ?? 0))} />
         <Detail label="Exceptions" value={String(Number(manifest.exceptions ?? 0))} />
-        <Detail label={isTransmittal ? "Recipient" : "Destination"} value={isTransmittal ? manifest.recipient?.company ?? "Client" : pack.destination.replaceAll("_", " ")} />
+        {!isTransmittal&&manifest.excluded!==undefined&&<Detail label="Excluded" value={String(manifest.excluded)} />}
+        <Detail label={isTransmittal?"Recipient":"Destination"} value={isTransmittal?manifest.recipient?.company??"Client":pack.destination.replaceAll("_"," ")} />
       </dl>
+
+      {canEdit&&!isTransmittal&&pack.state==="ready"&&pack.storage_key&&<WorkPackageRestage organisationId={organisationId} projectId={projectId} packageId={packageId} hasExceptions={Number(manifest.exceptions??0)>0}/>}
 
       {isTransmittal && <>
         <details className="ev-card group mt-3">
@@ -109,14 +128,15 @@ export default async function PackagePage({
         </section>
       </>}
 
-      <WorkPackageDocuments items={(items ?? []).map((item: WorkPackageDocument) => ({id: item.id, document_number: item.document_number, discipline: item.discipline, document_type: item.document_type, revision_code: item.revision_code, issue_status: item.issue_status, inclusion_state: item.inclusion_state}))} />
+      {editable&&!staging&&<section aria-labelledby="staging-unavailable" className="ev-card mt-4 p-4 sm:p-5"><h2 id="staging-unavailable" className="font-semibold">Package staging could not be loaded</h2><p className="mt-2 text-sm text-[#526675]">Retry to check which revisions can be included before generating a ZIP.</p><a href={retryHref} className="ev-button-secondary mt-3">Retry loading</a></section>}
+      {staging?<WorkPackageStaging key={staging.updated_at} organisationId={organisationId} projectId={projectId} packageId={packageId} staging={staging} generateEndpoint={generateSelection?`${endpoint}/generate`:undefined}/>:<WorkPackageDocuments items={(items ?? []).map((item: WorkPackageDocument) => ({id: item.id, document_number: item.document_number, discipline: item.discipline, document_type: item.document_type, revision_code: item.revision_code, issue_status: item.issue_status, inclusion_state: item.inclusion_state}))} />}
     </div>
   );
 }
 
 function packageStateLabel(state: string, transmittal: boolean) {
   if (state === "ready") return transmittal ? "Transmittal generated" : "Ready to download";
-  if (state === "frozen") return "Frozen · awaiting ZIP";
+  if (state === "frozen") return transmittal ? "Frozen · awaiting ZIP" : "Staged · awaiting ZIP";
   if (state === "generating") return "Preparing ZIP";
   if (state === "failed") return "Generation failed";
   const label = state.replaceAll("_", " ");

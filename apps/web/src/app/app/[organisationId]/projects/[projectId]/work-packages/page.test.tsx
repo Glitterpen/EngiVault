@@ -67,6 +67,7 @@ it("keeps DCC authority, tenant-scoped history reads and latest-first ordering",
   }
   expect(queries.get("work_packages")?.select).toHaveBeenCalledWith("id,package_number,name,version,state,destination,manifest,created_at");
   expect(queries.get("work_packages")?.order).toHaveBeenCalledWith("created_at",{ascending:false});
+  expect(queries.get("documents")?.eq).toHaveBeenCalledWith("lifecycle_status","active");
   expect(rpc).not.toHaveBeenCalled();
 });
 

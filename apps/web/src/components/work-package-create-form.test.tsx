@@ -12,7 +12,8 @@ it("preserves scoped hidden fields, required metadata, and existing scope/destin
   const form=screen.getByRole("form",{name:/Package details/}) as HTMLFormElement;
   expect(Object.fromEntries(new FormData(form))).toEqual({organisationId:"org",projectId:"project",packageNumber:"",name:"",purpose:"",discipline:"",requiredStatus:"",destination:"local"});
   expect((screen.getByLabelText("Package number") as HTMLInputElement).required).toBe(true);expect((screen.getByLabelText("Package name") as HTMLInputElement).required).toBe(true);expect((screen.getByLabelText(/Purpose/) as HTMLInputElement).required).toBe(false);
-  expect(screen.getByRole("option",{name:"Process"})).toBeTruthy();expect(screen.getByRole("button",{name:"Create and freeze package"}).classList.contains("min-h-11")).toBe(true);
+  expect(screen.getByRole("option",{name:"Process"})).toBeTruthy();expect(screen.getByRole("button",{name:"Stage package"}).classList.contains("min-h-11")).toBe(true);
+  expect(screen.getByLabelText("Preferred issue purpose")).toBeTruthy();
 });
 it("opens a collapsed creation panel when native validation reports an invalid field",()=>{
   const {container}=render(<details><summary>Create frozen package</summary><WorkPackageCreateForm {...props}/></details>);
@@ -28,5 +29,5 @@ it("preserves the selected creation payload and reveals returned errors even if 
 });
 it("continues to disable creation in audited preview",()=>{
   render(<AdminPreviewBoundary preview={{organisationId:"org",projectId:"project",role:"document_controller",displayName:"DCC",disciplines:[],expiresAt:"2099-01-01"}}><WorkPackageCreateForm {...props}/></AdminPreviewBoundary>);
-  expect((screen.getByRole("button",{name:"Create and freeze package"}) as HTMLButtonElement).disabled).toBe(true);expect((screen.getByLabelText("Package number") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByRole("button",{name:"Stage package"}) as HTMLButtonElement).disabled).toBe(true);expect((screen.getByLabelText("Package number") as HTMLInputElement).disabled).toBe(true);
 });

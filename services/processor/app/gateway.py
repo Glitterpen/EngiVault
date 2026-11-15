@@ -111,14 +111,49 @@ class SupabaseGateway:
         response=self.client.post("/rest/v1/rpc/finish_revision_comparison",json={"target_comparison":comparison_id,"result_summary":summary,"result_changes":changes,"failure_code":failure_code});self._raise(response,"Comparison result could not be saved.")
 
     def package_data(self, package_id: str) -> tuple[dict[str, object], list[dict[str, object]], dict[str, dict[str, object]]]:
-        package=self.client.get("/rest/v1/work_packages",params={"id":f"eq.{package_id}","select":"*"});self._raise(package,"Package unavailable.")
-        if not package.json():raise GatewayError("Package unavailable.")
-        items=self.client.get("/rest/v1/work_package_items",params={"work_package_id":f"eq.{package_id}","select":"*","order":"discipline.asc,document_number.asc"});self._raise(items,"Package items unavailable.")
-        rows=items.json();ids=[row["revision_id"] for row in rows if row.get("revision_id") and row.get("inclusion_state")=="included"]
-        revisions={}
-        if ids:
-            result=self.client.get("/rest/v1/document_revisions",params={"id":f"in.({','.join(ids)})","select":"id,storage_key,original_filename,byte_size,sha256,native_storage_key,native_original_filename,native_byte_size,native_sha256"});self._raise(result,"Package revisions unavailable.");revisions={row["id"]:row for row in result.json()}
-        return package.json()[0],rows,revisions
+        package_response = self.client.get(
+            "/rest/v1/work_packages", params={"id": f"eq.{package_id}", "select": "*"},
+        )
+        self._raise(package_response, "Package unavailable.")
+        packages = package_response.json()
+        if not packages:
+            raise GatewayError("Package unavailable.")
+
+        # The API caps rows per request. Read the complete frozen register, using
+        # a unique ordering and advancing by the number actually returned.
+        rows = []
+        while True:
+            item_response = self.client.get("/rest/v1/work_package_items", params={
+                "work_package_id": f"eq.{package_id}", "select": "*",
+                "order": "discipline.asc,document_number.asc,id.asc",
+                "limit": "500", "offset": str(len(rows)),
+            })
+            self._raise(item_response, "Package items unavailable.")
+            page = item_response.json()
+            if not page:
+                break
+            rows.extend(page)
+
+        # Use only checked rows and the exact frozen revision IDs. Keep each API
+        # URL small even when the package spans the whole master register.
+        revision_ids = list(dict.fromkeys(
+            row["revision_id"] for row in rows
+            if row.get("revision_id") and row.get("inclusion_state") == "included"
+        ))
+        revisions = {}
+        for offset in range(0, len(revision_ids), 100):
+            batch = revision_ids[offset:offset + 100]
+            result = self.client.get("/rest/v1/document_revisions", params={
+                "id": f"in.({','.join(batch)})",
+                "select": "id,storage_key,original_filename,byte_size,sha256,"
+                "native_storage_key,native_original_filename,native_byte_size,native_sha256",
+            })
+            self._raise(result, "Package revisions unavailable.")
+            matched = {row["id"]: row for row in result.json()}
+            if matched.keys() != set(batch):
+                raise GatewayError("Frozen revision unavailable.")
+            revisions.update(matched)
+        return packages[0], rows, revisions
 
     def download_key(self, storage_key: str, target: Path, max_bytes: int = 2_147_483_648, *, bucket: str | None = None) -> int:
         object_path=quote(storage_key,safe="/");written=0

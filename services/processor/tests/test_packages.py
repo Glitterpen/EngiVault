@@ -1,4 +1,6 @@
+import csv
 import hashlib
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -41,6 +43,51 @@ def test_package_contains_control_files_and_frozen_revision():
     assert any("/Native Source/" in name and name.endswith("drawing.dwg") for name in gateway.names)
     assert result["native_source_files"]==1
     assert gateway.finished[0]=="package-id"
+
+
+def test_final_zip_uses_chosen_older_revision_and_records_exclusions():
+    class SelectionGateway(FakeGateway):
+        def package_data(self, package_id):
+            package, items, revisions = super().package_data(package_id)
+            older_content = b"Chosen, previously accepted review copy"
+            self.sources["older"] = older_content
+            revisions["older"] = {
+                "storage_key": "older",
+                "original_filename": "earlier.pdf",
+                "sha256": hashlib.sha256(older_content).hexdigest(),
+            }
+            items[0].update(
+                revision_id="older", revision_code="R01", issue_status="Issued for Review",
+            )
+            items[1]["inclusion_state"] = "excluded"
+            items.append({
+                **items[0], "document_number": "DOC-003", "revision_id": "rev",
+                "inclusion_state": "excluded",
+            })
+            return package, items, revisions
+
+        def upload_package(self, storage_key, archive):
+            with ZipFile(archive) as package:
+                self.archive = {name: package.read(name) for name in package.namelist()}
+
+    gateway = SelectionGateway()
+    result = build_package(gateway, "package-id")
+    control = "00 - Package Control/"
+    selected_file = "Process/Drawing/Issued for Review/DOC-001_REV-R01_earlier.pdf"
+    assert {
+        name: contents for name, contents in gateway.archive.items()
+        if not name.startswith(control)
+    } == {selected_file: gateway.sources["older"]}
+    manifest = json.loads(gateway.archive[control + "package-manifest.json"])
+    assert [(row["document_number"], row["inclusion_state"]) for row in manifest["documents"]] == [
+        ("DOC-001", "included"), ("DOC-002", "excluded"), ("DOC-003", "excluded"),
+    ]
+    register = csv.DictReader(gateway.archive[control + "Master Document Register.csv"].decode().splitlines())
+    assert [row["inclusion_state"] for row in register] == ["included", "excluded", "excluded"]
+    expected_digest = hashlib.sha256(gateway.sources["older"]).hexdigest()
+    assert gateway.archive[control + "file-checksums.sha256"].decode() == f"{expected_digest}  {selected_file}"
+    assert result["archive_files"] == result["checksum_count"] == 1
+    assert result["native_source_files"] == 0
 
 
 @pytest.mark.parametrize("document_type", [

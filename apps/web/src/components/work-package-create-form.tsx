@@ -28,7 +28,7 @@ export function WorkPackageCreateForm({
     <form ref={form} action={action} onInvalidCapture={event=>{const disclosure=event.currentTarget.closest("details");if(disclosure)disclosure.open=true;}} aria-labelledby={`${id}-heading`} aria-busy={pending} className="min-w-0">
       <input type="hidden" name="organisationId" value={organisationId} />
       <input type="hidden" name="projectId" value={projectId} />
-      <h2 id={`${id}-heading`} className="flex items-center gap-2 text-base font-semibold"><Package size={18} aria-hidden="true" className="shrink-0 text-[#244b73]"/>Package details <HelpTip label="Create a work package">Choose the discipline and accepted issue status to include. Creating the package freezes those revisions; generate its ZIP separately from the package record.</HelpTip></h2>
+      <h2 id={`${id}-heading`} className="flex items-center gap-2 text-base font-semibold"><Package size={18} aria-hidden="true" className="shrink-0 text-[#244b73]"/>Package details <HelpTip label="Stage a work package">The issue purpose sets an initial preference. Review the staged package to choose other accepted revisions or exclude documents before generating its ZIP.</HelpTip></h2>
       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2"><Field name="packageNumber" label="Package number" placeholder="FWP-001" />
       <Field name="name" label="Package name" placeholder="Final engineering work package" />
       <div className="sm:col-span-2"><Field name="purpose" label="Purpose" optional /></div></div>
@@ -43,9 +43,9 @@ export function WorkPackageCreateForm({
       </label>
       <div className="min-w-0 [&>div]:mt-0 [&>div>div]:min-h-8"><IssueStatusSelect
         name="requiredStatus"
-        label="Required issue status"
+        label="Preferred issue purpose"
         allowEmpty
-        emptyLabel="Any accepted issue status"
+        emptyLabel="Latest eligible revision"
       /></div>
       <label className="block min-w-0">
         <span className="ev-label mb-2 flex min-h-8 items-center">Delivery destination</span>
@@ -57,7 +57,7 @@ export function WorkPackageCreateForm({
       </label></div></fieldset>
       {state?.message && <p role="alert" className="mt-3 break-words rounded-lg border border-[#efd1c1] bg-[#fff8f3] p-3 text-sm leading-6 text-[#8b3d1f]">{state.message}</p>}
       <div className="mt-4 flex flex-col gap-2 sm:items-end"><button className="ev-button min-h-11 w-full sm:w-auto" disabled={pending}>
-        {pending ? "Freezing revisions…" : "Create and freeze package"}
+        {pending ? "Staging package…" : "Stage package"}
       </button></div>
     </form>
   );
