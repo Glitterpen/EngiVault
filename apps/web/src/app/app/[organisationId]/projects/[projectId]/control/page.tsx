@@ -26,7 +26,7 @@ export default async function DocumentControlDashboard({params}:{params:Promise<
     }
   })();
   const [projectResult,documentResult,issueResult,teamResult,pendingRequests]=await Promise.all([
-    supabase.from("projects").select("code,name,project_introduction,key_objectives,planned_end_date").eq("organisation_id",organisationId).eq("id",projectId).single(),
+    supabase.from("projects").select("code,name,project_introduction,key_objectives,planned_start_date,planned_end_date").eq("organisation_id",organisationId).eq("id",projectId).single(),
     supabase.from("documents").select("id,document_number,discipline,planned_submission_date,document_revisions(state,control_status)").eq("organisation_id",organisationId).eq("project_id",projectId).eq("lifecycle_status","active").order("discipline").order("document_number"),
     supabase.from("project_issues").select("id,severity,status").eq("organisation_id",organisationId).eq("project_id",projectId).neq("status","resolved"),
     supabase.rpc("get_project_team",{target_organisation:organisationId,target_project:projectId}),

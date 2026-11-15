@@ -20,6 +20,7 @@ let preview:unknown;
 const from=vi.fn();
 const rpc=vi.fn();
 let requestQuery:ReturnType<typeof query>;
+let projectQuery:ReturnType<typeof query>;
 
 function query(result:QueryResult){
   const builder={
@@ -56,7 +57,7 @@ beforeEach(()=>{
   role="document_controller";
   preview=null;
   results={
-    projects:{data:{code:"FEED-01",name:"FEED engineering",project_introduction:"Project delivery brief",key_objectives:["Complete FEED safely"],planned_end_date:"2027-01-30"},error:null},
+    projects:{data:{code:"FEED-01",name:"FEED engineering",project_introduction:"Project delivery brief",key_objectives:["Complete FEED safely"],planned_start_date:"2026-09-07",planned_end_date:"2027-01-30"},error:null},
     documents:{data:[
       {id:"mechanical",document_number:"MEC-001",discipline:"Mechanical",planned_submission_date:null,document_revisions:[{state:"pending_upload",control_status:"submitted"},{state:"ready",control_status:"accepted"}]},
       {id:"electrical",document_number:"ELE-001",discipline:"Electrical & Instrumentation",planned_submission_date:null,document_revisions:[{state:"ready",control_status:"submitted"}]},
@@ -68,6 +69,7 @@ beforeEach(()=>{
   from.mockImplementation((table:string)=>{
     const builder=query(results[table]);
     if(table==="deliverable_requests")requestQuery=builder;
+    if(table==="projects")projectQuery=builder;
     return builder;
   });
   rpc.mockResolvedValue({data:[{role:"engineer"},{role:"document_controller"}],error:null});
@@ -118,12 +120,18 @@ it("counts only scoped requests awaiting DCC acceptance without loading or chang
   expect(rpc).toHaveBeenCalledWith("get_project_team",{target_organisation:organisationId,target_project:projectId});
 });
 
-it("keeps supplementary information in collapsed, keyboard-operable native disclosures",async()=>{
+it("shows the scoped project brief and dates while keeping supplementary sections collapsed",async()=>{
   render(await dashboard());
-  for(const label of ["MDR by discipline","Project brief and dates","Project issues"]){
+  for(const label of ["MDR by discipline","Project issues"]){
     expect(disclosure(label).open).toBe(false);
   }
-  expect(within(disclosure("Project brief and dates")).getByText("Project delivery brief")).toBeTruthy();
+  const brief=screen.getByRole("region",{name:"Project brief and dates"});
+  expect(brief.closest("details")).toBeNull();
+  expect(within(brief).getByText("Project delivery brief")).toBeTruthy();
+  expect(within(brief).getByText("Complete FEED safely")).toBeTruthy();
+  expect(Array.from(brief.querySelectorAll("time"),element=>element.dateTime)).toEqual(["2026-09-07","2027-01-30"]);
+  expect(projectQuery.select).toHaveBeenCalledWith("code,name,project_introduction,key_objectives,planned_start_date,planned_end_date");
+  expect(projectQuery.eq.mock.calls).toEqual([["organisation_id",organisationId],["id",projectId]]);
   expect(within(disclosure("Project issues")).getByRole("button",{name:"Report issue",hidden:true})).toBeTruthy();
 });
 
@@ -148,6 +156,7 @@ it("omits issue mutation controls during an audited read-only preview",async()=>
   preview={targetUserId:"reviewed-member"};
   render(await dashboard());
   expect(screen.queryByRole("button",{name:"Report issue",hidden:true})).toBeNull();
+  expect(within(screen.getByRole("region",{name:"Project brief and dates"})).getByText("Project delivery brief")).toBeTruthy();
   expect(disclosure("Project issues").textContent).toMatch(/read.only/i);
   expect(screen.getByRole("link",{name:"Open MDR"})).toBeTruthy();
   expect(screen.getByRole("link",{name:/^Review submissions 1 awaiting review/})).toBeTruthy();
