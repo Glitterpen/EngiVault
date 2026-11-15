@@ -7,14 +7,9 @@ import { requireProject, requireUser } from "@/lib/auth";
 export const runtime = "nodejs";
 
 const scope = z.object({ organisationId: z.uuid(), projectId: z.uuid().nullable() });
-const format = z.enum(["pdf", "docx"]);
 const headers = {
   "Cache-Control": "private, no-store",
   "X-Content-Type-Options": "nosniff",
-};
-const contentTypes = {
-  pdf: "application/pdf",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 
 function unavailable(status: number, message: string) {
@@ -34,11 +29,11 @@ export async function GET(request: Request, context: { params: Promise<{ organis
   const { organisationId } = await context.params;
   const query = new URL(request.url).searchParams;
   const parsedScope = scope.safeParse({ organisationId, projectId: query.get("project") });
-  const parsedFormat = format.safeParse(query.get("format") ?? "pdf");
-  if (!parsedScope.success || !parsedFormat.success) return unavailable(400, "Invalid guide request.");
+  if (!parsedScope.success || query.getAll("format").some((format) => format !== "pdf")) {
+    return unavailable(400, "Invalid guide request.");
+  }
 
   const { projectId } = parsedScope.data;
-  const extension = parsedFormat.data;
   let guide;
 
   if (projectId) {
@@ -56,13 +51,12 @@ export async function GET(request: Request, context: { params: Promise<{ organis
   if (!guide) return unavailable(403, "A user guide is not available for this role.");
 
   try {
-    const bytes = await readFile(join(process.cwd(), "assets", "user-guides", `${guide}.${extension}`));
-    const disposition = extension === "pdf" ? "inline" : "attachment";
+    const bytes = await readFile(join(process.cwd(), "assets", "user-guides", `${guide}.pdf`));
     return new Response(Uint8Array.from(bytes), {
       headers: {
         ...headers,
-        "Content-Type": contentTypes[extension],
-        "Content-Disposition": `${disposition}; filename="EngiCite-${guide}-user-guide.${extension}"`,
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="EngiCite-${guide}-user-guide.pdf"`,
         "Content-Length": String(bytes.byteLength),
       },
     });

@@ -1,5 +1,5 @@
 import {HelpTip} from "@/components/help-tip";
-import {UserGuideLinks} from "@/components/user-guide-links";
+import {UserGuideLink} from "@/components/user-guide-link";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {EngineerSubmissionGroup} from "@/components/engineer-submission-group";
 import {EngineerDisciplineFolder} from "@/components/engineer-discipline-folder";
@@ -111,7 +111,7 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
     <nav aria-label="Deliverable actions" className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1"><Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>My projects</Link><Link className="ev-button-secondary" aria-label="Create request: date change or additional deliverable" href={`/app/${organisationId}/projects/${projectId}/requests`}>Create request</Link></nav>
     <header className="mt-1 min-w-0">
       <WorkspacePageHeading title="My deliverables" context={<>{project?.code} · {project?.name}</>}/>
-      {!preview&&<UserGuideLinks organisationId={organisationId} projectId={projectId}/>}
+      {!preview&&<UserGuideLink organisationId={organisationId} projectId={projectId}/>}
       <nav aria-label="Engineer workspace sections" className="mt-1 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-b border-[#dde4eb] text-sm font-semibold text-[#10243e]">
         <a href="#project-brief" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">Project brief</a>
         <a href="#project-impact" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">My project impact</a>

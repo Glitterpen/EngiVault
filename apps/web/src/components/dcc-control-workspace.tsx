@@ -2,7 +2,7 @@ import type {ReactNode} from "react";
 import Link from "next/link";
 import {ArrowDown,ArrowRight,CalendarClock,ClipboardCheck,FileStack,PackageOpen,Send} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
-import {UserGuideLinks} from "@/components/user-guide-links";
+import {UserGuideLink} from "@/components/user-guide-link";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 
 export type DccProject={code:string;name:string;project_introduction:string|null;key_objectives:string[]|null;planned_start_date:string|null;planned_end_date:string|null};
@@ -28,7 +28,7 @@ export function DccControlWorkspace({organisationId,projectId,project,summary,di
   return <div className="@container mx-auto min-w-0 max-w-6xl space-y-4">
     <header className="min-w-0">
       <WorkspacePageHeading title="Document control centre" context={<>{project.code} · {project.name}</>} actions={<Link className="ev-button w-full shrink-0 sm:w-auto" href={`${base}/documents`}><FileStack size={16} aria-hidden="true"/>Open MDR</Link>}/>
-      {!preview&&<UserGuideLinks organisationId={organisationId} projectId={projectId}/>}
+      {!preview&&<UserGuideLink organisationId={organisationId} projectId={projectId}/>}
     </header>
     <div className="grid min-w-0 items-start gap-4 @min-[52rem]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <DccProjectBrief project={project}/>

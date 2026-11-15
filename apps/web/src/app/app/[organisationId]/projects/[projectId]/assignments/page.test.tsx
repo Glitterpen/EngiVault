@@ -46,8 +46,8 @@ it("does not invent a revision status after a failed revision fetch",async()=>{
 it("retains successfully loaded assignments but hides unavailable project aggregates",async()=>{
   render(await page());
   expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
-  expect(screen.getByRole("link",{name:/open pdf user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project");
-  expect(screen.getByRole("link",{name:/download.*guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project&format=docx");
+  expect(screen.getByRole("link",{name:/^user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project");
+  expect(screen.queryByRole("link",{name:/download word user guide/i})).toBeNull();
   expect(screen.getAllByRole("heading",{level:1})).toHaveLength(1);
   for(const identity of screen.getAllByText("P01 · Test project"))expect(identity.closest("details")).toBeNull();
   expect(screen.queryByText("Discipline Engineer workspace")).toBeNull();
@@ -63,8 +63,7 @@ it("does not offer the engineer guide in an audited read-only preview",async()=>
   state.preview=true;
   render(await page());
   expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
-  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
-  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
 });
 it("keeps the project brief and impact visible before deliverables while secondary actions start collapsed",async()=>{
   state.hasDocument=true;state.hasImpact=true;

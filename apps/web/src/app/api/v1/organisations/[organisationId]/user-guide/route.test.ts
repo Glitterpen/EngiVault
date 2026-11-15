@@ -40,7 +40,7 @@ it.each([
   ["project_admin", "project-manager"],
   ["document_controller", "document-controller"],
   ["engineer", "discipline-engineer"],
-])("serves the %s guide in both formats using the existing scope", async (role, guide) => {
+])("serves the %s guide as an inline PDF using the existing scope", async (role, guide) => {
   if (role) project(role);
   const response = await get(role ? projectParam : "");
   expect(response.status).toBe(200);
@@ -52,17 +52,19 @@ it.each([
   expect(Buffer.from(pdf).subarray(0, 5).toString()).toBe("%PDF-");
   expect(response.headers.get("content-length")).toBe(String(pdf.byteLength));
 
-  const word = await get(role ? `${projectParam}&format=docx` : "?format=docx");
-  expect(word.status).toBe(200);
-  expect(word.headers.get("content-type")).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-  expect(word.headers.get("content-disposition")).toBe(`attachment; filename="EngiCite-${guide}-user-guide.docx"`);
-  expect(Buffer.from(await word.arrayBuffer()).subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
   if (role) {
     expect(requireProject).toHaveBeenCalledWith(organisationId, projectId);
   } else {
     expect(rpc).toHaveBeenCalledWith("get_my_organisations");
     expect(eq).toHaveBeenCalledWith("organisation_id", organisationId);
   }
+});
+
+it("still accepts an explicit PDF format", async () => {
+  const response = await get(`${projectParam}&format=pdf`);
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toBe("application/pdf");
+  expect(response.headers.get("content-disposition")).toBe('inline; filename="EngiCite-project-manager-user-guide.pdf"');
 });
 
 it("ignores caller-supplied roles and names", async () => {
@@ -91,7 +93,7 @@ it.each([
   expect(readFile).not.toHaveBeenCalled();
 });
 
-it("does not serve either guide while a role preview is active", async () => {
+it("does not serve guides while a role preview is active", async () => {
   const preview = { role: "document_controller" };
   project("organisation_admin", preview, preview.role);
   vi.mocked(readAdminPreview).mockResolvedValue(preview as never);
@@ -116,6 +118,9 @@ it.each([
   ["", "not-an-organisation"],
   ["?project=", organisationId],
   ["?project=invalid", organisationId],
+  ["?format=docx", organisationId],
+  [`${projectParam}&format=docx`, organisationId],
+  ["?format=pdf&format=docx", organisationId],
   ["?format=../secrets", organisationId],
 ])("rejects invalid scope and format before authorising or reading a file", async (suffix, org) => {
   expect((await get(suffix, org)).status).toBe(400);

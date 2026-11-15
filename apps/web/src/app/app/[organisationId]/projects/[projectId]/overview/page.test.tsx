@@ -75,8 +75,8 @@ it("loads the authorised Project Manager overview with valid summary data and ed
   expect(briefProps).toHaveBeenCalledWith(expect.objectContaining({editable:true,organisationId:"org",projectId:"project"}));
   expect(revisionProps).toHaveBeenCalledWith(expect.objectContaining({readOnly:false,days:3}));
   expect(props().issueForm).toBeTruthy();
-  expect(screen.getByRole("link",{name:/open pdf user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project");
-  expect(screen.getByRole("link",{name:/download.*guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project&format=docx");
+  expect(screen.getByRole("link",{name:/^user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project");
+  expect(screen.queryByRole("link",{name:/download word user guide/i})).toBeNull();
   expect(screen.getByRole("button",{name:"Resolve issue",hidden:true}).closest("[data-preview-safe]")).toBeNull();
 });
 
@@ -125,8 +125,7 @@ it("does not read overview data if requireProject rejects access",async()=>{
 it("gives Organisation Administrators read-only execution controls",async()=>{
   role="organisation_admin";
   render(await page());
-  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
-  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
   expect(briefProps).toHaveBeenCalledWith(expect.objectContaining({editable:false}));
   expect(revisionProps).toHaveBeenCalledWith(expect.objectContaining({readOnly:true}));
   expect(props().issueForm).toBeUndefined();
@@ -138,8 +137,7 @@ it("gives Organisation Administrators read-only execution controls",async()=>{
 it("keeps an audited Project Manager preview read-only despite its management perspective",async()=>{
   preview={id:"audited-preview"};
   render(await page());
-  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
-  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
   expect(props().preview).toBe(true);
   expect(briefProps).toHaveBeenCalledWith(expect.objectContaining({editable:false}));
   expect(revisionProps).toHaveBeenCalledWith(expect.objectContaining({readOnly:true}));

@@ -87,8 +87,8 @@ it("renders the administrator Projects workspace with creation and organisation 
   expect(screen.getByRole("link",{name:"Manage organisation"}).getAttribute("href")).toBe("/app/org/settings");
   expect(screen.getByRole("link",{name:"Audit log"}).getAttribute("href")).toBe("/app/org/audit");
   expect(screen.getByRole("link",{name:"Plan & usage"}).getAttribute("href")).toBe("/app/org/subscription");
-  expect(screen.getByRole("link",{name:/open pdf user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide");
-  expect(screen.getByRole("link",{name:/download.*guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?format=docx");
+  expect(screen.getByRole("link",{name:/^user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide");
+  expect(screen.queryByRole("link",{name:/download word user guide/i})).toBeNull();
   expect(props().isAdmin).toBe(true);
   expect(props().metrics).toEqual(expect.objectContaining({activeProjects:2,averageCompletion:35,openIssues:1}));
 });
@@ -124,8 +124,7 @@ it("shows team assignments without administrator controls, creation or portfolio
   render(await page());
   expect(screen.getByRole("heading",{name:"My project assignments",level:1})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"New project"})).toBeNull();
-  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
-  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
   for(const name of ["Manage organisation","Audit log","Plan & usage"])expect(screen.queryByRole("link",{name})).toBeNull();
   expect(from).not.toHaveBeenCalledWith("project_document_progress");
   expect(from).not.toHaveBeenCalledWith("project_issues");
@@ -141,8 +140,7 @@ it("shows team assignments without administrator controls, creation or portfolio
 it("does not expose the organisation guide while an audited member preview is active",async()=>{
   vi.mocked(readAdminPreview).mockResolvedValueOnce({role:"engineer"} as never);
   render(await page());
-  expect(screen.queryByRole("link",{name:/open pdf user guide/i})).toBeNull();
-  expect(screen.queryByRole("link",{name:/download.*guide/i})).toBeNull();
+  expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
 });
 
 it("preserves the Executive Viewer redirect without loading project or operational data",async()=>{
