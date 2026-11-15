@@ -72,7 +72,7 @@ it("loads the authorised Project Manager overview with valid summary data and ed
   expect(props()).toMatchObject({organisationId:"org",projectId:"project",role:"project_admin",preview:false,issuesAvailable:true,resourcesAvailable:true});
   expect(props().summary).toMatchObject({completion:40,deliverables:2,overdue:1,openIssues:1,engineers:1,dcc:1});
   expect(props().summary.resources).toEqual([expect.objectContaining({discipline:"Electrical",assigned:1,gap:1})]);
-  expect(briefProps).toHaveBeenCalledWith(expect.objectContaining({editable:true,organisationId:"org",projectId:"project"}));
+  expect(briefProps).toHaveBeenCalledWith(expect.objectContaining({editable:true,compact:true,organisationId:"org",projectId:"project"}));
   expect(revisionProps).toHaveBeenCalledWith(expect.objectContaining({readOnly:false,days:3}));
   expect(props().issueForm).toBeTruthy();
   expect(screen.getByRole("link",{name:/^user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide?project=project");

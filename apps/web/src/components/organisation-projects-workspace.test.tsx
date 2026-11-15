@@ -162,7 +162,7 @@ describe("member workspace boundaries and routes",()=>{
     expect(screen.queryByRole("region",{name:"Active portfolio summary"})).toBeNull();
     expect(screen.queryByRole("button",{name:"New project"})).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
-    for(const name of ["Manage organisation","Audit log","Plan & usage"])expect(screen.queryByRole("link",{name})).toBeNull();
+    for(const name of [/^Manage organisation/,/^Audit log/,/^Plan & usage/,/^Browse projects/])expect(screen.queryByRole("link",{name})).toBeNull();
   });
   it("searches a member’s assigned discipline and role label without changing access links",()=>{
     workspace({projects,isAdmin:false,disciplines:{engineer:["Electrical","Instrumentation"]}});
@@ -234,12 +234,27 @@ describe("discipline engineer project dashboard",()=>{
 });
 
 describe("portfolio metrics and accessible project cards",()=>{
+  it("keeps the portfolio summary and organisation work queue visible before project search",()=>{
+    workspace();
+    const summary=screen.getByRole("region",{name:"Active portfolio summary"});
+    const queue=within(screen.getByRole("navigation",{name:"Organisation actions"})).getByRole("region",{name:"Work queue"});
+    const portfolio=screen.getByRole("region",{name:"Project portfolio"});
+    expect(summary.closest("details")).toBeNull();
+    expect(queue.closest("details")).toBeNull();
+    expect(summary.compareDocumentPosition(portfolio)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(queue.compareDocumentPosition(portfolio)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(queue).getByRole("link",{name:/^Browse projects/}).getAttribute("href")).toBe(`#${portfolio.id}`);
+    expect(portfolio.getAttribute("tabindex")).toBe("-1");
+    expect(within(portfolio).getByRole("heading",{level:2,name:"Project portfolio"}).className).not.toContain("sr-only");
+    expect(within(portfolio).getByRole("searchbox",{name:"Search projects"})).toBeTruthy();
+  });
+
   it("shows administrator actions and gives the real progressbar a project-specific name and numeric range",()=>{
     workspace({projects:[project("1")],metrics:{activeProjects:1,averageCompletion:40,attentionProjects:1,openIssues:1}});
     const actions=screen.getByRole("navigation",{name:"Organisation actions"});
-    expect(within(actions).getByRole("link",{name:"Manage organisation"}).getAttribute("href")).toBe("/app/org/settings");
-    expect(within(actions).getByRole("link",{name:"Audit log"}).getAttribute("href")).toBe("/app/org/audit");
-    expect(within(actions).getByRole("link",{name:"Plan & usage"}).getAttribute("href")).toBe("/app/org/subscription");
+    expect(within(actions).getByRole("link",{name:/^Manage organisation/}).getAttribute("href")).toBe("/app/org/settings");
+    expect(within(actions).getByRole("link",{name:/^Audit log/}).getAttribute("href")).toBe("/app/org/audit");
+    expect(within(actions).getByRole("link",{name:/^Plan & usage/}).getAttribute("href")).toBe("/app/org/subscription");
     expect(screen.getByRole("button",{name:"New project"})).toBeTruthy();
     expect(screen.getByRole("region",{name:"Active portfolio summary"})).toBeTruthy();
     const card=screen.getByRole("article",{name:projectName("Project 1")});

@@ -1,4 +1,5 @@
 import {HelpTip} from "@/components/help-tip";
+import {DashboardLead,DashboardWorkQueue,RoleDashboard} from "@/components/role-dashboard";
 import {UserGuideLink} from "@/components/user-guide-link";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {EngineerSubmissionGroup} from "@/components/engineer-submission-group";
@@ -13,6 +14,7 @@ import {
   Bell,
   CheckCircle2,
   ChevronDown,
+  ClipboardCheck,
   Clock3,
   FileUp,
   MessageSquareWarning,
@@ -106,29 +108,38 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
   const groupOptions={authorisedDisciplines:disciplines,getDiscipline:(item:DeliverableItem)=>item.document.discipline,getDocumentNumber:(item:DeliverableItem)=>item.document.document_number,getCreatedAt:(item:DeliverableItem)=>item.latest?.created_at,getDueDate:(item:DeliverableItem)=>item.schedule.next_submission_date,sort};
   const disciplineGroups=groupEngineerDisciplineItems({...groupOptions,items:filtered});
   const allByDiscipline=new Map(groupEngineerDisciplineItems({...groupOptions,items:deliverables}).map(group=>[normaliseDiscipline(group.discipline),group.items]));
+  const queue=[
+    {title:"Priority actions",description:"Find deliverables that need your attention.",href:`${filterHref(base,"action",search,sort)}#deliverables`,icon:<FileUp size={19} aria-hidden="true"/>,badge:{text:`${actionCount} to do`,attention:actionCount>0}},
+    {title:"Submissions under review",description:"Check the status of files with Document Control.",href:`${filterHref(base,"review",search,sort)}#deliverables`,icon:<ClipboardCheck size={19} aria-hidden="true"/>,badge:{text:`${reviewCount} under review`}},
+    {title:"Accepted deliverables",description:"Find the deliverables that have reached their required milestone.",href:`${filterHref(base,"accepted",search,sort)}#deliverables`,icon:<CheckCircle2 size={19} aria-hidden="true"/>,badge:{text:`${acceptedCount} accepted`}},
+    {title:"Notifications",description:"Read project updates and feedback in your inbox.",href:"/app/notifications",icon:<Bell size={19} aria-hidden="true"/>},
+  ];
 
-  return <div className="mx-auto min-w-0 max-w-[1450px]">
-    <nav aria-label="Deliverable actions" className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1"><Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>My projects</Link><Link className="ev-button-secondary" aria-label="Create request: date change or additional deliverable" href={`/app/${organisationId}/projects/${projectId}/requests`}>Create request</Link></nav>
-    <header className="mt-1 min-w-0">
-      <WorkspacePageHeading title="My deliverables" context={<>{project?.code} · {project?.name}</>}/>
+  return <RoleDashboard>
+    <header className="min-w-0">
+      <nav aria-label="Deliverable actions" className="mb-1 flex min-w-0 flex-wrap items-center gap-2"><Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>My projects</Link></nav>
+      <WorkspacePageHeading title="My deliverables" context={<>{project?.code} · {project?.name}</>} actions={<Link className="ev-button w-full shrink-0 sm:w-auto" aria-label="Create request: date change or additional deliverable" href={`/app/${organisationId}/projects/${projectId}/requests`}>Create request</Link>}/>
       {!preview&&<UserGuideLink organisationId={organisationId} projectId={projectId}/>}
-      <nav aria-label="Engineer workspace sections" className="mt-1 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-b border-[#dde4eb] text-sm font-semibold text-[#10243e]">
-        <a href="#project-brief" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">Project brief</a>
-        <a href="#project-impact" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">My project impact</a>
-        <a href="#deliverables" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">My disciplines <span className="ml-1 text-xs font-normal text-[#526675]">({disciplineGroups.length})</span></a>
-      </nav>
     </header>
 
-    <section aria-label="Assignment summary" className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-1 text-xs leading-5 text-[#526675]">
+    <DashboardLead>
+      <EngineerProjectContext project={project}/>
+      <DashboardWorkQueue id="engineer-work-queue" title="Work queue" items={queue}/>
+    </DashboardLead>
+
+    <section aria-label="Assignment summary" className="ev-card flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-xs leading-5 text-[#526675] sm:px-5">
       <h2 className="font-semibold">My progress</h2><p className="text-base font-semibold tabular-nums text-[#10243e]">{completion}%</p><div role="progressbar" aria-label="Stage-weighted progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion} className="h-1.5 min-w-24 max-w-48 flex-1 overflow-hidden rounded-full bg-[#dce5ef]"><div className="h-full rounded-full bg-[#10243e]" style={{width:`${completion}%`}}/></div><p className="break-words">DCC-accepted milestones · <span>100% at {projectTerminalIssueStatus(deliveryStage)}</span></p>
     </section>
 
-    <div className="mt-4 min-w-0 space-y-4">
-      <EngineerProjectContext project={project}/>
-      {impactAvailable?<EngineerProjectImpactSummary health={health} projectActual={projectActual} projectPlanned={projectPlanned} engineerActual={engineerActual} engineerPlanned={engineerPlanned} engineerShare={numberValue(impact.engineer_share_percent,totalWeight?100:0)} contribution={numberValue(impact.engineer_project_contribution_percent,completion)} expectedContribution={nullableNumber(impact.engineer_project_expected_contribution_percent)} delayImpact={nullableNumber(impact.engineer_project_delay_impact_points)}/>:<section id="project-impact" role="status" className="ev-card scroll-mt-24 p-4 sm:p-5"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-1 text-sm leading-6 text-[#617083]">Your assigned deliverables remain available below. Refresh to retry the project summary.</p></section>}
-    </div>
+    {impactAvailable?<EngineerProjectImpactSummary health={health} projectActual={projectActual} projectPlanned={projectPlanned} engineerActual={engineerActual} engineerPlanned={engineerPlanned} engineerShare={numberValue(impact.engineer_share_percent,totalWeight?100:0)} contribution={numberValue(impact.engineer_project_contribution_percent,completion)} expectedContribution={nullableNumber(impact.engineer_project_expected_contribution_percent)} delayImpact={nullableNumber(impact.engineer_project_delay_impact_points)}/>:<section id="project-impact" role="status" className="ev-card scroll-mt-24 p-4 sm:p-5"><h2 className="font-semibold">Project-wide progress is temporarily unavailable</h2><p className="mt-1 text-sm leading-6 text-[#617083]">Your assigned deliverables remain available below. Refresh to retry the project summary.</p></section>}
 
-      <section id="deliverables" aria-label="My deliverables" className="mt-6 min-w-0 scroll-mt-24">
+    <nav aria-label="Engineer workspace sections" className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-b border-[#dde4eb] px-1 text-sm font-semibold text-[#10243e]">
+      <a href="#project-brief" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">Project brief</a>
+      <a href="#project-impact" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">My project impact</a>
+      <a href="#deliverables" data-preview-safe className="inline-flex min-h-11 items-center rounded-lg">My disciplines <span className="ml-1 text-xs font-normal text-[#526675]">({disciplineGroups.length})</span></a>
+    </nav>
+
+      <section id="deliverables" aria-label="My deliverables" className="min-w-0 scroll-mt-24" tabIndex={-1}>
         <div className="mb-4 flex min-w-0 flex-wrap items-end justify-between gap-2"><div className="min-w-0"><h2 className="text-xl font-semibold tracking-tight text-[#10243e]">My disciplines</h2><p className="mt-1 text-sm leading-6 text-[#526675]">Open a discipline, then choose its issue-purpose group.</p></div><p className="text-xs leading-5 text-[#526675]">Project Manager-authorised disciplines · {disciplineGroups.length}</p></div>
         <form action={base} method="get" role="search" aria-label="Search my deliverables" className="flex min-w-0 flex-wrap items-end gap-2">
           {view!=="all"&&<input type="hidden" name="view" value={view}/>}
@@ -156,9 +167,11 @@ export default async function AssignmentsPage({params,searchParams}:{params:Prom
           })}
         </section>
       </section>
-    <CloseOutActions actions={closeOutActions} organisationId={organisationId} projectId={projectId} projectTotalWeight={projectTotalWeight}/>
-        <details id="engineer-notifications" className="mt-4 min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold"><Bell size={15} aria-hidden="true" className="mr-2 inline"/>Engineer notifications <span className="ml-1 font-normal text-[#526675]">({noticesAvailable?`${notices.length} recent`:"Unavailable"})</span></summary><div className="border-t border-[#e7ecef] px-4 py-2">{!noticesAvailable?<div role="alert" className="py-3 text-sm leading-6 text-[#7c431f]"><p>Recent notifications could not be loaded. Your deliverables remain available.</p><a href={`${filterHref(base,view,search,sort)}#engineer-notifications`} data-preview-safe className="inline-flex min-h-11 items-center rounded-lg font-semibold underline">Retry notifications</a></div>:notices.length?<ul className="divide-y divide-[#e7ecef]">{notices.map(notice=><li key={notice.id}><Link href={`/app/notifications/${notice.id}`} className="block min-h-11 rounded-lg py-3"><p className="break-words text-sm font-semibold">{notice.title}{!notice.read_at&&<span className="ml-2 text-xs font-medium text-[#10243e]">Unread</span>}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#526675]">{notice.body}</p></Link></li>)}</ul>:<p className="py-3 text-sm text-[#526675]">No project notifications yet.</p>}<Link href="/app/notifications" className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#10243e]">View all notifications</Link></div></details>
-  </div>;
+    <div className="grid min-w-0 items-start gap-3 @min-[52rem]:grid-cols-2">
+      <CloseOutActions actions={closeOutActions} organisationId={organisationId} projectId={projectId} projectTotalWeight={projectTotalWeight}/>
+      <details id="engineer-notifications" className="ev-card min-w-0 scroll-mt-24 overflow-hidden"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold sm:px-5"><Bell size={15} aria-hidden="true" className="mr-2 inline"/>Engineer notifications <span className="ml-1 font-normal text-[#526675]">({noticesAvailable?`${notices.length} recent`:"Unavailable"})</span></summary><div className="border-t border-[#e7ecef] px-4 py-2 sm:px-5">{!noticesAvailable?<div role="alert" className="py-3 text-sm leading-6 text-[#7c431f]"><p>Recent notifications could not be loaded. Your deliverables remain available.</p><a href={`${filterHref(base,view,search,sort)}#engineer-notifications`} data-preview-safe className="inline-flex min-h-11 items-center rounded-lg font-semibold underline">Retry notifications</a></div>:notices.length?<ul className="divide-y divide-[#e7ecef]">{notices.map(notice=><li key={notice.id}><Link href={`/app/notifications/${notice.id}`} className="block min-h-11 rounded-lg py-3"><p className="break-words text-sm font-semibold">{notice.title}{!notice.read_at&&<span className="ml-2 text-xs font-medium text-[#10243e]">Unread</span>}</p><p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#526675]">{notice.body}</p></Link></li>)}</ul>:<p className="py-3 text-sm text-[#526675]">No project notifications yet.</p>}<Link href="/app/notifications" className="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-[#10243e]">View all notifications</Link></div></details>
+    </div>
+  </RoleDashboard>;
 }
 
 function AssignmentsUnavailable({retryPath}:{retryPath:string}){
@@ -172,8 +185,8 @@ function AssignmentsUnavailable({retryPath}:{retryPath:string}){
 
 function CloseOutActions({actions,organisationId,projectId,projectTotalWeight}:{actions:DeliverableItem[];organisationId:string;projectId:string;projectTotalWeight:number}){
   const visible=actions.slice(0,8);
-  return <details className="mt-3 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
-    <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#10243e]">Priority close-out actions <span className={`ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-bold ${actions.length?"bg-[#fff0e9] text-[#a5452f]":"bg-[#eef3fa] text-[#10243e]"}`}>{actions.length} outstanding</span></summary>
+  return <details className="ev-card min-w-0 overflow-hidden">
+    <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-[#10243e] sm:px-5">Priority close-out actions <span className={`ml-2 inline-block rounded-full px-2.5 py-1 text-xs font-bold ${actions.length?"bg-[#fff0e9] text-[#a5452f]":"bg-[#eef3fa] text-[#10243e]"}`}>{actions.length} outstanding</span></summary>
     <div className="border-t border-[#edf1f7] p-3 sm:p-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">Gap recovery plan <HelpTip label="Closing delivery gaps">Work these items from the top down to recover the largest immediate delivery gaps.</HelpTip></h2>{actions.length>0&&<Link href={`?view=action#deliverables`} className="inline-flex min-h-11 items-center text-xs font-bold text-[#10243e] hover:text-[#e8733f]">View all {actions.length} actions</Link>}</div>
     {visible.length?<div className="mt-2 divide-y divide-[#edf1f7] rounded-xl border border-[#dce5ef]">{visible.map((item,index)=>{

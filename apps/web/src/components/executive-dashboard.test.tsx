@@ -13,8 +13,11 @@ describe("minimal executive dashboard",()=>{
     expect(screen.getByRole("progressbar",{name:"Refinery FEED progress"}).getAttribute("value")).toBe("50");
     expect(screen.getByText("20 pp behind plan")).toBeTruthy();
     expect(screen.getByText("10 / 20")).toBeTruthy();
-    expect(screen.getByText(/Start: 1 Sept 2026/)).toBeTruthy();
-    expect(screen.getByText(/Planned end: 31 Dec 2026/)).toBeTruthy();
+    const projectStatus=screen.getByRole("region",{name:"Project status"});
+    expect(Array.from(projectStatus.querySelectorAll("time"),date=>date.dateTime)).toEqual(["2026-09-01","2026-12-31"]);
+    expect(projectStatus.closest("details")).toBeNull();
+    expect(screen.getByRole("region",{name:"Active project summary"})).toBeTruthy();
+    expect(screen.getByRole("link",{name:"Jump to project status"}).getAttribute("href")).toBe(`#${projectStatus.id}`);
     expect(screen.queryByRole("link",{name:/documents|team|edit|upload|invite/i})).toBeNull();
     expect(screen.queryByRole("button",{name:/edit|upload|invite|delete/i})).toBeNull();
     fireEvent.click(screen.getByRole("button",{name:"Refresh status"}));
