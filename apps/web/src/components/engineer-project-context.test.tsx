@@ -21,15 +21,15 @@ afterEach(cleanup);
 describe("engineer project brief",()=>{
   it("keeps the Manager's introduction, all objectives and dates visible outside disclosures",()=>{
     const {container}=render(<EngineerProjectContext project={project}/>);
-    const brief=screen.getByRole("region",{name:"Project brief"});
+    const brief=screen.getByRole("region",{name:"Project brief and dates"});
     expect(brief.id).toBe("project-brief");
     expect(within(brief).getByRole("heading",{name:"Project introduction"})).toBeTruthy();
     const introduction=within(brief).getByText(/Replace obsolete control systems/);
     expect(introduction.textContent).toBe(project.project_introduction);
     expect(introduction.className).toContain("whitespace-pre-line");
     expect(within(brief).getAllByRole("listitem").map(item=>item.textContent)).toEqual(project.key_objectives);
-    expect(within(brief).getByText("7 Sept 2026")).toBeTruthy();
-    expect(within(brief).getByText("9 Oct 2026")).toBeTruthy();
+    expect(within(brief).getByText("07 Sept 2026").getAttribute("datetime")).toBe("2026-09-07");
+    expect(within(brief).getByText("09 Oct 2026").getAttribute("datetime")).toBe("2026-10-09");
     expect(within(brief).getByText("Issued for Design (IFD)")).toBeTruthy();
     expect(container.querySelector("details")).toBeNull();
     expect(container.querySelector('[class*="line-clamp"]')).toBeNull();
@@ -48,7 +48,7 @@ describe("engineer project brief",()=>{
     render(<EngineerProjectContext project={{...project,project_introduction:null,key_objectives:[],planned_start_date:null,planned_end_date:null}}/>);
     expect(screen.getByText("The Project Manager has not added the project introduction yet.")).toBeTruthy();
     expect(screen.getByText("No key objectives have been recorded yet.")).toBeTruthy();
-    expect(screen.getAllByText("Not set")).toHaveLength(2);
+    expect(screen.getAllByText("Not planned")).toHaveLength(2);
     expect(screen.queryByRole("list")).toBeNull();
   });
 

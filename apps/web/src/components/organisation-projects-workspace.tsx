@@ -2,10 +2,11 @@
 
 import {useId,useRef,useState,type ReactNode} from "react";
 import Link from "next/link";
-import {ArrowLeft,ArrowRight,Archive,FolderKanban,Search,Settings} from "lucide-react";
+import {ArrowLeft,ArrowRight,Archive,ClipboardList,CreditCard,FolderKanban,Search,Settings} from "lucide-react";
 import {HelpTip} from "@/components/help-tip";
 import {OrganisationLogo} from "@/components/organisation-logo";
 import {ProjectLogo} from "@/components/project-logo";
+import {DashboardLead,DashboardSummary,DashboardWorkQueue,RoleDashboard} from "@/components/role-dashboard";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {healthTone} from "@/lib/project-health";
 import {projectHomePath,roleLabel} from "@/lib/role-experience";
@@ -37,36 +38,40 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
   const activeEngineeringProjects=engineeringWorkspace?projects.filter(project=>project.status==="active"):[];
   const assignedDisciplineCount=activeEngineeringProjects.reduce((total,project)=>total+(disciplines[project.project_id]?.length??0),0);
 
-  return <div className="mx-auto min-w-0 max-w-[1450px] space-y-4">
+  const organisationActions=isAdmin?<nav aria-label="Organisation actions" className="min-w-0">
+    <DashboardWorkQueue title="Work queue" items={[
+      {title:"Browse projects",description:"Find active, archived, or deleted projects.",href:"#project-portfolio",icon:<FolderKanban size={19} aria-hidden="true"/>},
+      {title:"Manage organisation",description:"Open your organisation settings.",href:`${base}/settings`,icon:<Settings size={19} aria-hidden="true"/>},
+      {title:"Audit log",description:"Review recorded organisation activity.",href:`${base}/audit`,icon:<ClipboardList size={19} aria-hidden="true"/>},
+      {title:"Plan & usage",description:"View your subscription and workspace usage.",href:`${base}/subscription`,icon:<CreditCard size={19} aria-hidden="true"/>},
+    ]}/>
+  </nav>:null;
+
+  const workspace=<>
     <header className="min-w-0">
       <Link href="/app" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>Back to organisations</Link>
-      <div className="mt-1"><WorkspacePageHeading title={title} context={organisationName} logo={<OrganisationLogo organisationId={organisationId} name={organisationName} size={44} className="size-full object-contain"/>} help={<HelpTip label={isAdmin?"Projects dashboard guidance":"Project assignments guidance"}>{isAdmin?"Summary figures cover active projects only; completion is weighted by accepted MDR milestones, not time elapsed. Use Archived or Deleted to find projects outside the active portfolio.":"Choose a project to open its workspace. Engineer discipline assignments are listed on each project card."}</HelpTip>} actions={isAdmin&&createAction}/></div>
+      <div className="mt-1"><WorkspacePageHeading title={title} context={organisationName} logo={<OrganisationLogo organisationId={organisationId} name={organisationName} size={44} className="size-full object-contain"/>} help={!isAdmin?<HelpTip label="Project assignments guidance">Choose a project to open its workspace. Engineer discipline assignments are listed on each project card.</HelpTip>:undefined} actions={isAdmin&&createAction}/></div>
       {isAdmin&&guideAction}
-      {isAdmin&&<nav aria-label="Organisation actions" className="mt-2 flex flex-wrap gap-x-5 text-sm font-semibold text-[#526675]">
-        <Link href={`${base}/settings`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#10243e]"><Settings size={15} aria-hidden="true"/>Manage organisation</Link>
-        <Link href={`${base}/audit`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Audit log</Link>
-        <Link href={`${base}/subscription`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Plan &amp; usage</Link>
-      </nav>}
     </header>
 
     {notice}
+    {isAdmin&&(metrics?<DashboardLead>
+      <DashboardSummary title="Active portfolio summary" help={<HelpTip label="Portfolio summary guidance">Summary figures cover active projects only. Completion is weighted by accepted MDR milestones, not elapsed time. Use Archived or Deleted in the portfolio to find other projects.</HelpTip>} items={[
+        {label:"Active projects",value:metrics.activeProjects},
+        {label:"Average completion",value:metrics.averageCompletion===null?<UnavailableMetric/>:`${metrics.averageCompletion}%`},
+        {label:"Need attention",value:metrics.attentionProjects??<UnavailableMetric/>,attention:metrics.attentionProjects!==null&&metrics.attentionProjects>0},
+        {label:"Open issues",value:metrics.openIssues??<UnavailableMetric/>,attention:metrics.openIssues!==null&&metrics.openIssues>0},
+      ]}/>
+      {organisationActions}
+    </DashboardLead>:organisationActions)}
     {engineeringWorkspace&&<section aria-label="Your engineering work" className="rounded-2xl border border-[#dde4eb] bg-white">
       <dl className="grid grid-cols-2 divide-x divide-[#d6e0ed]">
         <PortfolioMetric label="Active projects" value={activeEngineeringProjects.length}/>
         <PortfolioMetric label="Discipline assignments" value={disciplinesAvailable?assignedDisciplineCount:null}/>
       </dl>
     </section>}
-    {isAdmin&&metrics&&<section aria-label="Active portfolio summary" className="rounded-2xl border border-[#dde4eb] bg-white">
-      <dl className="grid grid-cols-2 lg:grid-cols-4">
-        <PortfolioMetric label="Active projects" value={metrics.activeProjects}/>
-        <PortfolioMetric label="Average completion" value={metrics.averageCompletion} percent/>
-        <PortfolioMetric label="Need attention" value={metrics.attentionProjects}/>
-        <PortfolioMetric label="Open issues" value={metrics.openIssues}/>
-      </dl>
-    </section>}
-
-    <section aria-labelledby={`${searchId}-projects`} className="min-w-0 space-y-3">
-      <h2 id={`${searchId}-projects`} className="sr-only">{isAdmin?"Project portfolio":"Your workspaces"}</h2>
+    <section id={isAdmin?"project-portfolio":undefined} tabIndex={isAdmin?-1:undefined} aria-labelledby={`${searchId}-projects`} className={isAdmin?"min-w-0 scroll-mt-24 space-y-3 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10243e]":"min-w-0 space-y-3"}>
+      <h2 id={`${searchId}-projects`} className={isAdmin?"text-base font-semibold text-[#14263d]":"sr-only"}>{isAdmin?"Project portfolio":"Your workspaces"}</h2>
       <div className="grid min-w-0 gap-3 border-b border-[#dfe6e9] pb-3 lg:grid-cols-[minmax(240px,384px)_minmax(0,1fr)] lg:items-end">
         <label htmlFor={searchId} className="block min-w-0"><span className="mb-1 block text-sm font-medium text-[#526675]">Search projects</span><span className="relative block"><Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 text-[#617083]"/><input ref={search} id={searchId} aria-controls={`${searchId}-results`} type="search" maxLength={150} value={query} onChange={event=>{setQuery(event.target.value);setPage(1);}} className="ev-input pl-10" placeholder="Project code or name"/></span></label>
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -86,11 +91,17 @@ export function OrganisationProjectsWorkspace({organisationId,organisationName,p
 
       {pages>1&&<nav aria-label="Project pages" className="flex flex-wrap items-center justify-between gap-3 pt-2 text-sm text-[#526675]"><p>Page {currentPage} of {pages}</p><div className="flex gap-2"><button type="button" className="ev-button-secondary" disabled={currentPage===1} onClick={()=>{setPage(current=>Math.max(1,Math.min(current,pages)-1));results.current?.focus();}}>Previous</button><button type="button" className="ev-button-secondary" disabled={currentPage===pages} onClick={()=>{setPage(current=>Math.min(pages,current+1));results.current?.focus();}}>Next</button></div></nav>}
     </section>
-  </div>;
+  </>;
+
+  return isAdmin?<RoleDashboard>{workspace}</RoleDashboard>:<div className="mx-auto min-w-0 max-w-[1450px] space-y-4">{workspace}</div>;
 }
 
-function PortfolioMetric({label,value,percent=false}:{label:string;value:number|null;percent?:boolean}){
-  return <div className="min-w-0 px-4 py-3 sm:px-5"><dt className="text-sm text-[#526675]">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums text-[#10243e]">{value===null?<span className="text-base font-medium text-[#617083]">Unavailable</span>:`${value}${percent?"%":""}`}</dd></div>;
+function PortfolioMetric({label,value}:{label:string;value:number|null}){
+  return <div className="min-w-0 px-4 py-3 sm:px-5"><dt className="text-sm text-[#526675]">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums text-[#10243e]">{value??<UnavailableMetric/>}</dd></div>;
+}
+
+function UnavailableMetric(){
+  return <span className="text-base font-medium text-[#617083]">Unavailable</span>;
 }
 
 function ProjectCard({project,organisationId,isAdmin,disciplines,disciplinesAvailable}:{project:Project;organisationId:string;isAdmin:boolean;disciplines:string[];disciplinesAvailable:boolean}){

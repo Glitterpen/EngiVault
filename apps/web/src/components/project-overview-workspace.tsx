@@ -2,10 +2,11 @@
 
 import {useId,useRef,useState,type ReactNode} from "react";
 import Link from "next/link";
-import {ArrowLeft,ArrowRight,CheckCircle2,ChevronDown,FileText,Plus,UsersRound} from "lucide-react";
+import {ArrowDown,ArrowLeft,ArrowRight,CheckCircle2,ChevronDown,ClipboardList,FileText,Flag,Plus,Settings2,ShieldCheck,UsersRound} from "lucide-react";
 import {AppDialog} from "@/components/app-dialog";
 import {HelpTip} from "@/components/help-tip";
 import {ProjectLogo} from "@/components/project-logo";
+import {DashboardDates,DashboardLead,DashboardPanel,DashboardSummary,DashboardWorkQueue,RoleDashboard} from "@/components/role-dashboard";
 import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {healthTone} from "@/lib/project-health";
 import {projectDeliveryStageLabel,projectTerminalIssueStatus,type ProjectDeliveryStage} from "@/lib/project-delivery-stage";
@@ -20,48 +21,61 @@ const severityOrder:Record<string,number>={critical:0,high:1,medium:2,low:3};
 export function ProjectOverviewWorkspace({organisationId,projectId,project,role,preview,summary,issues,issuesAvailable,resourcesAvailable,brief,revisionCycle,issueForm,notice,guideAction,resolveIssueAction}:Props){
   const base=`/app/${organisationId}/projects/${projectId}`;
   const canManage=role==="project_admin"&&!preview;
-  const heading=useId();
-  return <div className="mx-auto min-w-0 max-w-[1450px] space-y-4">
+  const isOrganisationAdmin=role==="organisation_admin";
+  const milestone=project.delivery_stage?projectTerminalIssueStatus(project.delivery_stage):null;
+  const workQueue=[
+    {title:"Project issues",description:"Review open risks and track resolutions.",href:"#pm-project-issues",icon:<Flag size={19} aria-hidden="true"/>,badge:{text:summary.openIssues===null?"Count unavailable":`${summary.openIssues} open`,attention:(summary.openIssues??0)>0}},
+    {title:isOrganisationAdmin?"Project leadership":"Team & resources",description:canManage?"Review team appointments and plan discipline coverage.":"View project appointments and resource readiness.",href:`${base}/team`,icon:<UsersRound size={19} aria-hidden="true"/>},
+    {title:"Project templates",description:"Find the approved project templates.",href:`${base}/templates`,icon:<ClipboardList size={19} aria-hidden="true"/>},
+  ];
+  return <RoleDashboard>
     <header className="min-w-0">
       <Link href={`/app/${organisationId}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-[#10243e]"><ArrowLeft size={16} aria-hidden="true"/>Back to projects</Link>
       <div className="mt-1"><WorkspacePageHeading title="Project overview" context={<>{project.code} · {project.name}</>} logo={<ProjectLogo organisationId={organisationId} projectId={projectId} name={project.name} size={44} className="size-full object-contain"/>} actions={<Link href={`${base}/reports`} className="ev-button w-full shrink-0 sm:w-auto"><FileText size={16} aria-hidden="true"/>Project report</Link>}/></div>
       {guideAction}
-      <nav aria-label="Project overview actions" className="mt-2 flex flex-wrap gap-x-5 text-sm font-semibold text-[#526675]">
-        <Link href={`${base}/team`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#10243e]"><UsersRound size={15} aria-hidden="true"/>{role==="organisation_admin"?"Project leadership":"Team & resources"}</Link>
-        <Link href={`${base}/templates`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Project templates</Link>
-        {role==="organisation_admin"&&<Link href={`${base}/administration`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Admin controls</Link>}
-        {canManage&&<Link href={`${base}/settings`} className="inline-flex min-h-11 items-center rounded-lg hover:text-[#10243e]">Project settings</Link>}
-
-      </nav>
     </header>
 
     {notice}
-    <section aria-labelledby={`${heading}-summary`} className="min-w-0 rounded-2xl border border-[#dde4eb] bg-white">
-      <div className="grid min-w-0 gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-8">
-        <div className="min-w-0"><div className="flex flex-wrap items-center justify-between gap-2"><h2 id={`${heading}-summary`} className="inline-flex items-center gap-1 text-sm font-semibold">Delivery progress<HelpTip label="Project completion milestones">Progress is weighted by accepted issue milestones, not time elapsed. A deliverable reaches 100% at {projectTerminalIssueStatus(project.delivery_stage)} after DCC acceptance.</HelpTip></h2><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${summary.health?healthTone(summary.health):"bg-[#eef1f4] text-[#526675]"}`}>{summary.health??"Health unavailable"}</span></div>
-          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2"><p className="text-3xl font-semibold tabular-nums">{summary.completion===null?<span className="text-base text-[#526675]">Unavailable</span>:`${summary.completion}%`}</p><p className="text-xs text-[#526675]">{projectDeliveryStageLabel(project.delivery_stage)}</p></div>
-          {summary.completion!==null&&<div role="progressbar" aria-label="Stage-weighted MDR completion" aria-valuenow={summary.completion} aria-valuemin={0} aria-valuemax={100} className="mt-2 h-2 overflow-hidden rounded-full bg-[#eef3fa]"><div className="h-full rounded-full bg-[#10243e]" style={{width:`${summary.completion}%`}}/></div>}
-        </div>
-        <dl className="grid min-w-0 grid-cols-3 gap-3 self-center"><Datum label="MDR deliverables" value={summary.deliverables}/><Datum label="Overdue" value={summary.overdue} warn={summary.overdue!==null&&summary.overdue>0}/><Datum label="Open issues" value={summary.openIssues}/></dl>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[#e7ecef] px-4 py-3 sm:grid-cols-4 sm:px-5"><Datum label="Planned start" value={formatDate(project.planned_start_date)} compact/><Datum label="Planned completion" value={formatDate(project.planned_end_date)} compact/><Datum label="Engineers" value={summary.engineers} compact/><Datum label="Document controllers" value={summary.dcc} compact/></dl>
+    <DashboardLead>
+      <DashboardPanel title="Project brief and dates" action={<a href="#pm-work-queue" className="inline-flex min-h-11 items-center gap-1 rounded-sm text-sm font-medium text-[#24384f] underline underline-offset-4 @min-[52rem]:hidden">Jump to work queue<ArrowDown size={14} aria-hidden="true"/></a>}>
+        <div className="space-y-4"><DashboardDates start={project.planned_start_date} end={project.planned_end_date}/>{brief}</div>
+      </DashboardPanel>
+      <DashboardWorkQueue id="pm-work-queue" title="Work queue" items={workQueue}/>
+    </DashboardLead>
+
+    <DashboardLead>
+      <DashboardPanel title="Delivery progress" action={<HelpTip label="Project completion milestones">Progress is weighted by accepted issue milestones, not time elapsed. {milestone?<>A deliverable reaches 100% at {milestone} after DCC acceptance.</>:"Configure the delivery stage to set the completion milestone."}</HelpTip>}>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2"><p className="text-3xl font-semibold tabular-nums text-[#14263d]">{summary.completion===null?<span className="text-base text-[#526675]">Unavailable</span>:`${summary.completion}%`}</p><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${summary.health?healthTone(summary.health):"bg-[#eef1f4] text-[#526675]"}`}>{summary.health??"Health unavailable"}</span></div>
+        {summary.completion!==null&&<div role="progressbar" aria-label="Stage-weighted MDR completion" aria-valuenow={summary.completion} aria-valuemin={0} aria-valuemax={100} className="mt-2 h-2 overflow-hidden rounded-full bg-[#eef3fa]"><div className="h-full rounded-full bg-[#10243e]" style={{width:`${summary.completion}%`}}/></div>}
+        <p className="mt-3 text-xs leading-5 text-[#526675]">{projectDeliveryStageLabel(project.delivery_stage)}{milestone?` · 100% at ${milestone}`:null}</p>
+      </DashboardPanel>
+      <DashboardSummary title="Project summary" items={[
+        {label:"MDR deliverables",value:metric(summary.deliverables)},
+        {label:"Overdue",value:metric(summary.overdue),attention:(summary.overdue??0)>0},
+        {label:"Open issues",value:metric(summary.openIssues)},
+        {label:"Engineers",value:metric(summary.engineers)},
+        {label:"Document controllers",value:metric(summary.dcc)},
+      ]}/>
+    </DashboardLead>
+
+    <DashboardLead>
+      <ProjectIssues organisationId={organisationId} projectId={projectId} issues={issues} available={issuesAvailable} canManage={canManage} issueForm={issueForm} resolveIssueAction={resolveIssueAction}/>
+      <ResourceReadiness resources={summary.resources} available={resourcesAvailable} base={base} canManage={canManage}/>
+    </DashboardLead>
+
+    <section aria-label="Project details and planning" className="grid min-w-0 items-start gap-3">
+      <details className="group ev-card min-w-0 overflow-hidden"><summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden sm:px-5"><span>Revision cycle</span><span className="inline-flex items-center gap-3 text-xs font-normal text-[#526675]">{project.revision_cycle_days?`${project.revision_cycle_days} working days`:"Not set"}<ChevronDown size={17} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180"/></span></summary><div className="border-t border-[#e7ecef] p-4 sm:p-5">{revisionCycle}</div></details>
     </section>
 
-    <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-      <div className="min-w-0 space-y-4">
-      <ProjectIssues organisationId={organisationId} projectId={projectId} issues={issues} available={issuesAvailable} canManage={canManage} issueForm={issueForm} resolveIssueAction={resolveIssueAction}/>
-    <section aria-label="Project details and planning" className="grid min-w-0 items-start gap-3">
-      <details className="group min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden sm:px-5"><span>Project brief &amp; objectives</span><ChevronDown size={17} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180"/></summary><div className="border-t border-[#e7ecef] p-4 sm:p-5">{brief}</div></details>
-      <details className="group min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden sm:px-5"><span>Revision cycle</span><span className="inline-flex items-center gap-3 text-xs font-normal text-[#526675]">{project.revision_cycle_days?`${project.revision_cycle_days} working days`:"Not set"}<ChevronDown size={17} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180"/></span></summary><div className="border-t border-[#e7ecef] p-4 sm:p-5">{revisionCycle}</div></details>
-    </section>
-      </div>
-      <ResourceReadiness resources={summary.resources} available={resourcesAvailable} base={base} canManage={canManage}/>
-    </div>
-  </div>;
+    {canManage||isOrganisationAdmin?<nav aria-label="Project overview actions" className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs font-semibold text-[#526675]">
+      {isOrganisationAdmin?<Link href={`${base}/administration`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#10243e]"><ShieldCheck size={15} aria-hidden="true"/>Admin controls</Link>:null}
+      {canManage?<Link href={`${base}/settings`} className="inline-flex min-h-11 items-center gap-2 rounded-lg hover:text-[#10243e]"><Settings2 size={15} aria-hidden="true"/>Project settings</Link>:null}
+    </nav>:null}
+  </RoleDashboard>;
 }
 
-function Datum({label,value,warn=false,compact=false}:{label:string;value:string|number|null;warn?:boolean;compact?:boolean}){
-  return <div className="min-w-0"><dt className="break-words text-xs leading-5 text-[#526675]">{label}</dt><dd className={`mt-1 break-words font-semibold tabular-nums ${compact?"text-sm":"text-2xl"} ${warn?"text-[#9b2c24]":"text-[#10243e]"}`}>{value===null?<span className="text-sm font-medium text-[#526675]">Unavailable</span>:value}</dd></div>;
+function metric(value:number|null){
+  return value===null?<span className="text-sm font-medium text-[#526675]">Unavailable</span>:value;
 }
 
 function ProjectIssues({organisationId,projectId,issues,available,canManage,issueForm,resolveIssueAction}:{organisationId:string;projectId:string;issues:OverviewIssue[];available:boolean;canManage:boolean;issueForm?:ReactNode;resolveIssueAction:Props["resolveIssueAction"]}){
@@ -71,7 +85,7 @@ function ProjectIssues({organisationId,projectId,issues,available,canManage,issu
   const filtered=[...(view==="open"?open:resolved)].sort((a,b)=>(view==="open"?(severityOrder[a.severity]??4)-(severityOrder[b.severity]??4):0)||b.created_at.localeCompare(a.created_at,"en")||a.id.localeCompare(b.id,"en"));
   const pages=Math.max(1,Math.ceil(filtered.length/ISSUE_PAGE_SIZE)),currentPage=Math.min(page,pages);
   const visible=filtered.slice((currentPage-1)*ISSUE_PAGE_SIZE,currentPage*ISSUE_PAGE_SIZE);
-  return <section aria-labelledby={`${id}-heading`} className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white">
+  return <section id="pm-project-issues" tabIndex={-1} aria-labelledby={`${id}-heading`} className="ev-card min-w-0 scroll-mt-24 overflow-hidden">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id={`${id}-heading`} className="font-semibold">Project issues <HelpTip label="Project issues guidance">Expand an issue to read its details or resolve it. Use Resolved to find closed issues.</HelpTip></h2>{canManage&&issueForm&&<AppDialog trigger={<><Plus size={15} aria-hidden="true"/>Report issue</>} title="Report an issue">{issueForm}</AppDialog>}</header>
     {!available?<p className="p-5 text-sm text-[#526675]">Project issues are unavailable. Retry the overview to load their current status.</p>:<>
       <nav aria-label="Issue status" className="flex flex-wrap gap-1 border-b border-[#edf1f3] px-4 py-2 sm:px-5">{([{value:"open",label:"Open",count:open.length},{value:"resolved",label:"Resolved",count:resolved.length}] as const).map(item=><button type="button" data-preview-safe key={item.value} aria-pressed={view===item.value} aria-controls={`${id}-results`} onClick={()=>{setView(item.value);setPage(1);}} className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm ${view===item.value?"bg-[#eef3fa] font-semibold text-[#10243e]":"text-[#526675] hover:bg-[#f4f7fb]"}`}>{item.label}<span className="text-xs tabular-nums">{item.count}</span></button>)}</nav>
@@ -89,7 +103,7 @@ function ResourceReadiness({resources,available,base,canManage}:{resources:Proje
   const sorted=[...resources].sort((a,b)=>(b.gap??0)-(a.gap??0)||a.discipline.localeCompare(b.discipline,"en"));
   const visible=showAll?sorted:sorted.slice(0,5);
   const gaps=resources.reduce((sum,resource)=>sum+(resource.gap??0),0),known=available&&resources.every(resource=>resource.gap!==null);
-  return <section aria-labelledby={`${id}-heading`} className="min-w-0 overflow-hidden rounded-2xl border border-[#dde4eb] bg-white"><header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id={`${id}-heading`} className="font-semibold">Resource readiness <HelpTip label="Resource readiness">Compares required engineers with active engineers in each discipline, excluding removed disciplines. Unfilled positions appear first.</HelpTip></h2><p className={`text-xs ${known&&gaps>0?"text-[#9b2c24]":"text-[#526675]"}`}>{!known?"Status unavailable":gaps?`${gaps} unfilled position${gaps===1?"":"s"}`:`${resources.length} discipline${resources.length===1?"":"s"}`}</p></header>
+  return <section aria-labelledby={`${id}-heading`} className="ev-card min-w-0 overflow-hidden"><header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e7ecef] px-4 py-3 sm:px-5"><h2 id={`${id}-heading`} className="font-semibold">Resource readiness <HelpTip label="Resource readiness">Compares required engineers with active engineers in each discipline, excluding removed disciplines. Unfilled positions appear first.</HelpTip></h2><p className={`text-xs ${known&&gaps>0?"text-[#9b2c24]":"text-[#526675]"}`}>{!known?"Status unavailable":gaps?`${gaps} unfilled position${gaps===1?"":"s"}`:`${resources.length} discipline${resources.length===1?"":"s"}`}</p></header>
     {!available?<p className="p-5 text-sm text-[#526675]">Resource requirements are unavailable. Retry the overview to load their current status.</p>:resources.length?<><ul id={`${id}-list`} className="divide-y divide-[#edf1f3]" aria-label="Discipline resource requirements">{visible.map(resource=><li key={resource.id} className="px-4 py-3 sm:px-5"><div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1"><h3 className="min-w-0 break-words text-sm font-semibold">{resource.discipline}</h3><p className="shrink-0 text-xs text-[#526675]">{resource.assigned===null?"Assigned unavailable":`${resource.assigned} / ${resource.required_count} assigned`}</p></div><p className={`mt-1 text-xs ${resource.gap?"text-[#9b2c24]":"text-[#526675]"}`}>{resource.gap===null?"Readiness unavailable":resource.gap?`${resource.gap} ${resource.gap===1?"vacancy":"vacancies"}`:"Resourced"}{resource.notes?<span className="text-[#526675]"> · {resource.notes}</span>:null}</p></li>)}</ul>{resources.length>5&&<button type="button" data-preview-safe aria-expanded={showAll} aria-controls={`${id}-list`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 border-t border-[#edf1f3] px-4 py-2 text-sm font-semibold text-[#10243e]" onClick={()=>setShowAll(value=>!value)}>{showAll?"Show fewer disciplines":`Show all ${resources.length} disciplines`}<ChevronDown size={16} aria-hidden="true" className={showAll?"rotate-180":""}/></button>}</>:<p className="p-5 text-sm text-[#526675]">No discipline resource requirements have been set.</p>}
     <Link href={`${base}/team`} className="flex min-h-11 items-center justify-between gap-3 border-t border-[#edf1f3] px-4 py-3 text-sm font-semibold text-[#10243e] sm:px-5">{canManage?"Manage team & resources":"View project team"}<ArrowRight size={16} aria-hidden="true"/></Link>
   </section>;

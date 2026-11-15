@@ -78,6 +78,21 @@ describe("editable project brief presentation",()=>{
     expect(article.querySelector("form")).toBeNull();
     expect(updateProjectBrief).not.toHaveBeenCalled();
   });
+  it("shows the compact dashboard introduction and objectives without duplicating the surrounding dates and metrics",()=>{
+    const view=render(<EditableProjectBrief {...brief} compact embedded/>);
+    expect(screen.getByText(brief.introduction)).toBeTruthy();
+    expect(screen.getByRole("heading",{name:"Key objectives"})).toBeTruthy();
+    expect(screen.queryByText("Planned start")).toBeNull();
+    expect(screen.queryByText("DCC appointed")).toBeNull();
+    fireEvent.click(screen.getByRole("button",{name:"Edit project brief"}));
+    const form=screen.getByRole("button",{name:"Save project brief"}).closest("form")!;
+    expect(new FormData(form).get("endDate")).toBe(brief.endDate);
+    expect(new FormData(form).get("projectId")).toBe(brief.projectId);
+    view.rerender(<EditableProjectBrief {...brief} compact embedded editable={false}/>);
+    expect(screen.queryByRole("button",{name:"Save project brief"})).toBeNull();
+    expect(screen.queryByRole("button",{name:"Edit project brief"})).toBeNull();
+    expect(screen.getByText(brief.introduction)).toBeTruthy();
+  });
 });
 
 describe("project brief editor regression",()=>{

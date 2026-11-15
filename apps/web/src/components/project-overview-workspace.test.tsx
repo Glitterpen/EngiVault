@@ -51,13 +51,13 @@ describe("compact project overview summary",()=>{
     expect((progress.firstElementChild as HTMLElement).style.width).toBe("42%");
     expect(screen.getByText("42%")).toBeTruthy();expect(screen.getByText("Needs attention")).toBeTruthy();
     for(const [label,value] of [["MDR deliverables","101"],["Overdue","3"],["Open issues","2"],["Engineers","7"],["Document controllers","1"],["Planned start","01 Oct 2026"],["Planned completion","31 Mar 2027"]])expect(datum(label).textContent).toBe(value);
-    expect(datum("Overdue").className).toContain("text-[#9b2c24]");
+    expect(datum("Overdue").className).toContain("text-[#a5452f]");
   });
   it("shows genuine zero progress/counts as zero, not unavailable",()=>{
     workspace({summary:{...summary,completion:0,deliverables:0,overdue:0,openIssues:0,engineers:0,dcc:0,health:"Setup required"}});
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("0");expect(screen.getByText("0%")).toBeTruthy();
     for(const label of ["MDR deliverables","Overdue","Open issues","Engineers","Document controllers"])expect(datum(label).textContent).toBe("0");
-    expect(datum("Overdue").className).not.toContain("text-[#9b2c24]");
+    expect(datum("Overdue").className).not.toContain("text-[#a5452f]");
   });
   it("does not fabricate zero progress, health or counts when their sources are unavailable",()=>{
     workspace({summary:{completion:null,deliverables:null,overdue:null,openIssues:null,engineers:null,dcc:null,health:null,resources:[]},issuesAvailable:false,resourcesAvailable:false});
@@ -225,15 +225,22 @@ describe("resource readiness",()=>{
 });
 
 describe("occasional planning and issue reporting",()=>{
-  it("uses native, initially collapsed disclosures for brief and revision cycle with supplied content intact",()=>{
+  it("keeps the project brief and dates visible beside the work queue, with revision settings collapsed",()=>{
     workspace();
+    const brief=screen.getByRole("region",{name:"Project brief and dates"});
+    const tasks=screen.getByRole("region",{name:"Work queue"});
+    expect(brief.closest("details")).toBeNull();
+    expect(brief.parentElement).toBe(tasks.parentElement);
+    expect(within(brief).getByTestId("brief-content").textContent).toBe("Project brief content");
+    expect(within(brief).getByText("01 Oct 2026").getAttribute("datetime")).toBe("2026-10-01");
+    expect(within(brief).getByRole("link",{name:"Jump to work queue"}).getAttribute("href")).toBe(`#${tasks.id}`);
+    expect(within(tasks).getByRole("link",{name:"Project issues 2 open"}).getAttribute("href")).toBe(`#${issuesRegion().id}`);
     const section=screen.getByRole("region",{name:"Project details and planning"});
-    const brief=within(section).getByText("Project brief & objectives").closest("details")!;
     const cycle=within(section).getByText("Revision cycle").closest("details")!;
-    expect(brief.open).toBe(false);expect(cycle.open).toBe(false);expect(within(cycle).getByText("3 working days")).toBeTruthy();
-    expect(brief.querySelector("summary")?.className).toContain("min-h-11");expect(cycle.querySelector("summary")?.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
-    fireEvent.click(brief.querySelector("summary")!);fireEvent.click(cycle.querySelector("summary")!);
-    expect(brief.open).toBe(true);expect(cycle.open).toBe(true);expect(within(brief).getByTestId("brief-content").textContent).toBe("Project brief content");expect(within(cycle).getByTestId("cycle-content").textContent).toBe("Revision cycle form");
+    expect(cycle.open).toBe(false);expect(within(cycle).getByText("3 working days")).toBeTruthy();
+    expect(cycle.querySelector("summary")?.className).toContain("min-h-11");expect(cycle.querySelector("summary")?.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    fireEvent.click(cycle.querySelector("summary")!);
+    expect(cycle.open).toBe(true);expect(within(cycle).getByTestId("cycle-content").textContent).toBe("Revision cycle form");
   });
   it("keeps an unset cycle labelled Not set rather than implying a configured period",()=>{
     workspace({project:{...project,revision_cycle_days:null}});expect(screen.getByText("Not set")).toBeTruthy();

@@ -84,9 +84,9 @@ it("renders the administrator Projects workspace with creation and organisation 
   expect(requireUser).toHaveBeenCalledOnce();
   expect(screen.getByRole("heading",{name:"Projects",level:1})).toBeTruthy();
   expect(screen.getByRole("button",{name:"New project"}).getAttribute("data-organisation")).toBe("org");
-  expect(screen.getByRole("link",{name:"Manage organisation"}).getAttribute("href")).toBe("/app/org/settings");
-  expect(screen.getByRole("link",{name:"Audit log"}).getAttribute("href")).toBe("/app/org/audit");
-  expect(screen.getByRole("link",{name:"Plan & usage"}).getAttribute("href")).toBe("/app/org/subscription");
+  expect(screen.getByRole("link",{name:/^Manage organisation/}).getAttribute("href")).toBe("/app/org/settings");
+  expect(screen.getByRole("link",{name:/^Audit log/}).getAttribute("href")).toBe("/app/org/audit");
+  expect(screen.getByRole("link",{name:/^Plan & usage/}).getAttribute("href")).toBe("/app/org/subscription");
   expect(screen.getByRole("link",{name:/^user guide/i}).getAttribute("href")).toBe("/api/v1/organisations/org/user-guide");
   expect(screen.queryByRole("link",{name:/download word user guide/i})).toBeNull();
   expect(props().isAdmin).toBe(true);
@@ -125,7 +125,7 @@ it("shows team assignments without administrator controls, creation or portfolio
   expect(screen.getByRole("heading",{name:"My project assignments",level:1})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"New project"})).toBeNull();
   expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
-  for(const name of ["Manage organisation","Audit log","Plan & usage"])expect(screen.queryByRole("link",{name})).toBeNull();
+  for(const name of [/^Manage organisation/,/^Audit log/,/^Plan & usage/,/^Browse projects/])expect(screen.queryByRole("link",{name})).toBeNull();
   expect(from).not.toHaveBeenCalledWith("project_document_progress");
   expect(from).not.toHaveBeenCalledWith("project_issues");
   expect(props().isAdmin).toBe(false);

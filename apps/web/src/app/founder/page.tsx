@@ -1,5 +1,7 @@
 import Link from "next/link";
-import {AlertTriangle,ArrowRight,Building2,CheckCircle2,CircleUserRound,Clock3,FileWarning,Filter,HeartPulse,KeyRound,RefreshCw,Search,ShieldAlert,Trash2,UsersRound} from "lucide-react";
+import {AlertTriangle,ArrowRight,Building2,CheckCircle2,FileWarning,Filter,RefreshCw,Search,Trash2} from "lucide-react";
+import {DashboardLead,DashboardSummary,DashboardWorkQueue,RoleDashboard} from "@/components/role-dashboard";
+import {WorkspacePageHeading} from "@/components/workspace-page-heading";
 import {getFounderPortfolio,type FounderOrganisation} from "@/lib/founder";
 import {healthClasses,licenceDurationLabel,licenceTimeLabel} from "@/lib/founder-health";
 
@@ -12,41 +14,44 @@ export default async function FounderPage({searchParams}:{searchParams:Promise<S
   const q=(requested.q??"").slice(0,100);
   const health=["all","healthy","attention","critical"].includes(requested.health??"")?requested.health!:"all";
   const dashboard=await getFounderPortfolio({search:q,health,status:"current"});
-  return <main className="mx-auto w-full max-w-[1900px] px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
-    <div className="flex flex-wrap items-end justify-between gap-5">
-      <div><div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[.17em] text-[#e36b35]"><HeartPulse size={15}/> Platform oversight</div><h1 className="mt-2 text-3xl font-semibold tracking-[-.045em] text-[#10243e] sm:text-4xl">Organisation and licence health</h1></div>
-      <div className="flex items-center gap-2 rounded-xl border border-[#dce4ea] bg-white px-3 py-2 text-xs text-[#617083]"><Clock3 size={14}/><span>Updated {formatDateTime(dashboard.generated_at)}</span><Link href="/founder" className="ml-1 grid size-7 place-items-center rounded-lg text-[#10243e] hover:bg-[#eef3f6]" aria-label="Refresh control centre"><RefreshCw size={14}/></Link></div>
-    </div>
+  return <main className="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <RoleDashboard wide>
+    <header className="min-w-0">
+      <WorkspacePageHeading title="Organisation and licence health" context="Platform oversight · Read only" actions={<Link href="/founder" className="ev-button-secondary" aria-label="Refresh control centre"><RefreshCw size={16} aria-hidden="true"/> Refresh status</Link>}/>
+      <p className="mt-2 text-xs text-[#526675]">Updated <time dateTime={dashboard.generated_at}>{formatDateTime(dashboard.generated_at)}</time></p>
+    </header>
 
-    <section className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-6" aria-label="Platform summary">
-      <SummaryCard icon={<Building2 size={19}/>} label="Current organisations" value={dashboard.summary.organisations} note={`${dashboard.summary.new_organisations} new this week`}/>
-      <SummaryCard icon={<KeyRound size={19}/>} label="Current licences" value={dashboard.summary.active_licences} note="Pilot or paid access"/>
-      <SummaryCard icon={<UsersRound size={19}/>} label="Customer users" value={dashboard.summary.users} note="Founder identities excluded"/>
-      <SummaryCard icon={<ShieldAlert size={19}/>} label="Need attention" value={dashboard.summary.needs_attention} note="Account or delivery risk" tone={dashboard.summary.needs_attention?"warning":"normal"}/>
-      <SummaryCard icon={<CircleUserRound size={19}/>} label="Orphaned users" value={dashboard.summary.orphaned_users} note="No active organisation" tone={dashboard.summary.orphaned_users?"critical":"normal"}/>
-      <SummaryCard icon={<CheckCircle2 size={19}/>} label="Healthy tenants" value={Math.max(0,dashboard.summary.organisations-dashboard.summary.needs_attention)} note="No material warning" tone="success"/>
-    </section>
+    <DashboardLead>
+      <DashboardSummary title="Platform summary" items={[
+        {label:"Current organisations",value:dashboard.summary.organisations.toLocaleString(),note:`${dashboard.summary.new_organisations} new this week`},
+        {label:"Current licences",value:dashboard.summary.active_licences.toLocaleString(),note:"Pilot or paid access"},
+        {label:"Customer users",value:dashboard.summary.users.toLocaleString(),note:"Founder identities excluded"},
+        {label:"Need attention",value:dashboard.summary.needs_attention.toLocaleString(),note:"Account or delivery risk",attention:dashboard.summary.needs_attention>0},
+        {label:"Orphaned users",value:dashboard.summary.orphaned_users.toLocaleString(),note:"No active organisation",attention:dashboard.summary.orphaned_users>0},
+        {label:"Healthy tenants",value:Math.max(0,dashboard.summary.organisations-dashboard.summary.needs_attention).toLocaleString(),note:"No material warning"},
+      ]}/>
+      <DashboardWorkQueue title="Oversight shortcuts" items={[
+        {title:"Browse organisations",href:"#organisation-filters",description:"Find current organisations and review account health.",icon:<Building2 size={19}/>},
+        {title:"Deleted accounts",href:"/founder/deleted",description:"Review accounts recorded as deleted.",icon:<Trash2 size={19}/>,badge:{text:`${dashboard.summary.deleted_organisations} deleted`}},
+      ]}/>
+    </DashboardLead>
 
-    <form className="mt-6 grid gap-3 rounded-2xl border border-[#dbe4ea] bg-white p-4 shadow-[0_8px_30px_rgba(16,36,62,.05)] sm:grid-cols-[minmax(240px,1fr)_220px_auto_auto]">
+    <form id="organisation-filters" aria-label="Filter current organisations" tabIndex={-1} className="ev-card grid min-w-0 scroll-mt-24 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto_auto]">
       <label><span className="ev-label">Search organisations</span><span className="relative block"><Search className="absolute left-3 top-3.5 text-[#8795a5]" size={16}/><input name="q" defaultValue={q} className="ev-input pl-9" placeholder="Name, administrator email or slug"/></span></label>
       <label><span className="ev-label">Account health</span><span className="relative block"><Filter className="pointer-events-none absolute left-3 top-3.5 text-[#8795a5]" size={15}/><select name="health" defaultValue={health} className="ev-input pl-9"><option value="all">All health states</option><option value="healthy">Healthy</option><option value="attention">Needs attention</option><option value="critical">Critical</option></select></span></label>
       <button className="ev-button self-end">Apply filters</button>
       {(q||health!=="all")&&<Link href="/founder" className="ev-button-secondary self-end">Clear</Link>}
     </form>
 
-    <section id="organisations" className="mt-8">
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#e36b35]">Tenant portfolio</p><h2 className="mt-1 text-2xl font-semibold tracking-[-.03em]">Current organisations</h2></div><div className="flex items-center gap-3"><span className="text-xs text-[#6a7889]">Showing {dashboard.organisations.length} of {dashboard.summary.organisations}</span><Link href="/founder/deleted" className="ev-button-secondary"><Trash2 size={15}/> Deleted accounts <span className="rounded-full bg-[#edf1f4] px-2 py-0.5 text-[10px]">{dashboard.summary.deleted_organisations}</span></Link></div></div>
-      <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-[#dbe4ea] bg-white shadow-[0_10px_34px_rgba(16,36,62,.05)] lg:block"><table className="w-full min-w-[1280px] text-left"><thead><tr className="border-b border-[#e5ebef] bg-[#f8fafb] text-[10px] font-extrabold uppercase tracking-[.13em] text-[#6c7a8b]"><th className="p-4">Organisation</th><th>Health</th><th>Licence</th><th>Period remaining</th><th>Users</th><th>Projects</th><th>Delivery signals</th><th>Last activity</th></tr></thead><tbody>{dashboard.organisations.map(organisation=><OrganisationRow key={organisation.id} organisation={organisation}/>)}</tbody></table>{!dashboard.organisations.length&&<EmptyState text="No organisations match these filters."/>}</div>
-      <div className="mt-4 grid gap-4 lg:hidden">{dashboard.organisations.map(organisation=><OrganisationCard key={organisation.id} organisation={organisation}/>)}{!dashboard.organisations.length&&<div className="ev-card"><EmptyState text="No organisations match these filters."/></div>}</div>
+    <section id="organisations" aria-labelledby="founder-organisations-heading" className="min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="founder-organisations-heading" className="text-lg font-semibold">Current organisations</h2><span className="text-xs text-[#526675]">Showing {dashboard.organisations.length} of {dashboard.summary.organisations}</span></div>
+      <div className="ev-card hidden overflow-x-auto @min-[82rem]:block"><table className="w-full min-w-[1280px] text-left"><thead><tr className="border-b border-[#e5ebef] bg-[#f8fafb] text-[10px] font-extrabold uppercase tracking-[.13em] text-[#6c7a8b]"><th className="p-4" scope="col">Organisation</th><th scope="col">Health</th><th scope="col">Licence</th><th scope="col">Period remaining</th><th scope="col">Users</th><th scope="col">Projects</th><th scope="col">Delivery signals</th><th scope="col">Last activity</th></tr></thead><tbody>{dashboard.organisations.map(organisation=><OrganisationRow key={organisation.id} organisation={organisation}/>)}</tbody></table>{!dashboard.organisations.length&&<EmptyState text="No organisations match these filters."/>}</div>
+      <div className="grid gap-4 @min-[82rem]:hidden">{dashboard.organisations.map(organisation=><OrganisationCard key={organisation.id} organisation={organisation}/>)}{!dashboard.organisations.length&&<div className="ev-card"><EmptyState text="No organisations match these filters."/></div>}</div>
     </section>
 
-    <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d8e1e8] bg-[#eaf0f4] p-4 text-xs leading-5 text-[#536478]"><span><strong className="text-[#10243e]">Founder security:</strong> read-only database functions, explicit founder allow-list, authenticator MFA and immutable access auditing.</span><span>No engineering document content is returned here.</span></footer>
+    <footer className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d8e1e8] bg-[#f4f7fb] p-4 text-xs leading-5 text-[#526675]"><span><strong className="text-[#10243e]">Founder security:</strong> read-only database functions, explicit founder allow-list, authenticator MFA and immutable access auditing.</span><span>No engineering document content is returned here.</span></footer>
+    </RoleDashboard>
   </main>;
-}
-
-function SummaryCard({icon,label,value,note,tone="normal"}:{icon:React.ReactNode;label:string;value:number;note:string;tone?:"normal"|"warning"|"critical"|"success"}){
-  const style=tone==="critical"?"border-[#efc9c5] bg-[#fff7f6] text-[#a33b35]":tone==="warning"?"border-[#efd9ae] bg-[#fffbef] text-[#86580d]":tone==="success"?"border-[#cad8e9] bg-[#f5f8fc] text-[#10243e]":"border-[#dbe4ea] bg-white text-[#10243e]";
-  return <article className={`rounded-2xl border p-4 shadow-[0_8px_25px_rgba(16,36,62,.04)] ${style}`}><div className="flex items-center justify-between"><span className="grid size-9 place-items-center rounded-xl bg-white/80 shadow-sm">{icon}</span><strong className="text-2xl tracking-[-.04em]">{value.toLocaleString()}</strong></div><p className="mt-4 text-[10px] font-extrabold uppercase tracking-[.13em]">{label}</p><p className="mt-1 text-xs opacity-70">{note}</p></article>;
 }
 
 function OrganisationRow({organisation:o}:{organisation:FounderOrganisation}){

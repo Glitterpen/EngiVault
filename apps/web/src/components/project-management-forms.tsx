@@ -12,16 +12,26 @@ type Base={organisationId:string;projectId:string};
 type Discipline={code:string;name:string};
 type ProjectBriefProps=Base&{introduction:string;objectives:string[];startDate:string;endDate:string;deliveryStage:ProjectDeliveryStage|null};
 
-export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,dccCount,editable=true,embedded=false}:ProjectBriefProps&{dccCount:number|null;editable?:boolean;embedded?:boolean}){
+export function EditableProjectBrief({organisationId,projectId,introduction,objectives,startDate,endDate,deliveryStage,dccCount,editable=true,embedded=false,compact=false}:ProjectBriefProps&{dccCount:number|null;editable?:boolean;embedded?:boolean;compact?:boolean}){
   const [editing,setEditing]=useState(false);
+  const showEditor=editable&&editing;
+  const editButton=editable?<button className="ev-button-secondary" type="button" onClick={()=>setEditing(value=>!value)} aria-expanded={showEditor}>
+    {showEditor?<><X size={16} aria-hidden="true"/> Close editor</>:<><Pencil size={16} aria-hidden="true"/> Edit project brief</>}
+  </button>:null;
+  const editor=showEditor?<ProjectBriefForm organisationId={organisationId} projectId={projectId} introduction={introduction} objectives={objectives} startDate={startDate} endDate={endDate} deliveryStage={deliveryStage} embedded/>:null;
+  if(compact)return <article className="min-w-0 space-y-3">
+    {editButton}
+    {editor??<>
+      <p className="whitespace-pre-line break-words text-sm leading-6 text-[#526675] [overflow-wrap:anywhere]">{introduction||"No project introduction has been recorded."}</p>
+      <div><h3 className="text-sm font-semibold text-[#14263d]">Key objectives</h3>{objectives.length?<ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-[#526675]">{objectives.map((objective,index)=><li className="[overflow-wrap:anywhere]" key={`${index}-${objective}`}>{objective}</li>)}</ol>:<p className="mt-2 text-sm text-[#617083]">No key objectives have been recorded.</p>}</div>
+    </>}
+  </article>;
   return <article className={embedded?"min-w-0":"ev-card p-5 sm:p-6"}>
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div><p className="ev-label">Project brief</p><h2 className="mt-1 text-lg font-semibold">Introduction and key objectives</h2></div>
-      {editable&&<button className="ev-button-secondary" type="button" onClick={()=>setEditing(value=>!value)} aria-expanded={editing}>
-        {editing?<><X size={16}/> Close editor</>:<><Pencil size={16}/> Edit project brief</>}
-      </button>}
+      {editButton}
     </div>
-    {editing?<ProjectBriefForm organisationId={organisationId} projectId={projectId} introduction={introduction} objectives={objectives} startDate={startDate} endDate={endDate} deliveryStage={deliveryStage} embedded/>:<>
+    {editor??<>
       <div className="mt-5 flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="ev-label">Project introduction</p>

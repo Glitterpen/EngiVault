@@ -64,6 +64,7 @@ it("does not offer the engineer guide in an audited read-only preview",async()=>
   render(await page());
   expect(screen.getByRole("heading",{level:1,name:"My deliverables"})).toBeTruthy();
   expect(screen.queryByRole("link",{name:/^user guide/i})).toBeNull();
+  expect(screen.getByRole("region",{name:"Work queue"}).querySelector("form,button,input")).toBeNull();
 });
 it("keeps the project brief and impact visible before deliverables while secondary actions start collapsed",async()=>{
   state.hasDocument=true;state.hasImpact=true;
@@ -72,7 +73,11 @@ it("keeps the project brief and impact visible before deliverables while seconda
   const brief=document.getElementById("project-brief")!;
   const impact=document.getElementById("project-impact")!;
   const deliverables=document.getElementById("deliverables")!;
+  const queue=screen.getByRole("region",{name:"Work queue"});
   expect(brief).toBeTruthy();expect(impact).toBeTruthy();expect(deliverables).toBeTruthy();
+  expect(queue.parentElement).toBe(brief.parentElement);
+  expect(queue.closest("details")).toBeNull();
+  expect(queue.compareDocumentPosition(impact)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(brief.closest("details")).toBeNull();expect(impact.closest("details")).toBeNull();
   expect(brief.compareDocumentPosition(deliverables)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(impact.compareDocumentPosition(deliverables)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -87,6 +92,17 @@ it("keeps the project brief and impact visible before deliverables while seconda
   expect(actionsSummary?.closest("details")?.hasAttribute("open")).toBe(false);
   expect(screen.getByRole("link",{name:"Create request: date change or additional deliverable"}).closest("details")).toBeNull();
   expect(screen.getByRole("region",{name:"My deliverables"}).closest("details")).toBeNull();
+});
+
+it("takes engineers to their existing deliverable queues without losing their search or sort",async()=>{
+  state.hasDocument=true;
+  render(await page("all","Mechanical","number"));
+  const queue=screen.getByRole("region",{name:"Work queue"});
+  const assignedPath="/app/org/projects/project/assignments";
+  expect(within(queue).getByRole("link",{name:"Priority actions 1 to do"}).getAttribute("href")).toBe(`${assignedPath}?view=action&q=Mechanical&sort=number#deliverables`);
+  expect(within(queue).getByRole("link",{name:"Submissions under review 0 under review"}).getAttribute("href")).toBe(`${assignedPath}?view=review&q=Mechanical&sort=number#deliverables`);
+  expect(within(queue).getByRole("link",{name:"Accepted deliverables 0 accepted"}).getAttribute("href")).toBe(`${assignedPath}?view=accepted&q=Mechanical&sort=number#deliverables`);
+  expect(within(queue).getByRole("link",{name:"Notifications"}).getAttribute("href")).toBe("/app/notifications");
 });
 
 it("keeps the project identity, progress and every authorised discipline discoverable without opening a separate scope panel",async()=>{
