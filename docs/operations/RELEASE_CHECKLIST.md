@@ -28,7 +28,7 @@ Complete the items that apply to the release. Record why an item is not applicab
 - [ ] Independent penetration test has no open critical/high findings.
 - [ ] Accessibility review covers keyboard, focus, labels, contrast, zoom and responsive layouts.
 - [ ] Load test meets agreed p95 and error-rate targets at forecast peak.
-- [ ] Production Supabase backups/PITR and storage recovery are enabled; restore drill passes.
+- [ ] Production Supabase automated backups, PITR and private Storage recovery are verified; restore drill passes. For migration 130 only, the [independently approved recovery exception](BACKUP_RESTORE.md#one-time-recovery-exception-for-migration-130) may replace PITR after the required backup, isolated restore and sign-off are recorded.
 - [ ] Export and two-person tenant deletion exercises pass.
 - [ ] Domain, TLS, HSTS, CSP, DNS and email redirect URLs are verified.
 - [ ] Authenticated pages and APIs return `Cache-Control: private, no-store`; cross-origin framing and dangerous browser capabilities remain disabled.
